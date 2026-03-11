@@ -1,0 +1,1308 @@
+<div class="app-shell">
+  <aside class="sidebar">
+    <a
+      href="/"
+      class="brand"
+      (click)="$event.preventDefault();navigate('dashboard')"
+      >Precios</a
+    >
+    <nav aria-label="Navegación principal">
+      <button
+        [class.active]="view==='dashboard'"
+        (click)="navigate('dashboard')"
+      >
+        <span>◫</span> Dashboard
+      </button>
+      <button [class.active]="view==='products'" (click)="navigate('products')">
+        <span>▤</span> Mis productos <small>{{products.length}}</small>
+      </button>
+      <button [class.active]="view==='catalog'" (click)="navigate('catalog')">
+        <span>▦</span> Catálogo de proveedores
+      </button>
+      <button
+        [class.active]="view==='purchases'"
+        (click)="navigate('purchases')"
+      >
+        <span>▧</span> Compras
+      </button>
+      <button [class.active]="view==='sales'" (click)="navigate('sales')">
+        <span>▧</span> Ventas
+      </button>
+      <button
+        [class.active]="view==='customers'"
+        (click)="navigate('customers')"
+      >
+        <span>♙</span> Clientes
+      </button>
+      <button [class.active]="view==='cash'" (click)="navigate('cash')">
+        <span>▣</span> Caja y cuentas
+      </button>
+      <button [class.active]="view==='settings'" (click)="navigate('settings')">
+        <span>⚙</span> Configuración
+      </button>
+    </nav>
+  </aside>
+  <main>
+    <div class="topbar">
+      <span>
+        {{view==='dashboard'?'Dashboard':view==='products'?'Mis
+        productos':view==='catalog'?'Catálogo de
+        proveedores':view==='purchases'?'Compras':view==='cash'?'Caja y
+        cuentas':view==='sales'?'Ventas':view==='customers'?'Clientes':'Configuración'}}</span
+      >
+    </div>
+    <div class="content">
+      <header class="page-heading">
+        <div>
+          <h1>
+            {{view==='dashboard'?'Dashboard':view==='products'?'Mis
+            productos':view==='catalog'?'Catálogo de
+            proveedores':view==='purchases'?'Compras':view==='cash'?'Caja y
+            cuentas':view==='sales'?'Ventas':view==='customers'?'Clientes':'Configuración'}}
+          </h1>
+        </div>
+        <div class="heading-actions">
+          @if(view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='customers'){<button
+            mat-stroked-button
+            (click)="refresh()"
+            [disabled]="!!activeRun"
+          >
+            {{activeRun?'↻ Actualizando…':'↻ Actualizar precios'}}</button
+          >}@if(view==='dashboard'||view==='products'){<button
+            mat-flat-button
+            (click)="edit()"
+          >
+            ＋ Nuevo producto</button
+          ><button mat-stroked-button (click)="editKit()">＋ Armar kit</button>}
+        </div>
+      </header>
+      @if(offline){
+      <div class="alert danger" role="status">
+        No hay conexión con el servidor. Los datos visibles pueden estar
+        desactualizados.
+      </div>
+      } @if(error){
+      <div class="alert danger" role="alert">
+        {{error}}
+        <button aria-label="Cerrar error" (click)="error=''">×</button>
+      </div>
+      } @if(refreshProgress; as p){
+      <div class="refresh-progress" role="status" aria-live="polite">
+        <strong>{{p.label}}</strong>
+        @if(p.percent !== null){<progress
+          [value]="p.percent"
+          max="100"
+          aria-label="Avance de la actualización"
+        ></progress
+        >}
+        <span>{{p.detail}}</span>
+      </div>
+      } @if(view==='dashboard' && latestPriceAnalysis; as analysis){
+      <price-analysis [run]="analysis" />
+      } @if(notice){
+      <div class="toast" role="status">✓ {{notice}}</div>
+      } @if(loading){
+      <div class="loading">Cargando…</div>
+      } @else { @if(view==='dashboard'){ @let metrics = stockMetrics;
+      <section class="stats" aria-label="Resumen de stock y compras">
+        <article>
+          <span>Stock a costo (ARS)</span
+          ><strong>{{amount(metrics.cost)}}</strong
+          ><small>Costo de reposición actual</small>
+        </article>
+        <article>
+          <span>Stock a precio de venta</span
+          ><strong>{{amount(metrics.retail)}}</strong
+          ><small>Valor de tus unidades disponibles</small>
+        </article>
+        <article class="stat-accent">
+          <span>Ganancia potencial</span
+          ><strong>{{amount(metrics.profit)}}</strong
+          ><small>Venta menos costo del stock con costo conocido</small>
+        </article>
+        <article>
+          <span>Unidades en stock</span><strong>{{metrics.quantity}}</strong
+          ><small
+            >{{metrics.units}} productos / sabores · sin duplicar promos</small
+          >
+        </article>
+        <article>
+          <span>Sin stock</span><strong>{{metrics.out}}</strong
+          ><small
+            >{{metrics.missingStock}} productos sin recuento cargado</small
+          >
+        </article>
+        <article>
+          <span>Compras recibidas</span><strong>{{purchaseStats.total}}</strong
+          ><small>{{purchaseStats.recent}} en los últimos 30 días</small>
+        </article>
+        <article>
+          <span>Compras · últimos 30 días</span>@for(t of
+          purchaseStats.totals;track
+          t.currency){<strong>{{amount(t.recent_total,t.currency)}}</strong>}@if(!purchaseStats.totals.length){<strong>—</strong>}<small
+            >Importes registrados, separados por moneda</small
+          >
+        </article>
+        <article>
+          <span>Vendido · últimos 30 días</span
+          ><strong>{{amount(salesStats.recent_total)}}</strong
+          ><small>{{salesStats.count}} ventas registradas en total</small>
+        </article>
+        <article>
+          <span>Por cobrar a clientes</span
+          ><strong>{{amount(salesStats.pending)}}</strong
+          ><small>Saldo pendiente de todas las ventas</small>
+        </article>
+        <article>
+          <span>Cobrado</span><strong>{{amount(salesStats.paid)}}</strong
+          ><small>Cobros de ventas registrados en caja</small>
+        </article>
+        <article>
+          <span>Ganancia de ventas</span
+          ><strong>{{amount(salesStats.profit)}}</strong
+          ><small
+            >Costo guardado al vender · {{salesStats.missing_cost}} ventas sin
+            costo completo</small
+          >
+        </article>
+      </section>
+      @if(metrics.negative){
+      <p class="stock-warning">
+        {{metrics.negative}} productos con stock negativo. Revisá su stock real.
+      </p>
+      } @if(metrics.missingStock||metrics.missingCost){
+      <p class="rate-note">
+        Valoración parcial: {{metrics.missingStock}} productos sin stock cargado
+        y {{metrics.missingCost}} con stock pero sin costo en ARS. Las promos
+        usan el stock de sus componentes.
+      </p>
+      } }
+      @if(view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='customers'){
+      <section class="sync-banner">
+        <span class="sync-symbol">↻</span>
+        <div>
+          <strong
+            >{{activeRun?'Actualización en
+            curso':latestRun?.status==='session_required'?'Coverweb necesita
+            renovar la sesión':latestRun?.status==='failed'?'No se pudo
+            actualizar el proveedor':'Lista de Disfit'}}</strong
+          ><span
+            >{{activeRun?'El proceso suele tardar de 10 a 15 minutos. El
+            catálogo anterior sigue disponible.':latestRun?.error||('Últimos
+            datos: '+date(facets.providers[0]?.last_success_at))}}</span
+          >
+        </div>
+        <div class="sync-meta">
+          Diariamente · 08:00 <small>Hora de Argentina</small>
+        </div>
+      </section>
+      @if(!settings.usd_ars){
+      <div class="rate-note">
+        Los costos en USD necesitan tu tipo de cambio para calcular márgenes.
+        <button (click)="navigate('settings')">Configurar USD → ARS ↗</button>
+      </div>
+      }
+      <section class="catalog-panel">
+        <div class="panel-title">
+          <h2>
+            {{view==='catalog'?'Lista de precios':'Productos'}}
+            <span class="count">{{total}}</span>
+          </h2>
+          <span class="subtle"
+            >{{view==='catalog'?'Precios finales del proveedor':'Vista filtrada
+            o ordenada'}}</span
+          >
+        </div>
+        <div class="filters">
+          <label class="search"
+            ><span>⌕</span
+            ><input
+              aria-label="Buscar productos"
+              placeholder="Buscar por nombre, código o código de barras…"
+              [(ngModel)]="filters.search"
+              (ngModelChange)="changed()"
+          /></label>
+          <app-filter-select
+            label="Proveedor"
+            placeholder="Todos los proveedores"
+            [options]="filterOptions('provider')"
+            [(value)]="filters.provider"
+            (valueChange)="changed()"
+          />
+          <app-filter-select
+            label="Moneda"
+            placeholder="Todas las monedas"
+            [options]="filterOptions('currency')"
+            [(value)]="filters.currency"
+            (valueChange)="changed()"
+          />
+          <app-filter-select
+            label="Stock proveedor"
+            placeholder="Todo el stock"
+            [options]="filterOptions('stock')"
+            [(value)]="filters.stock"
+            (valueChange)="changed()"
+          />
+        </div>
+        <div class="filters secondary-filters">
+          <app-filter-select
+            label="Marca"
+            placeholder="Todas las marcas"
+            [options]="filterOptions('brand')"
+            [(value)]="filters.brand"
+            (valueChange)="changed()"
+          />
+          <app-filter-select
+            label="Rubro"
+            placeholder="Todos los rubros"
+            [options]="filterOptions('category')"
+            [(value)]="filters.category"
+            (valueChange)="changed()"
+          />
+          <app-filter-select
+            label="Vínculo"
+            placeholder="Todos los vínculos"
+            [options]="filterOptions('linked')"
+            [(value)]="filters.linked"
+            (valueChange)="changed()"
+          />
+          @if(view!=='catalog'){
+          <app-filter-select
+            label="Stock propio"
+            placeholder="Todo el stock propio"
+            [options]="filterOptions('own_stock')"
+            [(value)]="filters.own_stock"
+            (valueChange)="changed()"
+          />
+          <app-filter-select
+            label="Origen del costo"
+            placeholder="Todos los costos"
+            [options]="filterOptions('basis')"
+            [(value)]="filters.basis"
+            (valueChange)="changed()"
+          />
+          }
+          <button class="text-button" (click)="clearFilters()">Limpiar</button>
+        </div>
+        <div class="table-scroll">
+          @if(view==='catalog'){
+          <table>
+            <thead>
+              <tr>
+                <th [attr.aria-sort]="sortAria('name')">
+                  <button class="column-sort" (click)="sortColumn('name')">
+                    Producto{{sortArrow('name')}}
+                  </button>
+                </th>
+                <th [attr.aria-sort]="sortAria('brand')">
+                  <button class="column-sort" (click)="sortColumn('brand')">
+                    Marca / Rubro{{sortArrow('brand')}}
+                  </button>
+                </th>
+                <th [attr.aria-sort]="sortAria('price')">
+                  <button class="column-sort" (click)="sortColumn('price')">
+                    Precio final{{sortArrow('price')}}
+                  </button>
+                </th>
+                <th [attr.aria-sort]="sortAria('stock')">
+                  <button class="column-sort" (click)="sortColumn('stock')">
+                    Stock{{sortArrow('stock')}}
+                  </button>
+                </th>
+                <th>Datos del proveedor</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for(item of catalog.items;track item.id){
+              <tr>
+                <td class="product-cell">
+                  @if(item.image_path){<img
+                    class="product-photo"
+                    [src]="'/api/images/'+item.image_path"
+                    [alt]="item.name"
+                    loading="lazy"
+                    width="56"
+                    height="56"
+                  />} <strong>{{item.name}}</strong
+                  ><small
+                    >{{item.internal_code||'Sin código interno'}}
+                    @if(item.is_pack){<span class="badge">Pack</span>}
+                    @if(item.linked){<span class="badge green">Vinculado</span
+                    >}</small
+                  >
+                </td>
+                <td>{{item.brand}}<small>{{item.category}}</small></td>
+                <td class="numeric">
+                  <strong>{{amount(catalogPriceArs(item))}}</strong>
+                  @if(item.currency==='USD'){<small
+                    >{{amount(item.price,'USD')}}</small
+                  >
+                  @if(catalogPriceArs(item)===null){<small
+                    >Configurá el tipo de cambio</small
+                  >}} @else {<small>ARS</small>}
+                </td>
+                <td>
+                  <span [class]="'stock '+(item.stock>0?'in':'out')"
+                    >{{item.stock}}</span
+                  >
+                </td>
+                <td>
+                  <small
+                    >{{item.provider_name}} ·
+                    {{sourceDate(item.source_updated_at)}}</small
+                  ><small>{{item.barcode||'Sin código de barras'}}</small>
+                </td>
+                <td>
+                  <button
+                    class="row-action"
+                    (click)="startQuickCreate(item)"
+                    [disabled]="busy||(item.is_pack&&!isX7(item))"
+                    [attr.aria-label]="'Crear producto desde '+item.name"
+                  >
+                    ＋ Agregar
+                  </button>
+                </td>
+              </tr>
+              @if(quickItem?.id===item.id){
+              <tr class="quick-create-row">
+                <td colspan="6">
+                  <form (ngSubmit)="quickCreate()" class="quick-create">
+                    <span
+                      ><strong>{{item.name}}</strong
+                      ><small
+                        >{{isX7(item)?'Costo unitario: kit x7 ÷ 7':'Se vincula
+                        esta oferta del proveedor'}}</small
+                      ></span
+                    >
+                    <label
+                      >Precio de venta (ARS)<input
+                        name="quick-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        required
+                        placeholder="Ej.: 23500"
+                        [(ngModel)]="quickPrice"
+                    /></label>
+                    <button
+                      mat-flat-button
+                      type="submit"
+                      [disabled]="busy||quickPrice===''"
+                    >
+                      {{busy?'Guardando…':'Crear producto'}}
+                    </button>
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      (click)="edit(undefined,item)"
+                      [disabled]="busy"
+                    >
+                      Editar detalles
+                    </button>
+                    <button
+                      class="text-button"
+                      type="button"
+                      (click)="quickItem=null"
+                      [disabled]="busy"
+                    >
+                      Cancelar
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              } }
+            </tbody>
+          </table>
+          @if(!catalog.items.length){
+          <div class="empty">
+            <span>⌕</span>
+            <h3>No encontramos productos</h3>
+            <p>Probá con otro término o quitá algunos filtros.</p>
+            <button mat-stroked-button (click)="clearFilters()">
+              Limpiar filtros
+            </button>
+          </div>
+          } }@else{ @if(products.length){
+          <table>
+            <thead>
+              <tr>
+                <th [attr.aria-sort]="sortAria('name')">
+                  <button class="column-sort" (click)="sortColumn('name')">
+                    Producto{{sortArrow('name')}}
+                  </button>
+                </th>
+                <th [attr.aria-sort]="sortAria('cost')">
+                  <button class="column-sort" (click)="sortColumn('cost')">
+                    Costo unitario{{sortArrow('cost')}}
+                  </button>
+                </th>
+                <th [attr.aria-sort]="sortAria('selling')">
+                  <button class="column-sort" (click)="sortColumn('selling')">
+                    Precio de venta{{sortArrow('selling')}}
+                  </button>
+                </th>
+                <th [attr.aria-sort]="sortAria('margin')">
+                  <button class="column-sort" (click)="sortColumn('margin')">
+                    Ganancia / Margen{{sortArrow('margin')}}
+                  </button>
+                </th>
+                <th [attr.aria-sort]="sortAria('stock')">
+                  <button class="column-sort" (click)="sortColumn('stock')">
+                    Stock proveedor{{sortArrow('stock')}}
+                  </button>
+                </th>
+                <th [attr.aria-sort]="sortAria('ownStock')">
+                  <button class="column-sort" (click)="sortColumn('ownStock')">
+                    Stock propio{{sortArrow('ownStock')}}
+                  </button>
+                </th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for(p of visibleProducts;track p.id){
+              <tr>
+                <td class="product-cell">
+                  @if(productPhotos(p).length){
+                  <div class="product-photos">
+                    @for(photo of productPhotos(p);track photo){<img
+                      class="product-photo"
+                      [src]="'/api/images/'+photo"
+                      [alt]="p.name"
+                      loading="lazy"
+                      width="56"
+                      height="56"
+                    />}
+                  </div>
+                  }
+                  <strong>{{p.name}}</strong>
+                  @if(p.kind==='kit'){
+                  <div class="component-summary">
+                    @for(c of p.components;track c.product_id){<small
+                      >{{c.quantity}} × {{c.name}}</small
+                    >}
+                  </div>
+                  }
+                  <small
+                    >{{p.code || 'Sin código'}}{{p.barcode?' ·
+                    '+p.barcode:''}}</small
+                  >
+                  @if(p.kind!=='kit'){<small
+                    >{{(p.kind==='kit'?'':p.selected?.provider_name) || 'Sin
+                    proveedor vinculado'}}</small
+                  >}
+                </td>
+                <td class="numeric">
+                  <strong
+                    >{{amount(p.selected?.costArs)}}@if(p.cost_ars_max &&
+                    p.cost_ars_max!==p.selected?.costArs){ –
+                    {{amount(p.cost_ars_max)}}}</strong
+                  >
+                  <small
+                    ><span
+                      [class]="'badge '+(p.selected?.cost?.stale?'amber':p.selected?.cost?.basis==='kit'?'green':'')"
+                      >{{basis(p)}}</span
+                    ></small
+                  >
+                  @if(p.selected?.cost?.currency==='USD'){<small
+                    >{{amount(p.selected.cost.amount,'USD')}} / unidad</small
+                  >}
+                </td>
+                <td class="numeric sale-price-cell">
+                  @if(priceProductId===p.id){
+                  <form
+                    class="inline-price-form"
+                    (ngSubmit)="saveInlinePrice()"
+                  >
+                    @if(inlinePriceIsKit){<label class="inline-price-label"
+                      >Calcular por<app-select
+                        label="Calcular por"
+                        name="inline-kit-mode"
+                        [(ngModel)]="inlineKitMode"
+                        (ngModelChange)="changeInlineKitMode()"
+                        [disabled]="busy"
+                        [options]="pricingModeOptions" /></label
+                    >}
+                    <label class="inline-price-label"
+                      >{{inlineIsDiscount ? "Descuento del kit (%)" : "Precio de
+                      venta (ARS)"}}
+                      <input
+                        #inlinePriceInput
+                        type="text"
+                        inputmode="decimal"
+                        name="inline-price"
+                        required
+                        [(ngModel)]="inlinePrice"
+                        [disabled]="busy"
+                        [attr.aria-label]="(inlineIsDiscount ? 'Descuento de ' : 'Precio de venta de ')+p.name"
+                      />
+                    </label>
+                    <div class="inline-price-actions">
+                      <button
+                        type="submit"
+                        class="text-button"
+                        [disabled]="busy || !validInlinePrice"
+                      >
+                        {{busy?'Guardando…':'Guardar'}}
+                      </button>
+                      <button
+                        type="button"
+                        class="text-button"
+                        (click)="cancelPriceEdit()"
+                        [disabled]="busy"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                    @if(inlinePriceError){<small
+                      class="inline-price-error"
+                      role="alert"
+                      >{{inlinePriceError}}</small
+                    >}
+                  </form>
+                  } @else {
+                  <button
+                    type="button"
+                    class="table-price-button"
+                    (click)="startPriceEdit(p)"
+                    [disabled]="busy"
+                    [attr.aria-label]="'Editar precio de venta de '+p.name"
+                  >
+                    <strong
+                      >{{amount(p.selling_price)}}@if(p.selling_price_max &&
+                      p.selling_price_max!==p.selling_price){ –
+                      {{amount(p.selling_price_max)}}}</strong
+                    ><span aria-hidden="true">✎</span>
+                  </button>
+                  } @if(p.kind==='kit'){<small
+                    >Sin descuento: {{kitBaseLabel(p)}}</small
+                  ><small
+                    >@if(p.kit_pricing_mode==='discount'){
+                    {{discountLabel(p.kit_discount_percent)}} de descuento ·
+                    redondeo $100 } @else { Precio final fijo · redondeo $100
+                    }</small
+                  >}
+                </td>
+                <td class="numeric">
+                  <strong [class.negative]="p.selected?.profit<0"
+                    >{{amount(p.selected?.profit)}}@if(p.selected?.profit_max!=null
+                    && p.selected.profit_max!==p.selected.profit){ –
+                    {{amount(p.selected.profit_max)}}}</strong
+                  >
+                  <small [class.negative]="p.selected?.margin<0"
+                    >{{percent(p.selected?.margin)}}@if(p.selected?.margin_max!=null
+                    && p.selected.margin_max!==p.selected.margin){ –
+                    {{percent(p.selected.margin_max)}}}</small
+                  >
+                  @if(p.selected?.profit_range_estimated){<small
+                    >Rango estimado según sabor</small
+                  >}
+                </td>
+                <td>
+                  <span
+                    [class]="'stock '+(p.selected?.cost?.stock>0?'in':'out')"
+                    >{{p.selected?.cost?.stock??'—'}}</span
+                  >
+                </td>
+                <td class="own-stock-cell">
+                  @if(p.kind==='kit'){
+                  <span [class]="'stock '+(p.own_stock>0?'in':'out')"
+                    >{{p.own_stock ?? 'Sin cargar'}}</span
+                  >
+                  <small>Según componentes</small>
+                  } @else {
+                  <button
+                    type="button"
+                    class="own-stock-button"
+                    (click)="openStock(p)"
+                    [disabled]="busy"
+                    [attr.aria-label]="'Gestionar stock de '+p.name"
+                  >
+                    <span [class]="'stock '+(p.own_stock>0?'in':'out')"
+                      >{{p.own_stock ?? 'Sin cargar'}}</span
+                    ><span aria-hidden="true">✎</span>
+                  </button>
+                  }
+                </td>
+                <td class="actions">
+                  @if(p.kind!=='kit'){<button
+                    class="row-action"
+                    (click)="openLinks(p)"
+                  >
+                    Vincular</button
+                  >}<button
+                    class="icon-button"
+                    (click)="edit(p)"
+                    [attr.aria-label]="'Editar '+p.name"
+                  >
+                    ✎</button
+                  ><button
+                    class="icon-button delete"
+                    (click)="deleting=p"
+                    [attr.aria-label]="'Eliminar '+p.name"
+                  >
+                    ×
+                  </button>
+                </td>
+              </tr>
+              }
+            </tbody>
+          </table>
+          @if(!filtered.length){
+          <div class="empty">
+            <h3>Ningún producto coincide</h3>
+            <p>Quitá filtros para volver a ver tu lista.</p>
+          </div>
+          }} @else{
+          <div class="empty">
+            <span class="empty-symbol">▤</span>
+            <h3>No hay productos</h3>
+            <p>
+              Elegí productos del catálogo de Disfit o agregalos manualmente.<br />Después
+              vinculá sus ofertas para ver costos y márgenes.
+            </p>
+            <div>
+              <button mat-flat-button (click)="navigate('catalog')">
+                Explorar catálogo ↗</button
+              ><button mat-stroked-button (click)="edit()">
+                Crear producto
+              </button>
+            </div>
+            <small
+              >Cuando compartas tu lista actual, podremos preparar sus
+              coincidencias.</small
+            >
+          </div>
+          } }
+        </div>
+        <footer class="table-footer">
+          <span
+            >{{view==='catalog'?'ARS y USD se muestran en su moneda
+            original.':'Costo: kit x7 ÷ 7 cuando existe; si no, oferta
+            individual.'}}</span
+          >@if(showPagination&&total){
+          <div>
+            <button
+              aria-label="Página anterior"
+              [disabled]="page===1"
+              (click)="changePage(-1)"
+            >
+              ←</button
+            ><span>{{page}} / {{pages}}</span
+            ><button
+              aria-label="Página siguiente"
+              [disabled]="page>=pages"
+              (click)="changePage(1)"
+            >
+              →
+            </button>
+          </div>
+          }
+        </footer>
+      </section>
+      } @else if(view==='sales') {
+      <app-sales [products]="products" (saved)="load()" />
+      } @else if(view==='customers') {
+      <app-sales mode="customers" [products]="products" (saved)="load()" />
+      } @else if(view==='cash') {
+      <app-cash />
+      } @else if(view==='purchases') {
+      <app-purchases
+        [products]="products"
+        [providers]="facets.providers"
+        (saved)="load()"
+        (stockRequested)="openStock($event)"
+      />
+      } @else {
+      <app-install />
+      <div class="settings-grid">
+        <section class="settings-card">
+          <h2>Tipo de cambio</h2>
+          <p>
+            Usamos este valor para convertir los costos en USD a ARS y calcular
+            tu margen.
+          </p>
+          <form (ngSubmit)="saveRate()">
+            <label for="rate">1 USD equivale a</label>
+            <div class="money-input">
+              <span>ARS</span
+              ><input
+                id="rate"
+                name="rate"
+                type="number"
+                min="0.000001"
+                step="any"
+                placeholder="Ingresá tu cotización"
+                [(ngModel)]="rate"
+              />
+            </div>
+            <small
+              >La cotización es manual. Podés dejarla vacía para no
+              convertir.</small
+            ><button mat-flat-button type="submit" [disabled]="busy">
+              Guardar cotización
+            </button>
+          </form>
+        </section>
+        <section class="settings-card">
+          <h2>Disfit / Coverweb</h2>
+          <p>
+            Fotos guardadas: {{imageStatus.downloaded}}@if(imageStatus.pending){
+            · Pendientes: {{imageStatus.pending}}}@if(imageStatus.failed){ · No
+            disponibles: {{imageStatus.failed}}}
+          </p>
+          <p>
+            Las fotos se guardan una sola vez y se reutilizan en las próximas
+            actualizaciones.
+          </p>
+          <p>
+            Actualización diaria a las
+            <strong>08:00, hora de Argentina</strong>. También podés actualizar
+            cuando quieras.
+          </p>
+          <div class="setting-line">
+            <span>Últimos datos</span
+            ><strong>{{date(facets.providers[0]?.last_success_at)}}</strong>
+          </div>
+          <button
+            mat-stroked-button
+            [disabled]="!!activeRun"
+            (click)="refresh()"
+          >
+            {{activeRun?'Actualizando…':'Actualizar ahora'}}
+          </button>
+          <div class="session-help">
+            <strong>Si la sesión vence</strong>
+            <p>
+              Abrí el navegador temporal para iniciar sesión en Coverweb y
+              completar cualquier CAPTCHA. La contraseña no se guarda.
+            </p>
+            <button mat-flat-button (click)="renewingSession=true">
+              Renovar sesión aquí
+            </button>
+          </div>
+        </section>
+      </div>
+      <section class="catalog-panel history">
+        <div class="panel-title">
+          <h2>Historial de actualizaciones</h2>
+          <span class="subtle">Últimas 30 ejecuciones</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Proveedor</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Productos</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for(r of runs;track r.id){
+              <tr>
+                <td>{{r.provider_name}}</td>
+                <td>{{date(r.started_at||r.created_at)}}</td>
+                <td>
+                  <span
+                    [class]="'badge '+(r.status==='success'?'green':r.status==='running'||r.status==='queued'?'':'amber')"
+                    >{{r.status==='success'?'Completada':r.status==='running'?'En
+                    curso':r.status==='queued'?'En
+                    cola':r.status==='session_required'?'Renovar
+                    sesión':'Fallida'}}</span
+                  >
+                </td>
+                <td>{{r.product_count??'—'}}</td>
+                <td class="history-detail">{{r.error||r.warning||'—'}}
+                  @if(r.status==='success' && !r.price_analysis){<small>Sin comparación registrada</small>}
+                </td>
+              </tr>
+              @if(r.price_analysis){<tr><td colspan="5"><price-analysis [run]="r" /></td></tr>}
+              }
+            </tbody>
+          </table>
+          @if(!runs.length){
+          <div class="empty">
+            <p>
+              Todavía no hay ejecuciones. El catálogo inicial ya está cargado.
+            </p>
+          </div>
+          }
+        </div>
+      </section>
+      } }
+      <div class="page-foot">
+        <span
+          >Precios finales · Sin impuestos ni gastos de venta adicionales en el
+          margen</span
+        >
+      </div>
+    </div>
+  </main>
+</div>
+@if(renewingSession){<supplier-login
+  (closed)="renewingSession=false"
+  (saved)="sessionSaved()"
+/>} @if(editing){
+<div class="modal-backdrop">
+  <section
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="edit-title"
+    cdkTrapFocus
+    [cdkTrapFocusAutoCapture]="true"
+  >
+    <button
+      class="modal-close"
+      aria-label="Cerrar"
+      (click)="editing=null"
+      [disabled]="busy"
+    >
+      ×
+    </button>
+    <h2 id="edit-title">
+      {{editing.kind==='kit'?(editing.id?'Editar kit':'Armar
+      kit'):(editing.id?'Editar producto':'Nuevo producto')}}
+    </h2>
+    <p>
+      {{editing.kind==='kit'?'El precio se calcula con los precios de venta de
+      sus componentes y el descuento.':'El nombre y precio de venta son tuyos.
+      El costo viene de tus ofertas vinculadas.'}}
+    </p>
+    <form (ngSubmit)="saveProduct()">
+      <label
+        >Nombre<input
+          cdkFocusInitial
+          name="name"
+          required
+          maxlength="500"
+          [(ngModel)]="editing.name"
+      /></label>
+      <div class="form-row">
+        <label
+          >Código interno<input
+            name="code"
+            maxlength="500"
+            [(ngModel)]="editing.code" /></label
+        ><label
+          >Código de barras<input
+            name="barcode"
+            maxlength="500"
+            [(ngModel)]="editing.barcode"
+        /></label>
+      </div>
+      @if(editing.kind!=='kit'){
+      <label
+        >Presentación para kits (opcional)<app-select
+          label="Presentación para kits"
+          name="variant-group"
+          [(ngModel)]="editing.variant_group"
+          [options]="variantSelectOptions"
+          [allowCustom]="true"
+          [clearable]="true"
+          placeholder="Elegir o crear presentación"
+      /></label>
+      <label
+        >Precio de venta (ARS)<input
+          name="selling"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+          [(ngModel)]="editing.selling_price" /></label
+      >}@if(editing.kind==='kit'){
+      <label
+        >Calcular por<app-select
+          label="Calcular por"
+          name="kit-pricing-mode"
+          [(ngModel)]="editing.kit_pricing_mode"
+          [options]="pricingModeOptions"
+      /></label>
+      @if(editing.kit_pricing_mode==='final'){<label
+        >Precio final (ARS)<input
+          name="kit-final-price"
+          type="number"
+          min="0"
+          step="any"
+          required
+          [(ngModel)]="editing.selling_price" /></label
+      >} @else {<label
+        >Descuento (%)<input
+          name="discount"
+          type="number"
+          min="0"
+          max="100"
+          step="any"
+          required
+          [(ngModel)]="editing.kit_discount_percent"
+      /></label>
+      }
+      <div class="kit-price-preview" aria-live="polite">
+        @if(kitPreview;as preview){
+        <span
+          >Total sin descuento:
+          {{amount(preview.base)}}@if(preview.maxBase!==preview.base){ –
+          {{amount(preview.maxBase)}}}</span
+        >
+        <strong
+          >Precio final del kit:
+          {{amount(preview.price)}}@if(preview.maxPrice!==preview.price){ –
+          {{amount(preview.maxPrice)}}}</strong
+        >
+        } @else {<span
+          >Elegí los componentes y un descuento válido para calcular el
+          precio.</span
+        >}
+        <small
+          >Redondeado automáticamente al múltiplo de $100 más cercano.
+          @if(editing.kit_pricing_mode==='discount'){Se actualiza si cambia el
+          precio de un componente.}</small
+        >
+      </div>
+      <div class="kit-components">
+        <h3>Componentes</h3>
+        <p>
+          El costo se suma automáticamente según las cantidades. Cada componente
+          usa su costo del proveedor, incluido kit x7 ÷ 7 cuando está vinculado.
+        </p>
+        @for(c of editing.components;track $index;let i=$index){
+        <div class="component-row">
+          <label
+            >Producto<app-select
+              label="Producto del kit"
+              [name]="'component-'+i"
+              required
+              [ngModel]="componentChoice(c)"
+              (ngModelChange)="chooseComponent(c,$event)"
+              [options]="componentSelectOptions"
+              placeholder="Seleccionar producto"
+          /></label>
+          <label
+            >Cantidad<input
+              [name]="'quantity-'+i"
+              type="number"
+              min="1"
+              max="1000"
+              step="1"
+              required
+              [(ngModel)]="c.quantity"
+          /></label>
+          <button
+            type="button"
+            class="text-button"
+            (click)="editing.components.splice(i,1)"
+            [disabled]="busy"
+            [attr.aria-label]="'Quitar componente '+(i+1)"
+          >
+            Quitar
+          </button>
+        </div>
+        }
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="editing.components.push({product_id:'',quantity:1})"
+          [disabled]="busy"
+        >
+          ＋ Agregar componente
+        </button>
+        @if(!componentProducts.length){
+        <p>
+          Primero creá los productos que vas a incluir, desde el catálogo o
+          manualmente.
+        </p>
+        }
+      </div>
+      }@if(editing.offers?.length){<label
+        >Proveedor para el costo principal<app-select
+          label="Proveedor principal"
+          name="preferred"
+          [(ngModel)]="editing.preferred_provider_id"
+          [options]="preferredProviderOptions" /></label
+      >}@if(editing.source){
+      <div class="rate-note">
+        Se vinculará esta oferta de {{editing.source.provider_name}}. Podés
+        agregar la oferta individual o el kit x7 después.
+      </div>
+      }@if(error){
+      <div class="alert danger" role="alert">{{error}}</div>
+      }
+      <div class="modal-actions">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="editing=null"
+          [disabled]="busy"
+        >
+          Cancelar</button
+        ><button mat-flat-button type="submit" [disabled]="busy">
+          {{busy?'Guardando…':'Guardar producto'}}
+        </button>
+      </div>
+    </form>
+  </section>
+</div>
+} @if(linking){
+<div class="modal-backdrop">
+  <section
+    class="modal wide"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="link-title"
+    cdkTrapFocus
+    [cdkTrapFocusAutoCapture]="true"
+  >
+    <button
+      class="modal-close"
+      aria-label="Cerrar"
+      (click)="linking=null"
+      [disabled]="busy"
+    >
+      ×
+    </button>
+    <h2 id="link-title">{{linking.name}}</h2>
+    <p>
+      Vinculá la unidad y su kit x7. Se usa el kit ÷ 7 si está disponible; si
+      no, el individual.
+    </p>
+    <label
+      >Proveedor<app-select
+        label="Proveedor"
+        [(ngModel)]="linkProvider"
+        (ngModelChange)="switchProvider()"
+        [options]="providerSelectOptions"
+    /></label>
+    <div class="selected-offers">
+      <div>
+        <strong>Individual</strong
+        ><span>{{individual?.name||'Sin seleccionar'}}</span
+        >@if(individual){<small
+          >{{amount(individual.price,individual.currency)}}</small
+        ><button
+          (click)="individual=null;confirmSame=false"
+          aria-label="Quitar oferta individual"
+        >
+          ×</button
+        >}
+      </div>
+      <div>
+        <strong>Kit x7</strong
+        ><span>{{kit?.name||'Sin seleccionar'}}</span>@if(kit){<small
+          >{{amount(kit.price,kit.currency)}} ÷ 7</small
+        ><button
+          (click)="kit=null;confirmSame=false"
+          aria-label="Quitar kit x7"
+        >
+          ×</button
+        >}
+      </div>
+    </div>
+    <div class="offer-tabs">
+      <button
+        [class.active]="tab==='individual'"
+        (click)="setTab('individual')"
+      >
+        Buscar individual</button
+      ><button [class.active]="tab==='kit'" (click)="setTab('kit')">
+        Buscar kit x7</button
+      ><button [class.active]="tab==='pack'" (click)="setTab('pack')">
+        Buscar caja / pack
+      </button>
+    </div>
+    <div class="link-search">
+      <input
+        cdkFocusInitial
+        aria-label="Buscar oferta"
+        [(ngModel)]="linkSearch"
+        (keyup.enter)="searchLinks()"
+        placeholder="Marca, presentación o sabor"
+      /><button mat-stroked-button (click)="searchLinks()">Buscar</button>
+    </div>
+    <div class="offer-results">
+      @for(i of linkResults;track i.id){<button
+        [class.selected]="(tab==='kit'?kit:individual)?.id===i.id"
+        (click)="choose(i)"
+      >
+        <span
+          >{{i.name}}<small
+            >{{i.brand}} · {{i.category}} · Stock {{i.stock}}</small
+          ></span
+        ><strong>{{amount(i.price,i.currency)}}</strong></button
+      >}@if(!linkResults.length){
+      <p>No hay coincidencias. Probá con menos palabras.</p>
+      }
+    </div>
+    @if(individual?.is_pack){
+    <label
+      >Unidades vendibles por oferta<input
+        type="number"
+        min="1"
+        max="10000"
+        step="1"
+        [(ngModel)]="packUnits"
+        (ngModelChange)="confirmPack=false"
+    /></label>
+    <small
+      >Usá 1 si vendés la caja completa; 16 si esta caja contiene 16 barras y
+      vendés cada barra por separado.</small
+    >
+    <label class="check"
+      ><input type="checkbox" [(ngModel)]="confirmPack" />Confirmo la
+      presentación, sabor y cantidad de unidades por oferta.</label
+    >
+    }
+    <label class="check"
+      ><input type="checkbox" [(ngModel)]="confirmPresentation" />Verifiqué que
+      el envase coincide, aunque la oferta no lo indique. Doypack y pote son
+      presentaciones distintas.</label
+    >
+    @if(kit){<label class="check"
+      ><input type="checkbox" [(ngModel)]="confirmSame" /> Confirmo que el kit
+      corresponde al mismo producto, presentación y sabor de mi lista.</label
+    >}@if(error){
+    <div class="alert danger" role="alert">{{error}}</div>
+    }
+    <div class="modal-actions">
+      <button
+        class="text-button danger-text"
+        [disabled]="busy"
+        (click)="unlink()"
+      >
+        Quitar vínculo</button
+      ><button mat-stroked-button (click)="linking=null" [disabled]="busy">
+        Cancelar</button
+      ><button
+        mat-flat-button
+        (click)="saveLinks()"
+        [disabled]="busy||(!individual&&!kit)||(!!kit&&!confirmSame)||(!!individual?.is_pack&&!confirmPack)"
+      >
+        Guardar vínculos
+      </button>
+    </div>
+  </section>
+</div>
+} @if(stocking){
+<div class="modal-backdrop">
+  <section
+    class="modal stock-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="stock-title"
+    cdkTrapFocus
+    [cdkTrapFocusAutoCapture]="true"
+  >
+    <button
+      type="button"
+      class="modal-close"
+      aria-label="Cerrar stock"
+      (click)="stocking=null"
+      [disabled]="busy"
+    >
+      ×
+    </button>
+    <h2 id="stock-title">Stock propio</h2>
+    <p>{{stocking.name}}</p>
+    <div class="stock-current">
+      <span
+        >{{stocking.kind==='kit'?'Kits disponibles':'Unidades
+        disponibles'}}</span
+      ><strong>{{stocking.own_stock ?? 'Sin cargar'}}</strong>
+    </div>
+    @if(stocking.kind==='kit'){
+    <p>
+      El stock de la promo se calcula con sus componentes. Corregí el stock real
+      de cada producto o sabor.
+    </p>
+    <ul class="stock-kit-parts">
+      @for(c of stocking.components;track c.product_id){
+      <li>
+        {{c.quantity}} × {{c.name}} @if(c.variant_group){ @for(v of
+        c.variants;track v.id){
+        <button
+          type="button"
+          class="text-button"
+          (click)="openStock(productsById(v.id))"
+        >
+          {{v.name.split(' · ').slice(-1)[0]}} · {{v.own_stock ?? 'Sin cargar'}}
+          ✎
+        </button>
+        }} @else {<button
+          type="button"
+          class="text-button"
+          (click)="openStock(productsById(c.product_id))"
+        >
+          Stock: {{c.own_stock ?? 'Sin cargar'}} ✎</button
+        >}
+      </li>
+      }
+    </ul>
+    <div class="modal-actions">
+      <button type="button" mat-stroked-button (click)="stocking=null">
+        Cerrar
+      </button>
+    </div>
+    } @else {
+    <form (ngSubmit)="saveStock()">
+      <label
+        >Stock real<input
+          cdkFocusInitial
+          name="stock-quantity"
+          type="number"
+          min="0"
+          max="1000000000"
+          step="1"
+          required
+          [(ngModel)]="stockAmount"
+      /></label>
+      @if(error){
+      <div class="alert danger" role="alert">{{error}}</div>
+      }
+      <div class="modal-actions">
+        <button
+          type="button"
+          mat-stroked-button
+          (click)="stocking=null"
+          [disabled]="busy"
+        >
+          Cancelar
+        </button>
+        <button
+          mat-flat-button
+          type="submit"
+          [disabled]="busy||stockPreview===null"
+        >
+          {{busy?'Guardando…':'Guardar stock'}}
+        </button>
+      </div>
+    </form>
+    }
+  </section>
+</div>
+} @if(deleting){
+<div class="modal-backdrop">
+  <section
+    class="modal small"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="delete-title"
+    cdkTrapFocus
+    [cdkTrapFocusAutoCapture]="true"
+  >
+    <h2 id="delete-title">Eliminar de tu lista</h2>
+    <p>
+      ¿Eliminar «{{deleting.name}}» y sus vínculos? El catálogo del proveedor se
+      conserva.
+    </p>
+    <div class="modal-actions">
+      <button mat-stroked-button (click)="deleting=null" [disabled]="busy">
+        Cancelar</button
+      ><button mat-flat-button (click)="remove()" [disabled]="busy">
+        Eliminar producto
+      </button>
+    </div>
+  </section>
+</div>
+}
