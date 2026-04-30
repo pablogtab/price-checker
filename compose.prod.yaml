@@ -1,0 +1,86 @@
+name: gevafit
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: price_checker
+      POSTGRES_DB: price_checker
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - price_checker_db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U price_checker -d price_checker']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks: [app]
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://price_checker:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/price_checker
+      NODE_ENV: production
+      PORT: 3215
+      HOST: 0.0.0.0
+      SCRAPER_ROOT: /app
+      PYTHON: python3
+    volumes:
+      - ./data:/app/data:ro
+      - ./.auth:/app/.auth
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:3215/api/settings").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+    networks: [app]
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: worker
+    restart: unless-stopped
+    command: [node, apps/api/dist/worker.js]
+    environment:
+      DATABASE_URL: postgres://price_checker:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/price_checker
+      SCRAPER_ROOT: /app
+      PYTHON: python3
+      COVERWEB_DELAY: ${COVERWEB_DELAY:-2}
+    volumes:
+      - ./.auth:/app/.auth:ro
+      - ./data/images:/app/data/images
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [app]
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1/]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      app:
+      proxy:
+        aliases: [gevafit_web]
+networks:
+  app:
+  proxy:
+    external: true
+    name: axenda-network
+volumes:
+  price_checker_db:
