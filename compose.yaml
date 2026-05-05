@@ -1,0 +1,67 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: price_checker
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_price_checker}
+      POSTGRES_DB: price_checker
+    ports:
+      - "127.0.0.1:${DB_PORT:-5442}:5432"
+    volumes:
+      - price_checker_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U price_checker -d price_checker"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: api
+    environment:
+      DATABASE_URL: postgres://price_checker:${POSTGRES_PASSWORD:-local_price_checker}@db:5432/price_checker
+      PORT: 3215
+      HOST: 0.0.0.0
+      SCRAPER_ROOT: /app
+      PYTHON: python3
+      SEED_FILE: /app/data/disfit-prices.json
+    volumes:
+      - ./data:/app/data:ro
+      - ./.auth:/app/.auth
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${API_PORT:-3215}:3215"
+    restart: unless-stopped
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: worker
+    command: ["node", "apps/api/dist/worker.js"]
+    environment:
+      DATABASE_URL: postgres://price_checker:${POSTGRES_PASSWORD:-local_price_checker}@db:5432/price_checker
+      SCRAPER_ROOT: /app
+      PYTHON: python3
+      COVERWEB_DELAY: ${COVERWEB_DELAY:-2}
+    volumes:
+      - ./.auth:/app/.auth:ro
+      - ./data/images:/app/data/images
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "127.0.0.1:${WEB_PORT:-4215}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+volumes:
+  price_checker_db:
