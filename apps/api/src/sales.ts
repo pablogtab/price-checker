@@ -90,7 +90,7 @@ export async function sales(query: any = {}) {
     [ids],
   );
   const payments = await db.query(
-    `SELECT sp.*,sp.amount::text,o.occurred_on::text,a.name account_name FROM sale_payments sp JOIN cash_operations o ON o.id=sp.operation_id JOIN cash_entries e ON e.operation_id=o.id JOIN cash_accounts a ON a.id=e.account_id WHERE sp.sale_id=ANY($1::int[]) ORDER BY sp.id`,
+    `SELECT sp.*,sp.amount::text,o.occurred_on::text,e.account_id,a.name account_name FROM sale_payments sp JOIN cash_operations o ON o.id=sp.operation_id JOIN cash_entries e ON e.operation_id=o.id JOIN cash_accounts a ON a.id=e.account_id WHERE sp.sale_id=ANY($1::int[]) ORDER BY sp.id`,
     [ids],
   );
   return rows.map((s: any) => ({

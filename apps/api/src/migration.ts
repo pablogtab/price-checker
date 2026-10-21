@@ -273,3 +273,8 @@ export class CustomerCollections1760097600019 implements MigrationInterface {
     );
   }
 }
+
+export class SaleCorrections1760097600021 implements MigrationInterface {
+ async up(q:QueryRunner):Promise<void>{await q.query(`CREATE TABLE sale_corrections(id serial PRIMARY KEY,sale_id integer NOT NULL REFERENCES sales(id),kind text NOT NULL,request_key uuid NOT NULL UNIQUE,fingerprint text NOT NULL,before_state jsonb NOT NULL,after_state jsonb NOT NULL,result jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now()); CREATE INDEX sale_corrections_sale ON sale_corrections(sale_id);`);}
+ async down(q:QueryRunner):Promise<void>{await q.query('DROP TABLE sale_corrections');}
+}
