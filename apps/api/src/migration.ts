@@ -274,6 +274,18 @@ export class CustomerCollections1760097600019 implements MigrationInterface {
   }
 }
 
+export class SaleDiscount1760097600020 implements MigrationInterface {
+  async up(q: QueryRunner) {
+    await q.query(`ALTER TABLE sales ADD COLUMN subtotal numeric, ADD COLUMN discount_mode text NOT NULL DEFAULT 'amount' CHECK(discount_mode IN ('amount','percent')), ADD COLUMN discount_value numeric NOT NULL DEFAULT 0 CHECK(discount_value>=0), ADD COLUMN discount_amount numeric NOT NULL DEFAULT 0 CHECK(discount_amount>=0);
+      UPDATE sales SET subtotal=total; ALTER TABLE sales ALTER COLUMN subtotal SET NOT NULL; ALTER TABLE sales ADD CONSTRAINT sales_discount_total CHECK(subtotal>=0 AND total=subtotal-discount_amount);
+      ALTER TABLE sale_items ADD COLUMN subtotal numeric, ADD COLUMN discount_amount numeric NOT NULL DEFAULT 0 CHECK(discount_amount>=0);
+      UPDATE sale_items SET subtotal=total; ALTER TABLE sale_items ALTER COLUMN subtotal SET NOT NULL; ALTER TABLE sale_items ADD CONSTRAINT sale_items_discount_total CHECK(total=subtotal-discount_amount AND total>=0);`);
+  }
+  async down(q: QueryRunner) {
+    await q.query("ALTER TABLE sale_items DROP COLUMN subtotal, DROP COLUMN discount_amount; ALTER TABLE sales DROP COLUMN subtotal, DROP COLUMN discount_mode, DROP COLUMN discount_value, DROP COLUMN discount_amount");
+  }
+}
+
 export class SaleCorrections1760097600021 implements MigrationInterface {
  async up(q:QueryRunner):Promise<void>{await q.query(`CREATE TABLE sale_corrections(id serial PRIMARY KEY,sale_id integer NOT NULL REFERENCES sales(id),kind text NOT NULL,request_key uuid NOT NULL UNIQUE,fingerprint text NOT NULL,before_state jsonb NOT NULL,after_state jsonb NOT NULL,result jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT now()); CREATE INDEX sale_corrections_sale ON sale_corrections(sale_id);`);}
  async down(q:QueryRunner):Promise<void>{await q.query('DROP TABLE sale_corrections');}

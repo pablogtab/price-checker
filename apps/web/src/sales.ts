@@ -3,7 +3,6 @@ import {PaymentCorrectionComponent} from "./payment-correction";
 import { SalesPromoPickerComponent } from "./sales-promo-picker";
 import { CustomerEditorComponent } from "./customer-editor";
 import { ButtonDirective } from "./ui/button";
-import { discountItems } from "./sale-discount";
 import {
   Component,
   Input,
@@ -138,7 +137,9 @@ import { SelectComponent } from "./select";
             aria-controls="sales-results"
             [attr.aria-expanded]="searchQuery.trim().length > 0"
             [attr.aria-activedescendant]="
-              searchQuery.trim() && searchResults.length ? 'sales-result-' + activeResult : null
+              searchQuery.trim() && searchResults.length
+                ? 'sales-result-' + activeResult
+                : null
             "
             placeholder="Nombre, código, código de barras o sabor…"
             [(ngModel)]="searchQuery"
@@ -240,38 +241,6 @@ import { SelectComponent } from "./select";
               >
                 ×
               </button>
-              <details class="sales-discount">
-                <summary>Descuento de esta línea</summary>
-                <label
-                  ><span>Tipo de descuento</span>
-                  <app-select
-                    label="Tipo de descuento"
-                    [(ngModel)]="line.discount_mode"
-                    (ngModelChange)="line.discount = 0"
-                    [options]="discountModes"
-                  />
-                </label>
-                <label>
-                  <span>{{
-                    line.discount_mode === "percent"
-                      ? "Descuento de venta (%)"
-                      : "Descuento total de la línea (ARS)"
-                  }}</span>
-                  <input
-                    type="number"
-                    min="0"
-                    [attr.max]="line.discount_mode === 'percent' ? 100 : null"
-                    step="0.01"
-                    [attr.aria-label]="
-                      line.discount_mode === 'percent'
-                        ? 'Descuento de venta (%)'
-                        : 'Descuento total de la línea (ARS)'
-                    "
-                    [(ngModel)]="line.discount"
-                  />
-                </label>
-                <small>Se aplica al subtotal de esta línea.</small>
-              </details>
               @if (selected(line)?.kind === "kit") {
                 <div class="sales-flavors">
                   @for (slot of slotsForPromo(line, 0); track slot.key) {
@@ -326,10 +295,55 @@ import { SelectComponent } from "./select";
             }
           </section>
         }
+        <details class="sales-discount sales-global-discount">
+          <summary>Aplicar descuento a la venta</summary>
+          <label
+            ><span>Tipo de descuento</span
+            ><app-select
+              label="Tipo de descuento"
+              [(ngModel)]="discountMode"
+              (ngModelChange)="discountValue = 0"
+              [options]="discountModes"
+          /></label>
+          <label
+            ><span>{{
+              discountMode === "percent"
+                ? "Descuento de venta (%)"
+                : "Descuento de venta (ARS)"
+            }}</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              [attr.max]="discountMode === 'percent' ? 100 : null"
+              [attr.aria-label]="
+                discountMode === 'percent'
+                  ? 'Descuento de venta (%)'
+                  : 'Descuento de venta (ARS)'
+              "
+              [(ngModel)]="discountValue"
+            />
+          </label>
+          <small
+            >Se aplica una sola vez al subtotal de productos y promos.</small
+          >
+          @if (!discountValid) {
+            <p class="alert danger" role="alert">
+              El descuento debe ser positivo, no superar el subtotal y tener
+              hasta dos decimales. El porcentaje admite de 0 a 100.
+            </p>
+          }
+        </details>
         <footer class="purchase-footer">
           <div class="sales-total">
-            <span>Total de venta</span><strong>{{ amount(total) }}</strong
-            ><small>Pendiente: {{ amount(pendingDraft) }}</small>
+            <span>Subtotal: {{ amount(subtotal) }}</span
+            ><span>Descuento: −{{ amount(discountAmount) }}</span
+            ><span>Total de venta</span><strong>{{ amount(total) }}</strong
+            ><small
+              >Cobrado:
+              {{ amount(paymentMode === "now" ? paymentAmount : 0) }} ·
+              Pendiente: {{ amount(pendingDraft) }}</small
+            >
           </div>
           <button
             class="purchase-save"
@@ -382,54 +396,62 @@ import { SelectComponent } from "./select";
               ><strong>{{ lineAmount(line) }}</strong>
             </div>
           }
-          <div class="sales-payment">
-            <h3>Cobro de la venta</h3>
-            <div class="cash-form">
-              <label
-                >Forma de registro<app-select
-                  label="Cobro de la venta"
-                  [options]="paymentModes"
-                  [(ngModel)]="paymentMode"
-              /></label>
-              @if (paymentMode === "now") {
+          @if (total === "0") {
+            <p class="purchase-help">
+              Total cero: se registra sin cobro ni movimiento de Caja.
+            </p>
+          } @else {
+            <div class="sales-payment">
+              <h3>Cobro de la venta</h3>
+              <div class="cash-form">
                 <label
-                  >Cuenta<app-select
-                    label="Cuenta para el cobro"
-                    placeholder="Elegir cuenta"
-                    [options]="accountOptions"
-                    [(ngModel)]="account" /></label
-                ><label
-                  >Cobrar ahora (ARS)<input
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    [(ngModel)]="paymentAmount" /></label
-                ><button
-                  class="sales-pay-total"
-                  type="button"
-                  (click)="useTotal()"
-                >
-                  Cobrar el total
-                </button>
+                  >Forma de registro<app-select
+                    label="Cobro de la venta"
+                    [options]="paymentModes"
+                    [(ngModel)]="paymentMode"
+                /></label>
+                @if (paymentMode === "now") {
+                  <label
+                    >Cuenta<app-select
+                      label="Cuenta para el cobro"
+                      placeholder="Elegir cuenta"
+                      [options]="accountOptions"
+                      [(ngModel)]="account" /></label
+                  ><label
+                    >Cobrar ahora (ARS)<input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      [(ngModel)]="paymentAmount" /></label
+                  ><button
+                    class="sales-pay-total"
+                    type="button"
+                    (click)="useTotal()"
+                  >
+                    Cobrar el total
+                  </button>
+                }
+              </div>
+              <p class="purchase-help">
+                @if (!customer) {
+                  Elegí un cliente para dejar saldo pendiente.
+                } @else {
+                  El importe pendiente queda en la cuenta corriente del cliente.
+                }
+              </p>
+              @if (paymentMode === "now" && !accountOptions.length) {
+                <p class="rate-note">
+                  Cargá el saldo inicial de una cuenta en Caja y cuentas para
+                  registrar el cobro.
+                </p>
               }
             </div>
-            <p class="purchase-help">
-              @if (!customer) {
-                Elegí un cliente para dejar saldo pendiente.
-              } @else {
-                El importe pendiente queda en la cuenta corriente del cliente.
-              }
-            </p>
-            @if (paymentMode === "now" && !accountOptions.length) {
-              <p class="rate-note">
-                Cargá el saldo inicial de una cuenta en Caja y cuentas para
-                registrar el cobro.
-              </p>
-            }
-          </div>
+          }
 
           <div class="sales-total">
-            <span>Total de venta</span><strong>{{ amount(total) }}</strong
+            <span>Subtotal: {{ amount(subtotal) }}</span
+            ><span>Descuento: −{{ amount(discountAmount) }}</span
+            ><span>Total de venta</span><strong>{{ amount(total) }}</strong
             ><span
               >Cobrado:
               {{ amount(paymentMode === "now" ? paymentAmount : 0) }}</span
@@ -497,8 +519,18 @@ import { SelectComponent } from "./select";
                 </small>
               </div>
               <div class="sales-balance">
+                <small>Subtotal: {{ amount(s.subtotal ?? s.total) }}</small>
+                <small
+                  >Descuento: −{{ amount(s.discount_amount || 0) }}
+                  @if (s.discount_mode === "percent") {
+                    ({{ s.discount_value }}%)
+                  }
+                </small>
                 <strong>{{ amount(s.total) }}</strong
-                ><span>Pendiente: {{ amount(s.pending) }}</span>
+                ><span
+                  >Cobrado: {{ amount(s.paid) }} · Pendiente:
+                  {{ amount(s.pending) }}</span
+                >
               </div>
             </div>
             <details>
@@ -509,6 +541,8 @@ import { SelectComponent } from "./select";
                     <strong>{{ item.product_name }}</strong
                     ><span
                       >{{ item.quantity }} × {{ amount(item.unit_price) }} ·
+                      Subtotal {{ amount(item.subtotal ?? item.total) }} ·
+                      Descuento {{ amount(item.discount_amount || 0) }} · Neto
                       {{ amount(item.total) }}</span
                     >
                     @for (c of item.components; track c.id) {
@@ -674,10 +708,7 @@ export class SalesComponent implements OnInit {
       return;
     }
     const existing =
-      p.kind !== "kit" &&
-      this.lines.find(
-        (l) => Number(l.product_id) === p.id && !Number(l.discount),
-      );
+      p.kind !== "kit" && this.lines.find((l) => Number(l.product_id) === p.id);
     if (existing) existing.quantity = Number(existing.quantity) + 1;
     else {
       this.add();
@@ -714,7 +745,7 @@ export class SalesComponent implements OnInit {
   account: any = "";
   private customPaymentAmount: any = null;
   get paymentAmount(): any {
-    return this.customPaymentAmount ?? this.total;
+    return this.total === "0" ? "0" : (this.customPaymentAmount ?? this.total);
   }
   set paymentAmount(value: any) {
     this.customPaymentAmount = value;
@@ -928,7 +959,7 @@ export class SalesComponent implements OnInit {
             selections: [],
           },
         ];
-    return discountItems(items, l.discount_mode || "amount", l.discount);
+    return items;
   }
   promoPrice(line: any, promo: number): string {
     try {
@@ -962,7 +993,9 @@ export class SalesComponent implements OnInit {
       return "—";
     }
   }
-  get total() {
+  discountMode = "amount";
+  discountValue: any = 0;
+  get subtotal() {
     try {
       return this.lines
         .reduce(
@@ -973,6 +1006,33 @@ export class SalesComponent implements OnInit {
     } catch {
       return "0";
     }
+  }
+  get discountValid() {
+    try {
+      const v = new Decimal(this.discountValue ?? 0);
+      return (
+        v.isFinite() &&
+        v.gte(0) &&
+        v.decimalPlaces() <= 2 &&
+        (this.discountMode === "percent"
+          ? v.lte(100)
+          : this.discountMode === "amount" && v.lte(this.subtotal))
+      );
+    } catch {
+      return false;
+    }
+  }
+  get discountAmount() {
+    if (!this.discountValid) return "0";
+    const value = new Decimal(this.discountValue ?? 0);
+    return (
+      this.discountMode === "percent"
+        ? new Decimal(this.subtotal).mul(value).div(100).toDecimalPlaces(2)
+        : value
+    ).toString();
+  }
+  get total() {
+    return new Decimal(this.subtotal).minus(this.discountAmount).toString();
   }
   get pendingDraft() {
     try {
@@ -1028,6 +1088,7 @@ export class SalesComponent implements OnInit {
         !!this.soldOn &&
         this.lines.length > 0 &&
         this.saleItems().length <= 100 &&
+        this.discountValid &&
         this.lines.every(
           (l) =>
             !!this.selected(l) &&
@@ -1037,9 +1098,6 @@ export class SalesComponent implements OnInit {
               (this.selected(l)?.components?.some((c: any) => c.variant_group)
                 ? 100
                 : 1e9) &&
-            new Decimal(l.discount || 0).gte(0) &&
-            (l.discount_mode !== "percent" ||
-              new Decimal(l.discount || 0).lte(100)) &&
             l.unit_price !== "" &&
             new Decimal(l.unit_price).gte(0) &&
             new Decimal(l.unit_price).decimalPlaces() <= 2 &&
@@ -1082,6 +1140,10 @@ export class SalesComponent implements OnInit {
           note: this.note,
           request_key: this.requestKey,
           items: this.saleItems(),
+          discount: {
+            mode: this.discountMode,
+            value: String(this.discountValue ?? 0),
+          },
           payment:
             this.paymentMode === "now" && new Decimal(this.total).gt(0)
               ? { account_id: this.account, amount: String(this.paymentAmount) }
@@ -1096,6 +1158,8 @@ export class SalesComponent implements OnInit {
         this.notice += " Aviso: " + result.warnings.join("; ") + ".";
       this.reviewOpen = false;
       this.lines = [];
+      this.discountMode = "amount";
+      this.discountValue = 0;
       this.customer = "";
       this.soldOn = this.today();
       this.focusSearch();

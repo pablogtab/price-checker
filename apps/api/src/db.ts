@@ -21,6 +21,7 @@ import {
   SupplierPackUnits1760097600017,
   MinimumStock1760097600018,
   CustomerCollections1760097600019,
+  SaleDiscount1760097600020,
   SaleCorrections1760097600021,
 } from "./migration";
 export const db = new DataSource({
@@ -49,6 +50,7 @@ export const db = new DataSource({
     SupplierPackUnits1760097600017,
     MinimumStock1760097600018,
     CustomerCollections1760097600019,
+    SaleDiscount1760097600020,
   SaleCorrections1760097600021,
   ],
   synchronize: false,

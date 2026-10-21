@@ -17,6 +17,7 @@ import {
 import { stockQuantity } from "./inventory";
 import { calculate, chooseCost } from "./pricing";
 import { kitSellingPrice } from "./bundles";
+import { saleDiscount, priceSale } from "./sale-money";
 
 export function date(value: any) {
   const d = String(value || "");
@@ -76,13 +77,13 @@ export async function saveCustomer(body: any, id?: number) {
 export async function sales(query: any = {}) {
   const customer = query.customer_id ? integer(query.customer_id) : null;
   const rows = await db.query(
-    `SELECT s.*,s.sold_on::text,s.total::text,s.cost_total::text,(s.total-coalesce(p.paid,0))::text pending,coalesce(p.paid,0)::text paid FROM sales s LEFT JOIN LATERAL(SELECT sum(amount) paid FROM sale_payments WHERE sale_id=s.id) p ON true WHERE ($1::int IS NULL OR customer_id=$1) ORDER BY s.sold_on DESC,s.id DESC LIMIT $2 OFFSET $3`,
+    `SELECT s.*,s.sold_on::text,s.total::text,s.subtotal::text,s.discount_value::text,s.discount_amount::text,s.cost_total::text,(s.total-coalesce(p.paid,0))::text pending,coalesce(p.paid,0)::text paid FROM sales s LEFT JOIN LATERAL(SELECT sum(amount) paid FROM sale_payments WHERE sale_id=s.id) p ON true WHERE ($1::int IS NULL OR customer_id=$1) ORDER BY s.sold_on DESC,s.id DESC LIMIT $2 OFFSET $3`,
     [customer, query.page ? 25 : 100, query.page ? (integer(query.page)-1)*25 : 0],
   );
   if (!rows.length) return rows;
   const ids = rows.map((s: any) => s.id);
   const items = await db.query(
-    "SELECT *,unit_price::text,total::text,cost_total::text FROM sale_items WHERE sale_id=ANY($1::int[]) ORDER BY id",
+    "SELECT *,unit_price::text,total::text,subtotal::text,discount_amount::text,cost_total::text FROM sale_items WHERE sale_id=ANY($1::int[]) ORDER BY id",
     [ids],
   );
   const parts = await db.query(
@@ -205,6 +206,7 @@ export async function createSale(body: any) {
       })),
     };
   });
+  const discount = saleDiscount(body.discount);
   const payment = body.payment
     ? {
         account: integer(body.payment.account_id),
@@ -212,7 +214,7 @@ export async function createSale(body: any) {
       }
     : null;
   const fingerprint = createHash("sha256")
-    .update(JSON.stringify({ d, customer, note, items, payment }))
+    .update(JSON.stringify({ d, customer, note, items, payment, discount }))
     .digest("hex");
   return db.transaction(async (em) => {
     await em.query("SELECT pg_advisory_xact_lock(713450)");
@@ -356,10 +358,8 @@ export async function createSale(body: any) {
         cost: known ? cost.mul(item.quantity).toString() : null,
       });
     }
-    const total = prepared.reduce(
-      (sum: Decimal, i: any) => sum.plus(i.total),
-      new Decimal(0),
-    );
+    const priced = priceSale(prepared, discount);
+    const total = new Decimal(priced.total);
     if (total.gt("1e15")) throw new BadRequestException("Total fuera de rango");
     if (payment && new Decimal(payment.amount).gt(total))
       throw new BadRequestException("El cobro supera el total de la venta");
@@ -391,7 +391,7 @@ export async function createSale(body: any) {
           .toString()
       : null;
     const [sale] = await em.query(
-      "INSERT INTO sales(customer_id,customer_name,sold_on,note,total,cost_total,request_key,fingerprint) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
+      "INSERT INTO sales(customer_id,customer_name,sold_on,note,total,cost_total,request_key,fingerprint,subtotal,discount_mode,discount_value,discount_amount) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id",
       [
         customer,
         client?.name || null,
@@ -401,12 +401,13 @@ export async function createSale(body: any) {
         cost,
         k,
         fingerprint,
+        priced.subtotal, priced.discount_mode, priced.discount_value, priced.discount_amount,
       ],
     );
     const batch = randomUUID();
-    for (const i of prepared) {
+    for (const i of priced.items) {
       const [line] = await em.query(
-        "INSERT INTO sale_items(sale_id,product_id,product_name,quantity,unit_price,total,cost_total) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+        "INSERT INTO sale_items(sale_id,product_id,product_name,quantity,unit_price,total,cost_total,subtotal,discount_amount) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id",
         [
           sale.id,
           i.product.id,
@@ -415,6 +416,7 @@ export async function createSale(body: any) {
           i.unit,
           i.total,
           i.cost,
+          i.subtotal, i.discount_amount,
         ],
       );
       for (const part of i.parts) {
