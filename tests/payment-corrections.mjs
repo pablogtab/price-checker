@@ -1,3 +1,4 @@
+import { readAllSales } from "./helpers/sales.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -79,7 +80,7 @@ test("shared receipt correction affects only selected sale, previews and retries
     "POST",
     201,
   );
-  let rows = await req("sales");
+  let rows = await readAllSales(req);
   const application = rows.find((s) => s.id === s1.id).payments[0];
   const edit = { amount: "50000", account_id: b.id, occurred_on: "2026-10-20" };
   const ep = await req(
@@ -111,7 +112,7 @@ test("shared receipt correction affects only selected sale, previews and retries
     ),
     result,
   );
-  rows = await req("sales");
+  rows = await readAllSales(req);
   assert.equal(rows.find((s) => s.id === s1.id).pending, "10000");
   assert.equal(rows.find((s) => s.id === s2.id).paid, "40000");
   accounts = await req("cash/accounts");
@@ -218,7 +219,10 @@ test("shared receipt correction affects only selected sale, previews and retries
       "DROP TRIGGER correction_fail ON sale_corrections; DROP FUNCTION correction_fail_test();",
     );
   }
-  assert.equal((await req("sales")).find((s) => s.id === s1.id).paid, "46000");
+  assert.equal(
+    (await readAllSales(req)).find((s) => s.id === s1.id).paid,
+    "46000",
+  );
   const usd = await req(
     "cash/accounts",
     { name: "USD " + suffix, currency: "USD", opening_balance: "0" },
@@ -243,7 +247,10 @@ test("shared receipt correction affects only selected sale, previews and retries
     "POST",
     201,
   );
-  assert.equal((await req("sales")).find((s) => s.id === s1.id).paid, "1000");
+  assert.equal(
+    (await readAllSales(req)).find((s) => s.id === s1.id).paid,
+    "1000",
+  );
   assert.equal(
     (await req("customers")).find((x) => x.id === c.id).balance,
     "59000",

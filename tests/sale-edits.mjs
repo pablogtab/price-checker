@@ -1,3 +1,4 @@
+import { readAllSales } from "./helpers/sales.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -38,7 +39,7 @@ test("edit keeps sale identity and historical price, moves debt and applies stoc
     sold_on: "2026-10-21",
     items: [{ product_id: p.id, quantity: 2, unit_price: "100" }],
   });
-  const original = (await req("sales", undefined)).find((x) => x.id === s.id);
+  const original = (await readAllSales(req)).find((x) => x.id === s.id);
   await req(`products/${p.id}/stock`, { quantity: 30 }, "PUT", 200);
   const edit = {
     customer_id: d.id,
@@ -60,7 +61,7 @@ test("edit keeps sale identity and historical price, moves debt and applies stoc
   };
   await req(`sales/${s.id}/edits`, body);
   await req(`sales/${s.id}/edits`, body);
-  const updated = (await req("sales", undefined)).find((x) => x.id === s.id);
+  const updated = (await readAllSales(req)).find((x) => x.id === s.id);
   assert.equal(updated.total, "270");
   assert.equal(updated.items[0].unit_price, "100");
   assert.equal(updated.cost_total, null);
@@ -108,7 +109,7 @@ test("retained legacy promo uses actual flavors after recipe changes; substituti
       },
     ],
   });
-  const old = (await req("sales")).find((x) => x.id === s.id);
+  const old = (await readAllSales(req)).find((x) => x.id === s.id);
   await req(
     `products/${kit.id}`,
     {
@@ -148,7 +149,7 @@ test("retained legacy promo uses actual flavors after recipe changes; substituti
     preview_token: p.preview_token,
     request_key: randomUUID(),
   });
-  const after = (await req("sales")).find((x) => x.id === s.id);
+  const after = (await readAllSales(req)).find((x) => x.id === s.id);
   assert.equal(after.items[0].unit_price, "30.03");
   assert.equal(after.items[1].unit_price, "50");
   assert.equal(
@@ -182,7 +183,7 @@ test("stale previews, concurrent collections and injected failures preserve comp
     sold_on: "2026-10-21",
     items: [{ product_id: p.id, quantity: 1 }],
   });
-  const old = (await req("sales")).find((x) => x.id === s.id);
+  const old = (await readAllSales(req)).find((x) => x.id === s.id);
   const body = {
     customer_id: c.id,
     sold_on: "2026-10-21",
@@ -237,7 +238,10 @@ test("stale previews, concurrent collections and injected failures preserve comp
     (await req("products")).find((x) => x.id === p.id).own_stock,
     20,
   );
-  assert.equal((await req("sales")).find((x) => x.id === s.id).total, "100");
+  assert.equal(
+    (await readAllSales(req)).find((x) => x.id === s.id).total,
+    "100",
+  );
   await req(`sales/${s.id}/payments`, {
     request_key: randomUUID(),
     account_id: a.id,
@@ -251,7 +255,7 @@ test("stale previews, concurrent collections and injected failures preserve comp
     409,
   );
   await req(`sales/${s.id}/edit/preview`, body, "POST", 400);
-  assert.equal((await req("sales")).find((x) => x.id === s.id).paid, "1");
+  assert.equal((await readAllSales(req)).find((x) => x.id === s.id).paid, "1");
   assert.equal(
     (await req("products")).find((x) => x.id === p.id).own_stock,
     20,
@@ -288,7 +292,7 @@ test("historical known component cost survives archived product and quantity edi
     "-c",
     `UPDATE sale_components SET unit_cost=25 WHERE sale_item_id IN(SELECT id FROM sale_items WHERE sale_id=${s.id});UPDATE sale_items SET cost_total=50 WHERE sale_id=${s.id};UPDATE sales SET cost_total=50 WHERE id=${s.id};UPDATE products SET archived=true WHERE id=${p.id};`,
   ]);
-  const old = (await req("sales")).find((x) => x.id === s.id);
+  const old = (await readAllSales(req)).find((x) => x.id === s.id);
   const edit = {
     customer_id: c.id,
     sold_on: "2026-10-20",
@@ -300,7 +304,7 @@ test("historical known component cost survives archived product and quantity edi
     request_key: randomUUID(),
     preview_token: preview.preview_token,
   });
-  const after = (await req("sales")).find((x) => x.id === s.id);
+  const after = (await readAllSales(req)).find((x) => x.id === s.id);
   assert.equal(after.cost_total, "75");
   assert.equal(after.items[0].components[0].unit_cost, "25");
   assert.equal(after.items[0].unit_price, "100");
@@ -366,7 +370,7 @@ test("split original same-flavor x2 into separate flavor slots preserves retaine
       },
     ],
   });
-  const old = (await req("sales")).find((x) => x.id === s.id);
+  const old = (await readAllSales(req)).find((x) => x.id === s.id);
   assert.equal(old.cost_total, "50");
   sql(
     `UPDATE supplier_items SET price=50,source_price=50 WHERE external_id='split-${a.id}-${tag}';`,
@@ -394,7 +398,7 @@ test("split original same-flavor x2 into separate flavor slots preserves retaine
     request_key: randomUUID(),
     preview_token: preview.preview_token,
   });
-  const after = (await req("sales")).find((x) => x.id === s.id);
+  const after = (await readAllSales(req)).find((x) => x.id === s.id);
   assert.equal(
     after.items[0].components.find((c) => c.product_id === a.id).unit_cost,
     "25",
@@ -428,7 +432,7 @@ test("removing a historical line restores only its consumed units and leaves kep
       { product_id: b.id, quantity: 1 },
     ],
   });
-  const old = (await req("sales")).find((x) => x.id === s.id),
+  const old = (await readAllSales(req)).find((x) => x.id === s.id),
     keep = old.items[1];
   const body = {
     customer_id: c.id,
@@ -441,7 +445,7 @@ test("removing a historical line restores only its consumed units and leaves kep
     preview_token: preview.preview_token,
     request_key: randomUUID(),
   });
-  const after = (await req("sales")).find((x) => x.id === s.id);
+  const after = (await readAllSales(req)).find((x) => x.id === s.id);
   assert.equal(after.items.length, 1);
   assert.equal(after.items[0].id, keep.id);
   const products = await req("products");
@@ -461,7 +465,7 @@ test("annulled sales remain historical and cannot enter unpaid editor", async ()
     sold_on: "2026-10-21",
     items: [{ product_id: p.id, quantity: 1 }],
   });
-  const old = (await req("sales")).find((x) => x.id === s.id),
+  const old = (await readAllSales(req)).find((x) => x.id === s.id),
     preview = await req(`sales/${s.id}/annul/preview`, {});
   await req(`sales/${s.id}/annul`, {
     preview_token: preview.preview_token,
@@ -478,7 +482,7 @@ test("annulled sales remain historical and cannot enter unpaid editor", async ()
     400,
   );
   assert.equal(
-    (await req("sales")).find((x) => x.id === s.id).status,
+    (await readAllSales(req)).find((x) => x.id === s.id).status,
     "annulled",
   );
 });

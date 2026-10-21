@@ -1,3 +1,4 @@
+import { readAllSales } from "./helpers/sales.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -53,7 +54,7 @@ test("annul restores current stock, reverses only shared application, preserves 
   assert.equal(preview.stock[0].after, 21);
   assert.equal(preview.cash[0].delta, "-60000");
   assert.equal(
-    (await req("sales")).find((x) => x.id === s.id).status,
+    (await readAllSales(req)).find((x) => x.id === s.id).status,
     "active",
   );
   const summaryBefore = await req("sales/summary");
@@ -63,12 +64,15 @@ test("annul restores current stock, reverses only shared application, preserves 
   };
   const result = await req(`sales/${s.id}/annul`, body);
   assert.deepEqual(await req(`sales/${s.id}/annul`, body), result);
-  const summaryAfter=await req("sales/summary");
-  assert.equal(Number(summaryBefore.total)-Number(summaryAfter.total),60000);
-  assert.equal(summaryBefore.count-summaryAfter.count,1);
-  assert.equal(Number(summaryBefore.paid)-Number(summaryAfter.paid),60000);
-  assert.equal((await req(`products/${p.id}/stock-movements`))[0].resulting_stock,21);
-  const rows = await req("sales");
+  const summaryAfter = await req("sales/summary");
+  assert.equal(Number(summaryBefore.total) - Number(summaryAfter.total), 60000);
+  assert.equal(summaryBefore.count - summaryAfter.count, 1);
+  assert.equal(Number(summaryBefore.paid) - Number(summaryAfter.paid), 60000);
+  assert.equal(
+    (await req(`products/${p.id}/stock-movements`))[0].resulting_stock,
+    21,
+  );
+  const rows = await readAllSales(req);
   assert.equal(rows.find((x) => x.id === s.id).status, "annulled");
   assert.equal(rows.find((x) => x.id === s.id).pending, "0");
   assert.equal(rows.find((x) => x.id === other.id).paid, "40000");
@@ -191,7 +195,7 @@ test("changed promo restores recorded components; stale stock, rollback and conc
     ),
   );
   assert.deepEqual(responses.map((x) => x.status).sort(), [201, 409]);
-  const historical = (await req("sales")).find((x) => x.id === sale.id);
+  const historical = (await readAllSales(req)).find((x) => x.id === sale.id);
   assert.equal(historical.items[0].components[0].product_id, p.id);
   assert.equal(historical.items[0].components[0].quantity, 4);
   assert.equal(historical.status, "annulled");
