@@ -3,7 +3,12 @@ import { test } from "node:test";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 const base = process.env.TEST_API_URL;
-if (!base) throw Error("TEST_API_URL must point to disposable test API");
+if (!base || !["127.0.0.1", "localhost"].includes(new URL(base).hostname))
+  throw Error("TEST_API_URL must point to a local disposable test API");
+const fixtureDatabase =
+  process.env.TEST_CORRECTION_DATABASE || "ventas_ticket6_test";
+if (!/^[a-z0-9_]+_test$/.test(fixtureDatabase))
+  throw Error("Use a disposable _test database");
 async function req(path, body, method = "POST", expected = 200) {
   const r = await fetch(
     base + "/api/" + path,
@@ -189,7 +194,7 @@ test("shared receipt correction affects only selected sale, previews and retries
       "-U",
       "price_checker",
       "-d",
-      "ventas_ticket6_test",
+      fixtureDatabase,
       "-c",
       text,
     ]);
