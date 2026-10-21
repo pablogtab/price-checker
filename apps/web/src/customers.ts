@@ -354,7 +354,7 @@ import { CustomerEditorComponent } from "./customer-editor";
                 <details>
                   <summary>
                     <span>Venta #{{ s.id }} · {{ date(s.sold_on) }}</span
-                    ><strong>{{ money(s.total) }}</strong
+                    >@if(s.status === "annulled"){<span>Anulada</span>}<strong>{{ money(s.total) }}</strong
                     ><span>Pendiente: {{ money(s.pending) }}</span>
                   </summary>
                   <div class="customers-sale-content">
