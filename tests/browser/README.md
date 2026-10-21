@@ -31,3 +31,17 @@ Coverage includes keyboard product addition, quantity consolidation preserving a
 manual price, explicit review/cancel, mobile layout, real stock/cash/debt effects,
 customer creation without losing the cart, partial payment and a lost response
 followed by an idempotent retry.
+
+Sale-wide discount coverage uses the same setup:
+
+```sh
+E2E_BASE_URL=http://127.0.0.1:4224 E2E_ALLOW_FIXTURES=1 \
+PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs \
+node --test tests/browser/sales-global-discount.mjs
+```
+
+The companion REST suite runs against the same isolated API/PostgreSQL using
+`node --test tests/api/sales-discount.mjs`. It verifies authoritative ARS and
+percentage calculations, indivisible cents without splitting quantities, promo
+rounding, full/partial/zero receipts, limits and unchanged stock on rejection.
+The browser suite verifies desktop and mobile review, persistence and detail.

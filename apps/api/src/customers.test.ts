@@ -43,7 +43,7 @@ test(
       const saleIds: number[] = [];
       for (let i = 0; i < 110; i++) {
         const [s] = await db.query(
-          "INSERT INTO sales(customer_id,customer_name,sold_on,total,request_key,fingerprint) VALUES($1,$2,$3,100,$4,'fixture') RETURNING id",
+          "INSERT INTO sales(customer_id,customer_name,sold_on,total,subtotal,request_key,fingerprint) VALUES($1,$2,$3,100,100,$4,'fixture') RETURNING id",
           [
             c.id,
             c.name,
