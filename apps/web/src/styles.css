@@ -1832,3 +1832,29 @@ app-sales .client-card .purchase-add { margin-top:0; }
     font-size: 12px;
   }
 }
+
+.sales-global-discount {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.sales-global-discount[open] {
+  grid-template-columns: minmax(180px, 240px) minmax(180px, 280px);
+  gap: 12px 20px;
+}
+.sales-global-discount summary,
+.sales-global-discount small,
+.sales-global-discount .alert {
+  grid-column: 1 / -1;
+}
+.sales-global-discount label {
+  display: grid;
+  gap: 6px;
+}
+@media (max-width: 600px) {
+  .sales-global-discount[open] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
