@@ -359,6 +359,11 @@ export class DateFieldComponent implements ControlValueAccessor {
   }
   keys(e: KeyboardEvent) {
     if (!(e.target as HTMLElement).hasAttribute("data-day")) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      this.pick(this.iso(this.focusedDay));
+      return;
+    }
     const delta = (
       { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 } as Record<
         string,

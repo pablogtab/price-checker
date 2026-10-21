@@ -10,8 +10,8 @@
 }
 .sales-cart,
 .sales-checkout {
-  padding: 22px !important;
-  margin: 0 !important;
+  padding: 22px;
+  margin: 0;
   min-width: 0;
   border-radius: 10px;
 }
@@ -221,12 +221,12 @@
   padding: 7px 0;
 }
 .sales-global-discount {
-  display: flex !important;
+  display: flex;
   align-items: center;
   gap: 9px;
-  padding: 14px 0 !important;
-  border: 0 !important;
-  margin: 15px 0 0 !important;
+  padding: 14px 0;
+  border: 0;
+  margin: 15px 0 0;
   min-width: 0;
 }
 .sales-global-discount > span {
@@ -373,10 +373,10 @@
   background: var(--accent-soft);
 }
 .purchase-history {
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .purchase-history .purchase-heading {
   margin-bottom: 20px;
@@ -388,10 +388,10 @@
   font-size: 12px;
 }
 .sales-history-item {
-  border: 1px solid var(--line) !important;
+  border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
-  padding: 18px !important;
+  padding: 18px;
   margin-bottom: 10px;
 }
 .sales-record-heading {
@@ -429,7 +429,7 @@
   font-size: 16px;
 }
 .sales-status {
-  font-size: 10px !important;
+  font-size: 10px;
   color: #397558;
   background: #edf6f1;
   border-radius: 20px;
@@ -513,7 +513,7 @@
   }
   .sales-cart,
   .sales-checkout {
-    padding: 16px !important;
+    padding: 16px;
   }
   .sales-cart .sales-table-header {
     display: none;
@@ -575,7 +575,7 @@
     gap: 6px;
   }
   .sales-history-item {
-    padding: 16px !important;
+    padding: 16px;
   }
   .sales-record-heading {
     grid-template-columns: minmax(0, 1fr) 100px;
@@ -624,6 +624,7 @@
 }
 .sales-history-tools > label {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
   flex: 1;
@@ -631,6 +632,7 @@
   border-radius: 7px;
   padding: 0 12px;
   background: var(--surface);
+  font-weight: 400;
 }
 .sales-history-tools input {
   border: 0;

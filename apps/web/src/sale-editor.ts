@@ -1,3 +1,4 @@
+import { DateFieldComponent } from "./ui/date-field";
 import {
   Component,
   Input,
@@ -17,7 +18,13 @@ import { ButtonDirective } from "./ui/button";
 @Component({
   selector: "app-sale-editor",
   standalone: true,
-  imports: [FormsModule, A11yModule, SelectComponent, ButtonDirective],
+  imports: [
+    DateFieldComponent,
+    FormsModule,
+    A11yModule,
+    SelectComponent,
+    ButtonDirective,
+  ],
   styles: [
     `
       .backdrop {
@@ -152,9 +159,8 @@ import { ButtonDirective } from "./ui/button";
               [(ngModel)]="customer"
               (ngModelChange)="changed()" /></label
           ><label
-            >Fecha<input
-              aria-label="Fecha de venta"
-              type="date"
+            >Fecha<pc-date-field
+              label="Fecha de venta"
               [(ngModel)]="soldOn"
               (ngModelChange)="changed()" /></label
           ><label
@@ -280,9 +286,8 @@ import { ButtonDirective } from "./ui/button";
                     (ngModelChange)="changed()"
                 /></label>
                 <label
-                  >Fecha<input
-                    [attr.aria-label]="'Fecha del cobro ' + (n + 1)"
-                    type="date"
+                  >Fecha<pc-date-field
+                    [label]="'Fecha del cobro ' + (n + 1)"
                     [(ngModel)]="payment.occurred_on"
                     (ngModelChange)="changed()"
                 /></label>

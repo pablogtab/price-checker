@@ -1,3 +1,4 @@
+import { DateFieldComponent } from "./ui/date-field";
 import { ButtonDirective } from "./ui/button";
 import {
   Component,
@@ -16,7 +17,13 @@ import { SelectComponent } from "./select";
 @Component({
   selector: "app-payment-correction",
   standalone: true,
-  imports: [FormsModule, A11yModule, SelectComponent, ButtonDirective],
+  imports: [
+    DateFieldComponent,
+    FormsModule,
+    A11yModule,
+    SelectComponent,
+    ButtonDirective,
+  ],
   template: ` <div class="client-modal-backdrop">
     <section
       class="client-modal payment-correction"
@@ -50,9 +57,8 @@ import { SelectComponent } from "./select";
           (ngModelChange)="changed()"
       /></label>
       <label
-        >Fecha<input
-          aria-label="Fecha del cobro"
-          type="date"
+        >Fecha<pc-date-field
+          label="Fecha del cobro"
           [(ngModel)]="date"
           (ngModelChange)="changed()"
       /></label>

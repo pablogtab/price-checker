@@ -302,7 +302,7 @@ import { SelectComponent } from "./select";
                       [class.stock-negative]="p.after !== null && p.after < 0"
                     >
                       <span>{{ p.name }}</span
-                      ><strong>{{ p.stock ?? "Sin cargar" }}</strong
+                      ><strong>{{ p.stock }}</strong
                       ><strong>{{ p.after }}</strong>
                     </div>
                   }
@@ -729,7 +729,9 @@ import { SelectComponent } from "./select";
                           step="0.01"
                           [(ngModel)]="collectAmount" /></label
                       ><label
-                        >Fecha<input type="date" [(ngModel)]="collectDate"
+                        >Fecha<pc-date-field
+                          label="Fecha del cobro"
+                          [(ngModel)]="collectDate"
                       /></label>
                     </div>
                     @if (!accountOptions.length) {
@@ -1493,7 +1495,7 @@ export class SalesComponent implements OnInit, DoCheck {
               options: c.variants.map((v: any) => ({
                 value: v.id,
                 label: v.name,
-                detail: "Stock: " + (v.own_stock ?? "Sin cargar"),
+                detail: "Stock: " + (v.own_stock ?? 0),
               })),
             },
           );

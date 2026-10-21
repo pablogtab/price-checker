@@ -121,6 +121,13 @@ test("layout A uses separate navigation, compact date/discount and permits unkno
       .filter({ hasText: "Layout " + suffix });
     await card.waitFor();
     assert.equal((await card.boundingBox()).height < 180, true);
+    const searchLayout = await page.locator('.sales-history-tools > label').evaluate(el => {
+      const icon = el.querySelector('pc-icon').getBoundingClientRect();
+      const input = el.querySelector('input').getBoundingClientRect();
+      return { aligned: Math.abs(icon.y + icon.height / 2 - input.y - input.height / 2) < 2, height: el.getBoundingClientRect().height };
+    });
+    assert.equal(searchLayout.aligned, true);
+    assert.equal(searchLayout.height < 55, true);
     await page
       .getByRole("searchbox", { name: "Buscar ventas" })
       .fill("no-existe-venta");
@@ -151,6 +158,47 @@ test("layout A uses separate navigation, compact date/discount and permits unkno
         false,
       );
     }
+  } finally {
+    await b.close();
+  }
+});
+
+test("date-only calendar supports leap days, keyboard month changes and Escape focus return", async () => {
+  const b = await chromium.launch({
+    executablePath:
+      process.env.CHROME_EXECUTABLE ||
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    headless: true,
+  });
+  try {
+    const page = await b.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(base + "/sales/new");
+    const input = page.getByLabel("Fecha de venta", { exact: true });
+    await input.fill("29/02/2024");
+    await input.press("Tab");
+    assert.equal(await input.inputValue(), "29/02/2024");
+    const toggle = page.getByRole("button", {
+      name: "Abrir calendario de Fecha de venta",
+    });
+    await toggle.click();
+    const calendar = page.getByRole("dialog", {
+      name: "Elegir Fecha de venta",
+    });
+    const selected = calendar.getByRole("button", { pressed: true });
+    await selected.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    assert.equal(await input.inputValue(), "01/03/2024");
+    await toggle.click();
+    await calendar.waitFor();
+    await page.keyboard.press("Escape");
+    assert.equal(await calendar.count(), 0);
+    assert.equal(
+      await toggle.evaluate((el) => el === document.activeElement),
+      true,
+    );
+    await input.fill("31/04/2024");
+    assert.equal(await input.getAttribute("aria-invalid"), "true");
+    assert.match(await page.getByRole("alert").innerText(), /fecha válida/);
   } finally {
     await b.close();
   }
