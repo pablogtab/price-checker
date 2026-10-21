@@ -1,0 +1,3 @@
+interface:
+  display_name: "Deploy GevaFit"
+  short_description: "Publicar GevaFit en Contabo y verificar la app"
