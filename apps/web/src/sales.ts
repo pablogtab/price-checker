@@ -40,7 +40,7 @@ import { SelectComponent } from "./select";
     ButtonDirective,
   ],
   template: ` <div class="purchase-page">
-    @if (editingSale) {<app-sale-editor [sale]="editingSale" [products]="products" [clients]="clients" (closed)="editingSale=null" (saved)="saleEdited()" />}
+    @if (editingSale) {<app-sale-editor [sale]="editingSale" [accounts]="accounts" [products]="products" [clients]="clients" (closed)="editingSale=null" (saved)="saleEdited()" />}
     @if (annullingSale) {<app-sale-annulment [sale]="annullingSale" (closed)="annullingSale=null" (saved)="saleAnnulled()" />}
     @if (correctingPayment) {<app-payment-correction [sale]="correctingPayment.sale" [payment]="correctingPayment.payment" [accounts]="accounts" (closed)="correctingPayment=null" (saved)="paymentCorrected()" />}
     @if (clientForm) {
@@ -574,7 +574,7 @@ import { SelectComponent } from "./select";
                 >
               </div>
             </div>
-            @if (s.status !== 'annulled') { @if (!s.payments.length) {<button appButton="ghost" (click)="editingSale=s">Editar venta</button>} @else {<small>Venta con cobros · edición conjunta pendiente</small>} }
+            @if (s.status !== 'annulled') { <button appButton="ghost" (click)="editingSale=s">Editar venta</button> }
             <details>
               <summary>Ver productos y cobros</summary>
               <div class="purchase-history-lines">
