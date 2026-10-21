@@ -48,3 +48,13 @@ The browser suite verifies desktop and mobile review, persistence and detail.
 `node --test tests/browser/sales-promos.mjs` uses the same harness to verify
 promo flavor selection/cancel, combination repetition, fixed/discounted prices,
 manual price preservation, mobile review and exact variant stock consumption.
+
+`node --test tests/browser/sales-drafts.mjs` verifies browser-local draft recovery,
+manual/catalog prices and explicit updates, discard, unavailable products,
+promo combinations and metadata after closing a tab, and uncertain submissions
+both before and after server commit. The latter changes the cart after reload,
+then verifies the original immutable attempt causes a single sale, stock change
+and receipt. `/api/sales/requests/:key` resolves a submission under the same lock
+as sale creation; a retry never uses a new payload for that key.
+Run multiple browser files with `--test-concurrency=1` because their cash fixtures
+share accounts in the isolated database.
