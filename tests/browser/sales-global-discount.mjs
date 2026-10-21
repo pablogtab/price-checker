@@ -64,7 +64,6 @@ test("global discount ARS and percent appears in review and persisted sale detai
       .getByLabel("Descuento de venta (ARS)", { exact: true })
       .fill("10");
     assert.match(await page.locator(".sales-total").innerText(), /90,00/);
-    await page.getByRole("button", { name: /Tipo de descuento:/ }).click();
     await page
       .getByRole("button", { name: "Porcentaje (%)", exact: true })
       .click();

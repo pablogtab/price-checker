@@ -106,61 +106,13 @@ import { SelectComponent } from "./select";
       </button>
     </nav>
     @if (salesView === "cart") {
-      <section class="catalog-panel purchase-panel">
+      <section class="catalog-panel purchase-panel sales-workspace">
         <div class="purchase-heading">
           <div>
             <h2>Nueva venta</h2>
             <p>Buscá, agregá con Enter y revisá antes de registrar.</p>
           </div>
           <span class="purchase-badge">ARS</span>
-        </div>
-        <div class="sales-fields">
-          <label
-            >Cliente<app-select
-              label="Cliente"
-              placeholder="Consumidor final"
-              [clearable]="true"
-              [options]="clientOptions"
-              [(ngModel)]="customer"
-            />
-            <div class="sales-customer-actions">
-              <button
-                type="button"
-                aria-label="Nuevo cliente"
-                class="sales-new-client"
-                (click)="newClient()"
-              >
-                + Nuevo cliente
-              </button>
-              @if (chosenCustomer; as c) {
-                <button
-                  type="button"
-                  class="sales-new-client"
-                  aria-label="Editar cliente"
-                  (click)="editClient(c)"
-                >
-                  ✎ Editar cliente
-                </button>
-              }
-            </div></label
-          >
-          <details class="sales-optional">
-            <summary>Fecha y nota</summary>
-            <label
-              >Fecha de venta<input type="date" [(ngModel)]="soldOn"
-            /></label>
-            <label
-              >Nota <span class="optional">opcional</span
-              ><input maxlength="500" [(ngModel)]="note"
-            /></label>
-          </details>
-        </div>
-        <div class="purchase-section-heading">
-          <h3>Productos vendidos</h3>
-          <span
-            >{{ lines.length }}
-            {{ lines.length === 1 ? "producto" : "productos" }}</span
-          >
         </div>
         <div class="sales-search">
           <label for="sales-search">Buscar productos</label>
@@ -222,6 +174,47 @@ import { SelectComponent } from "./select";
           <small
             >↑ ↓ para elegir · Enter para agregar · No registra la venta.</small
           >
+        </div>
+        <div class="sales-fields">
+          <label
+            >Cliente<app-select
+              label="Cliente"
+              placeholder="Consumidor final"
+              [clearable]="true"
+              [options]="clientOptions"
+              [(ngModel)]="customer"
+            />
+            <div class="sales-customer-actions">
+              <button
+                type="button"
+                aria-label="Nuevo cliente"
+                class="sales-new-client"
+                (click)="newClient()"
+              >
+                + Nuevo cliente
+              </button>
+              @if (chosenCustomer; as c) {
+                <button
+                  type="button"
+                  class="sales-new-client"
+                  aria-label="Editar cliente"
+                  (click)="editClient(c)"
+                >
+                  ✎ Editar cliente
+                </button>
+              }
+            </div></label
+          >
+          <details class="sales-optional">
+            <summary>Fecha y nota</summary>
+            <label
+              >Fecha de venta<input type="date" [(ngModel)]="soldOn"
+            /></label>
+            <label
+              >Nota <span class="optional">opcional</span
+              ><input maxlength="500" [(ngModel)]="note"
+            /></label>
+          </details>
         </div>
         <div class="sales-table">
           <div class="sales-table-header">
@@ -316,11 +309,11 @@ import { SelectComponent } from "./select";
           </button>
         }
         @if (stockPreview.length) {
+          <details class="sales-stock-preview" [open]="hasNegativeStock">
+            <summary>Stock después de la venta @if (hasNegativeStock) { · Hay stock negativo }</summary>
           <section
-            class="sales-stock-preview"
             aria-label="Stock actual y después de la venta"
           >
-            <h3>Stock de los productos elegidos</h3>
             <div class="sales-stock-heading">
               <span>Producto / sabor</span><span>Actual</span
               ><span>Después</span>
@@ -341,18 +334,14 @@ import { SelectComponent } from "./select";
                 Podés registrarla igualmente.
               </p>
             }
-          </section>
+          </section></details>
         }
         <details class="sales-discount sales-global-discount">
           <summary>Aplicar descuento a la venta</summary>
-          <label
-            ><span>Tipo de descuento</span
-            ><app-select
-              label="Tipo de descuento"
-              [(ngModel)]="discountMode"
-              (ngModelChange)="discountValue = 0"
-              [options]="discountModes"
-          /></label>
+          <div class="sales-choice-group" role="group" aria-label="Tipo de descuento">
+            <button type="button" [attr.aria-pressed]="discountMode === 'amount'" (click)="discountMode = 'amount'; discountValue = 0">Importe (ARS)</button>
+            <button type="button" [attr.aria-pressed]="discountMode === 'percent'" (click)="discountMode = 'percent'; discountValue = 0">Porcentaje (%)</button>
+          </div>
           <label
             ><span>{{
               discountMode === "percent"
@@ -384,14 +373,10 @@ import { SelectComponent } from "./select";
         </details>
         <footer class="purchase-footer">
           <div class="sales-total">
-            <span>Subtotal: {{ amount(subtotal) }}</span
-            ><span>Descuento: −{{ amount(discountAmount) }}</span
-            ><span>Total de venta</span><strong>{{ amount(total) }}</strong
-            ><small
-              >Cobrado:
-              {{ amount(paymentMode === "now" ? paymentAmount : 0) }} ·
-              Pendiente: {{ amount(pendingDraft) }}</small
-            >
+            @if (discountAmount !== "0") {
+              <small>Subtotal {{ amount(subtotal) }} · Descuento −{{ amount(discountAmount) }}</small>
+            }
+            <span>Total de venta · {{ lines.length }} {{ lines.length === 1 ? "producto" : "productos" }}</span><strong>{{ amount(total) }}</strong>
           </div>
           <button
             class="purchase-save"
@@ -472,42 +457,24 @@ import { SelectComponent } from "./select";
           } @else {
             <div class="sales-payment">
               <h3>Cobro de la venta</h3>
-              <div class="cash-form">
-                <label
-                  >Forma de registro<app-select
-                    label="Cobro de la venta"
-                    [options]="paymentModes"
-                    [(ngModel)]="paymentMode"
-                /></label>
-                @if (paymentMode === "now") {
-                  <label
-                    >Cuenta<app-select
-                      label="Cuenta para el cobro"
-                      placeholder="Elegir cuenta"
-                      [options]="accountOptions"
-                      [(ngModel)]="account" /></label
-                  ><label
-                    >Cobrar ahora (ARS)<input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      [(ngModel)]="paymentAmount" /></label
-                  ><button
-                    class="sales-pay-total"
-                    type="button"
-                    (click)="useTotal()"
-                  >
-                    Cobrar el total
-                  </button>
+              <div class="sales-choice-group sales-payment-choices" role="group" aria-label="Cómo se cobra la venta">
+                @for (option of paymentAccountOptions; track option.value) {
+                  <button type="button" [attr.aria-pressed]="paymentMode === 'now' && +account === option.value" (click)="paymentMode = 'now'; account = option.value">{{ option.label }}</button>
                 }
+                <button type="button" [attr.aria-pressed]="paymentMode === 'credit'" (click)="paymentMode = 'credit'">Cuenta corriente</button>
               </div>
-              <p class="purchase-help">
-                @if (!customer) {
-                  Elegí un cliente para dejar saldo pendiente.
-                } @else {
-                  El importe pendiente queda en la cuenta corriente del cliente.
-                }
-              </p>
+              @if (paymentMode === "now") {
+                <details class="sales-partial" [open]="pendingDraft !== '0' && paymentMode === 'now'">
+                  <summary>Cobrar una parte</summary>
+                  <div class="sales-partial-fields">
+                    <label>Cobrar ahora (ARS)<input type="number" min="0.01" step="0.01" [(ngModel)]="paymentAmount" /></label>
+                    <button class="text-button" type="button" (click)="useTotal()">Cobrar el total</button>
+                  </div>
+                </details>
+              }
+              @if (paymentMode === 'credit' || pendingDraft !== '0') {
+                <p class="purchase-help">@if (!customer) { Elegí un cliente para dejar saldo pendiente. } @else { El pendiente queda en la cuenta corriente de {{ chosenCustomer?.name }}. }</p>
+              }
               @if (paymentMode === "now" && !accountOptions.length) {
                 <p class="rate-note">
                   Cargá el saldo inicial de una cuenta en Caja y cuentas para
@@ -517,14 +484,17 @@ import { SelectComponent } from "./select";
             </div>
           }
 
-          <div class="sales-total">
-            <span>Subtotal: {{ amount(subtotal) }}</span
-            ><span>Descuento: −{{ amount(discountAmount) }}</span
-            ><span>Total de venta</span><strong>{{ amount(total) }}</strong
-            ><span
-              >Cobrado:
-              {{ amount(paymentMode === "now" ? paymentAmount : 0) }}</span
-            ><strong>Pendiente: {{ amount(pendingDraft) }}</strong>
+          <div class="sales-total sales-checkout-total">
+            @if (discountAmount !== "0") {
+              <small>Subtotal {{ amount(subtotal) }} · Descuento −{{ amount(discountAmount) }}</small>
+            }
+            <div><span>Total de venta</span><strong>{{ amount(total) }}</strong></div>
+            @if (pendingDraft !== "0") {
+              <div class="sales-pending"><span>Pendiente del cliente</span><strong>{{ amount(pendingDraft) }}</strong></div>
+              <small>Cobrado ahora: {{ amount(paymentMode === "now" ? paymentAmount : 0) }}</small>
+            } @else if (total !== "0") {
+              <small>Se cobran {{ amount(total) }} en {{ chosenAccountName }}</small>
+            }
           </div>
           @if (!valid) {
             <p class="rate-note">
@@ -1108,6 +1078,8 @@ export class SalesComponent implements OnInit, DoCheck {
       search: [c.phone, c.instagram].filter(Boolean).join(" "),
     }));
   }
+  get paymentAccountOptions() { return [...this.accountOptions].sort((a,b) => Number(b.label === "Transferencia") - Number(a.label === "Transferencia")); }
+  get chosenAccountName() { return this.accounts.find(a => a.id === Number(this.account))?.name || "la cuenta elegida"; }
   get accountOptions() {
     return this.accounts
       .filter((a) => a.currency === "ARS" && a.balance != null)

@@ -57,9 +57,9 @@ import { ButtonDirective } from "./ui/button";
         <h2 id="promo-picker-title">Elegir sabores de la promo</h2>
         <p>{{ name }}</p>
         <div class="promo-options">
-          @for (slot of slots; track slot.key) {
+          @for (slot of slots; track slot.key; let i = $index) {
             <label
-              >{{ slot.label }}
+              >Sabor de la unidad {{ i + 1 }}
               <app-select
                 [label]="slot.label"
                 placeholder="Elegir sabor"

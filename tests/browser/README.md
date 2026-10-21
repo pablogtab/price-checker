@@ -58,3 +58,9 @@ and receipt. `/api/sales/requests/:key` resolves a submission under the same loc
 as sale creation; a retry never uses a new payload for that key.
 Run multiple browser files with `--test-concurrency=1` because their cash fixtures
 share accounts in the isolated database.
+
+`node --test tests/browser/sales-clean-checkout.mjs` checks direct account choices,
+Transferencia as default, account-current requiring a customer, optional partial
+collection and return to full collection, plus desktop/mobile layout. Short
+payment and discount choices are buttons; long customer/flavor lists retain the
+shared searchable selector. Only the review's explicit confirmation saves a sale.

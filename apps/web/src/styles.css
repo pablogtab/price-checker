@@ -1858,3 +1858,56 @@ app-sales .client-card .purchase-add { margin-top:0; }
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Sales: search first, compact cart, explicit payment choices. */
+app-sales .sales-workspace .purchase-heading { margin-bottom: 16px; }
+app-sales .sales-workspace .sales-search { margin: 0 0 14px; }
+app-sales .sales-workspace .sales-search-results { top: 78px; }
+app-sales .sales-workspace .sales-fields { grid-template-columns: minmax(180px, 360px) minmax(150px, 1fr); gap: 16px; margin: 16px 0 20px; align-items: start; }
+app-sales .sales-workspace .sales-fields > label { gap: 5px; }
+app-sales .sales-customer-actions { gap: 14px; }
+app-sales .sales-workspace .sales-optional { justify-self: end; padding-top: 24px; width: min(100%, 300px); }
+app-sales .sales-workspace .sales-optional summary { text-align: right; }
+app-sales .sales-workspace .sales-optional[open] label { margin-top: 12px; }
+app-sales .sales-workspace .sales-table-header, app-sales .sales-workspace .sales-line { padding: 12px 14px; gap: 12px; }
+app-sales .sales-workspace .sales-line { background: var(--surface, white); align-items: center; }
+app-sales .sales-workspace .sales-subtotal { padding-top: 0; }
+app-sales .sales-workspace .sales-flavors { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; border: 0; border-radius: 0; padding: 0; background: transparent; }
+app-sales .sales-workspace .sales-flavors small { color: var(--muted); }
+app-sales .sales-workspace .purchase-empty { margin: 24px 0; }
+app-sales .sales-workspace .sales-stock-preview { margin: 14px 0; padding: 0; background: transparent; border: 0; }
+app-sales .sales-workspace .sales-stock-preview summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 8px 0; }
+app-sales .sales-workspace .sales-stock-preview section { padding: 4px 12px; border: 1px solid var(--border); border-radius: 6px; }
+app-sales .sales-workspace .sales-stock-row, app-sales .sales-workspace .sales-stock-heading { padding: 8px 0; }
+app-sales .sales-workspace .sales-global-discount { padding: 10px 0; border: 0; border-radius: 0; margin-top: 8px; }
+app-sales .sales-workspace .purchase-footer { margin-top: 12px; padding-top: 16px; }
+app-sales .sales-workspace .sales-total { gap: 4px; }
+app-sales .sales-choice-group { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+app-sales .sales-choice-group button { min-height: 40px; padding: 9px 16px; background: var(--surface, white); border: 1px solid var(--border); border-radius: 6px; color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+app-sales .sales-choice-group button[aria-pressed="true"] { color: var(--green); background: color-mix(in srgb, var(--green) 8%, white); border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); font-weight: 600; }
+app-sales .sales-review { max-width: 680px; }
+app-sales .sales-review > h2 { margin-bottom: 6px; }
+app-sales .sales-review > p { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+app-sales .sales-review .sales-review-line { font-size: 13px; padding: 10px 0; }
+app-sales .sales-review .sales-review-line > strong { white-space: nowrap; }
+app-sales .sales-review .sales-payment { padding-top: 16px; margin-top: 16px; }
+app-sales .sales-review .sales-payment h3 { font-size: 14px; margin-bottom: 12px; }
+app-sales .sales-partial { margin-top: 14px; font-size: 13px; }
+app-sales .sales-partial summary { cursor: pointer; color: var(--muted); }
+app-sales .sales-partial-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding-top: 12px; }
+app-sales .sales-partial-fields label { display: grid; gap: 6px; max-width: 220px; font-size: 12px; }
+app-sales .sales-partial-fields input { width: 100%; }
+app-sales .sales-checkout-total { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 16px; gap: 8px; }
+app-sales .sales-checkout-total > div { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+app-sales .sales-checkout-total .sales-pending strong { font-size: 18px; }
+app-sales .sales-review .sales-actions { margin-top: 20px; }
+@media (max-width: 760px) {
+  app-sales .sales-workspace .sales-fields { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  app-sales .sales-workspace .sales-optional { justify-self: start; padding-top: 0; width: 100%; }
+  app-sales .sales-workspace .sales-optional summary { text-align: left; }
+  app-sales .sales-workspace .sales-line { align-items: start; }
+  app-sales .sales-workspace .sales-subtotal { padding-top: 4px; }
+  app-sales .sales-review .sales-review-line { flex-wrap: wrap; }
+  app-sales .sales-review .sales-payment-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  app-sales .sales-review .sales-payment-choices button { padding: 10px 8px; }
+}
