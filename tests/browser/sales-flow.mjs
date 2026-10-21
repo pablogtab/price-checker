@@ -198,6 +198,7 @@ test("customer editor preserves cart; partial receipt survives a lost response w
       .getByRole("button", { name: "Revisar venta", exact: true })
       .click();
     const review = page.getByRole("dialog", { name: "Revisar venta" });
+    await review.getByText("Cobrar una parte", { exact: true }).click();
     await review
       .getByRole("spinbutton", { name: "Cobrar ahora (ARS)" })
       .fill("4000");

@@ -290,6 +290,7 @@ test("promo combinations, metadata, discount and partial collection survive clos
     await page
       .getByRole("button", { name: "Revisar venta", exact: true })
       .click();
+    await page.getByText("Cobrar una parte", { exact: true }).click();
     await page.getByLabel("Cobrar ahora (ARS)", { exact: true }).fill("1000");
     await page
       .getByRole("button", { name: "Volver al carrito", exact: true })
