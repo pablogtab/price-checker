@@ -1707,3 +1707,128 @@ app-sales .client-card .purchase-add { margin-top:0; }
 .product-image-editor { margin-bottom: 20px; }
 
 .low-stock-marker { display: block; color: #a85916; font-weight: 600; margin-top: 6px; }
+
+/* Keyboard-first sales workspace. */
+.sales-view-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.sales-view-tabs .active {
+  background: var(--green);
+  color: white;
+}
+.sales-search {
+  position: relative;
+  margin: 20px 0;
+}
+.sales-search > label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.sales-search > input {
+  width: 100%;
+}
+.sales-search > small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+}
+.sales-search-results {
+  position: absolute;
+  z-index: 10;
+  top: 82px;
+  left: 0;
+  right: 0;
+  max-height: 360px;
+  overflow: auto;
+  background: white;
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 24px #0001;
+  border-radius: 10px;
+}
+.sales-search-results button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  text-align: left;
+  padding: 14px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: white;
+  color: var(--ink);
+}
+.sales-search-results button.active,
+.sales-search-results button:hover {
+  background: #edf4e9;
+}
+.sales-search-results small,
+.sales-review-line small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+}
+.sales-product > strong {
+  display: block;
+  line-height: 1.5;
+}
+.sales-optional {
+  padding-top: 8px;
+}
+.sales-optional summary,
+.sales-discount summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.sales-discount {
+  display: block;
+}
+.sales-discount[open] {
+  display: grid;
+}
+.sales-review {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.sales-review-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.sales-review .sales-payment {
+  margin-top: 18px;
+  padding-top: 18px;
+}
+.sales-review .cash-form {
+  grid-template-columns: 1fr 1fr;
+}
+.sales-review .sales-actions {
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+@media (max-width: 760px) {
+  .sales-review .cash-form {
+    grid-template-columns: 1fr;
+  }
+  .sales-review .sales-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .sales-search-results button {
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .sales-search-results button > strong {
+    white-space: nowrap;
+  }
+  .sales-search-results strong {
+    font-size: 12px;
+  }
+}
