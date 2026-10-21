@@ -64,3 +64,7 @@ Transferencia as default, account-current requiring a customer, optional partial
 collection and return to full collection, plus desktop/mobile layout. Short
 payment and discount choices are buttons; long customer/flavor lists retain the
 shared searchable selector. Only the review's explicit confirmation saves a sale.
+
+The REST correction suites read sale history using the public `sales?page=N`
+pagination helper. They can locate edited fixtures with older dates even when an
+isolated test database already contains more than 100 sales; no API limit is raised.

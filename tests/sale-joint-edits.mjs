@@ -1,3 +1,4 @@
+import { readAllSales } from "./helpers/sales.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -44,7 +45,7 @@ async function fixture(total = "20000") {
     items: [{ product_id: p.id, quantity: 1 }],
     payment: { account_id: a.id, amount: total, occurred_on: "2026-10-21" },
   });
-  const old = (await req("sales")).find((x) => x.id === s.id);
+  const old = (await readAllSales(req)).find((x) => x.id === s.id);
   return { c, a, p, s: old };
 }
 function body(f, price = "18000") {
@@ -85,7 +86,7 @@ test("paid sale 20000 → 18000 corrects one sale and one receipt atomically wit
   };
   await req(`sales/${f.s.id}/joint-edits`, confirm);
   await req(`sales/${f.s.id}/joint-edits`, confirm);
-  const sales = await req("sales"),
+  const sales = await readAllSales(req),
     s = sales.find((s) => s.id === f.s.id);
   assert.equal(s.total, "18000");
   assert.equal(s.paid, "18000");
@@ -122,7 +123,7 @@ test("shared receipt moves only selected application, transfers debt on customer
     preview_token: pp.token,
     request_key: randomUUID(),
   });
-  const rows = await req("sales");
+  const rows = await readAllSales(req);
   f.s = rows.find((x) => x.id === s1.id);
   const untouched = rows.find((x) => x.id === s2.id);
   const dest = await req("cash/accounts", {
@@ -147,7 +148,7 @@ test("shared receipt moves only selected application, transfers debt on customer
     preview_token: preview.preview_token,
     request_key: randomUUID(),
   });
-  const after = (await req("sales")).find((x) => x.id === s2.id);
+  const after = (await readAllSales(req)).find((x) => x.id === s2.id);
   assert.deepEqual(after, untouched);
   const accounts = await req("cash/accounts");
   assert.equal(accounts.find((a) => a.id === f.a.id).balance, "100000");
@@ -178,7 +179,10 @@ test("excess payment, missing debtor, invalid applications and cents are validat
     preview_token: p.preview_token,
     request_key: randomUUID(),
   });
-  assert.equal((await req("sales")).find((x) => x.id === f.s.id).paid, "18.01");
+  assert.equal(
+    (await readAllSales(req)).find((x) => x.id === f.s.id).paid,
+    "18.01",
+  );
 });
 test("joint correction rejects stale state, serializes concurrent confirmations and rolls back every effect after injected failure", async () => {
   const f = await fixture(),
@@ -231,7 +235,7 @@ test("joint correction rejects stale state, serializes concurrent confirmations 
       "DROP TRIGGER joint_fail ON sale_corrections;DROP FUNCTION joint_fail_test();",
     );
   }
-  const s = (await req("sales")).find((x) => x.id === f.s.id);
+  const s = (await readAllSales(req)).find((x) => x.id === f.s.id);
   assert.equal(s.total, "20000");
   assert.equal(s.paid, "20000");
   assert.equal(s.items[0].quantity, 1);
@@ -274,7 +278,7 @@ test("a concurrent collection invalidates joint review and annulled sales reject
     preview_token: p0.preview_token,
     request_key: randomUUID(),
   });
-  f.s = (await req("sales")).find((x) => x.id === f.s.id);
+  f.s = (await readAllSales(req)).find((x) => x.id === f.s.id);
   const b = body(f, "18000"),
     p = await req(`sales/${f.s.id}/joint-edit/preview`, b);
   await req(`sales/${f.s.id}/payments`, {
@@ -296,7 +300,7 @@ test("a concurrent collection invalidates joint review and annulled sales reject
   });
   await req(`sales/${f.s.id}/joint-edit/preview`, b, "POST", 400);
   assert.equal(
-    (await req("sales")).find((x) => x.id === f.s.id).status,
+    (await readAllSales(req)).find((x) => x.id === f.s.id).status,
     "annulled",
   );
 });
@@ -331,7 +335,7 @@ test("joint corrections preserve historical costs and update dashboard profitabi
     preview_token: p.preview_token,
     request_key: randomUUID(),
   });
-  const after = (await req("sales")).find((x) => x.id === f.s.id);
+  const after = (await readAllSales(req)).find((x) => x.id === f.s.id);
   assert.equal(after.total, "36000");
   assert.equal(after.cost_total, "10000");
   assert.equal(after.items[0].components[0].unit_cost, "5000");
