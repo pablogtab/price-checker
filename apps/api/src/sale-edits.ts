@@ -14,6 +14,7 @@ import {
   correctionHash,
   correctionTransaction,
   paymentState,
+  replacePaymentApplication,
 } from "./sale-corrections";
 
 export async function saleEditState(em: any, id: number) {
@@ -386,6 +387,146 @@ export async function editSale(id: number, body: any) {
         "La venta o el stock cambió. Revisá nuevamente.",
       );
     await applySaleEdit(em, id, p.prepared, p.preview);
+    return { ...p.preview, id };
+  });
+}
+
+/** Joint correction keeps historical sale preparation and receipt applications in one boundary. */
+async function prepareJointEdit(em: any, id: number, body: any) {
+  const p = await prepareSaleEdit(em, id, body, true);
+  const originals = p.state.payments;
+  const edits = body.payments ?? originals;
+  if (!Array.isArray(edits) || edits.length !== originals.length)
+    throw new BadRequestException("Revisá todos los cobros de esta venta");
+  const seen = new Set<number>();
+  const payments: any[] = [];
+  const deltas = new Map<number, Decimal>();
+  const add = (id: number, amount: Decimal) =>
+    deltas.set(id, (deltas.get(id) || new Decimal(0)).plus(amount));
+  for (const old of originals)
+    add(old.account_id, new Decimal(old.amount).negated());
+  for (const edit of edits) {
+    const paymentId = integer(edit.id);
+    if (seen.has(paymentId) || !originals.some((x: any) => x.id === paymentId))
+      throw new BadRequestException("Aplicación de cobro inválida");
+    seen.add(paymentId);
+    const amount = ars(edit.amount),
+      account = integer(edit.account_id),
+      occurred_on = date(edit.occurred_on);
+    const [a] = await em.query(
+      "SELECT id,name,currency,opening_balance::text FROM cash_accounts WHERE id=$1",
+      [account],
+    );
+    if (!a || a.currency !== "ARS" || a.opening_balance == null)
+      throw new BadRequestException("Elegí una cuenta ARS con saldo inicial");
+    payments.push({
+      id: paymentId,
+      amount,
+      account_id: account,
+      account_name: a.name,
+      occurred_on,
+    });
+    add(account, new Decimal(amount));
+  }
+  const paid = payments.reduce(
+    (s: Decimal, x: any) => s.plus(x.amount),
+    new Decimal(0),
+  );
+  if (paid.gt(p.preview.after.total))
+    throw new BadRequestException(
+      "Lo cobrado supera el nuevo total. Corregí también los cobros.",
+    );
+  if (!p.preview.after.customer_id && paid.lt(p.preview.after.total))
+    throw new BadRequestException(
+      "Elegí un cliente para dejar saldo pendiente",
+    );
+  const cash = [];
+  for (const [account_id, delta] of [...deltas].sort((a, b) => a[0] - b[0])) {
+    const [a] = await em.query(
+      "SELECT a.name,(a.opening_balance+coalesce(sum(e.amount),0))::text balance FROM cash_accounts a LEFT JOIN cash_entries e ON e.account_id=a.id WHERE a.id=$1 GROUP BY a.id",
+      [account_id],
+    );
+    cash.push({
+      account_id,
+      name: a.name,
+      before: a.balance,
+      delta: delta.toString(),
+      after: new Decimal(a.balance).plus(delta).toString(),
+    });
+  }
+  const oldPaid = originals.reduce(
+    (s: Decimal, x: any) => s.plus(x.amount),
+    new Decimal(0),
+  );
+  for (const d of p.preview.debts)
+    if (d.customer_id === p.preview.after.customer_id)
+      d.after = new Decimal(d.after).plus(oldPaid).minus(paid).toString();
+  const before = {
+    ...p.preview.before,
+    payments: originals,
+    paid: oldPaid.toString(),
+    pending: new Decimal(p.state.sale.total).minus(oldPaid).toString(),
+  };
+  const after = {
+    ...p.preview.after,
+    payments,
+    paid: paid.toString(),
+    pending: new Decimal(p.preview.after.total).minus(paid).toString(),
+  };
+  const preview = { ...p.preview, before, after, cash };
+  preview.preview_token = correctionHash({
+    base: p.preview.preview_token,
+    before,
+    after,
+    cash,
+    debts: preview.debts,
+  });
+  return { ...p, payments, preview };
+}
+export async function previewJointSaleEdit(id: number, body: any) {
+  return db.transaction(
+    async (em) => (await prepareJointEdit(em, id, body)).preview,
+  );
+}
+export async function jointEditSale(id: number, body: any) {
+  return correctionTransaction("joint-edit", id, body, true, async (em) => {
+    await em.query("SELECT id FROM sales WHERE id=$1 FOR UPDATE", [id]);
+    let p;
+    try {
+      p = await prepareJointEdit(em, id, body);
+    } catch (error) {
+      if (error instanceof BadRequestException && body.preview_token)
+        throw new ConflictException(
+          "La venta o sus cobros cambió. Revisá nuevamente.",
+        );
+      throw error;
+    }
+    if (p.preview.preview_token !== body.preview_token)
+      throw new ConflictException(
+        "La venta, los cobros o el stock cambió. Revisá nuevamente.",
+      );
+    await applySaleEdit(em, id, p.prepared, p.preview);
+    for (const payment of p.payments) {
+      const old = p.state.payments.find((x: any) => x.id === payment.id);
+      if (
+        new Decimal(old.amount).eq(payment.amount) &&
+        old.account_id === payment.account_id &&
+        old.occurred_on === payment.occurred_on
+      )
+        continue;
+      await replacePaymentApplication(
+        em,
+        old,
+        new Decimal(payment.amount).isZero()
+          ? null
+          : {
+              amount: payment.amount,
+              account: payment.account_id,
+              date: payment.occurred_on,
+            },
+        id,
+      );
+    }
     return { ...p.preview, id };
   });
 }
