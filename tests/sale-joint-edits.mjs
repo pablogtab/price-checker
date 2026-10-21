@@ -76,6 +76,8 @@ test("paid sale 20000 → 18000 corrects one sale and one receipt atomically wit
   assert.equal(p.after.paid, "18000");
   assert.equal(p.cash[0].delta, "-2000");
   assert.equal(p.stock[0].delta, 0);
+  assert.equal(p.stock[0].consumed_before, 1);
+  assert.equal(p.stock[0].consumed_after, 1);
   const confirm = {
     ...b,
     preview_token: p.preview_token,

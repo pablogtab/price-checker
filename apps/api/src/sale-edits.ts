@@ -473,7 +473,26 @@ async function prepareJointEdit(em: any, id: number, body: any) {
     paid: paid.toString(),
     pending: new Decimal(p.preview.after.total).minus(paid).toString(),
   };
-  const preview = { ...p.preview, before, after, cash };
+  const stock = p.preview.stock.map((s: any) => ({
+    ...s,
+    consumed_before: p.state.items.reduce(
+      (sum: number, item: any) =>
+        sum +
+        item.components
+          .filter((c: any) => c.product_id === s.product_id)
+          .reduce((n: number, c: any) => n + c.quantity, 0),
+      0,
+    ),
+    consumed_after: p.prepared.reduce(
+      (sum: number, item: any) =>
+        sum +
+        item.parts
+          .filter((c: any) => c.product.id === s.product_id)
+          .reduce((n: number, c: any) => n + c.quantity, 0),
+      0,
+    ),
+  }));
+  const preview = { ...p.preview, before, after, cash, stock };
   preview.preview_token = correctionHash({
     base: p.preview.preview_token,
     before,

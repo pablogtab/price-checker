@@ -346,7 +346,15 @@ import { ButtonDirective } from "./ui/button";
             }
           }
           @for (s of preview.stock; track s.product_id) {
-            <p>{{ s.name }} · stock actual {{ s.before }} → {{ s.after }}</p>
+            <p>
+              {{ s.name }} · stock actual {{ s.before }} → {{ s.after }}
+              @if (s.consumed_before != null) {
+                <span>
+                  · Unidades consumidas: {{ s.consumed_before }} →
+                  {{ s.consumed_after }}</span
+                >
+              }
+            </p>
           }
           @for (c of preview.debts; track c.customer_id) {
             <p>
