@@ -1,5 +1,5 @@
-import {SaleCorrectionHistoryComponent} from "./sale-correction-history";
-import {PaymentCorrectionComponent} from "./payment-correction";
+import { SaleCorrectionHistoryComponent } from "./sale-correction-history";
+import { PaymentCorrectionComponent } from "./payment-correction";
 import { SalesPromoPickerComponent } from "./sales-promo-picker";
 import { CustomerEditorComponent } from "./customer-editor";
 import { ButtonDirective } from "./ui/button";
@@ -11,6 +11,7 @@ import {
   inject,
   ChangeDetectorRef,
   OnInit,
+  DoCheck,
   ViewChild,
   ElementRef,
 } from "@angular/core";
@@ -35,7 +36,15 @@ import { SelectComponent } from "./select";
     ButtonDirective,
   ],
   template: ` <div class="purchase-page">
-    @if (correctingPayment) {<app-payment-correction [sale]="correctingPayment.sale" [payment]="correctingPayment.payment" [accounts]="accounts" (closed)="correctingPayment=null" (saved)="paymentCorrected()" />}
+    @if (correctingPayment) {
+      <app-payment-correction
+        [sale]="correctingPayment.sale"
+        [payment]="correctingPayment.payment"
+        [accounts]="accounts"
+        (closed)="correctingPayment = null"
+        (saved)="paymentCorrected()"
+      />
+    }
     @if (clientForm) {
       <app-customer-editor
         [customer]="editingClient"
@@ -50,6 +59,36 @@ import { SelectComponent } from "./select";
       <p class="purchase-notice" role="status">{{ notice }}</p>
     }
 
+    @if (storageError) {
+      <p class="alert" role="alert">
+        El navegador no permite guardar el borrador. Mantené esta pestaña
+        abierta hasta terminar.
+      </p>
+    }
+    @if (draftPriceChanged) {
+      <p class="alert" role="status">
+        Hay precios distintos de los vigentes. Conservamos los importes del
+        carrito.
+        <button class="text-button" (click)="updateDraftPrices()">
+          Actualizar precios
+        </button>
+      </p>
+    }
+    @if (draftProblems.length) {
+      <p class="alert danger" role="alert">
+        {{ draftProblems.join(" · ") }}. Quitá la selección y agregala
+        nuevamente para corregirla.
+      </p>
+    }
+    @if (pendingSubmission) {
+      <p class="alert" role="status">
+        El último envío está pendiente de verificar. Al confirmar verificaremos
+        esa venta original antes de registrar otra.
+        <button class="text-button" (click)="reviewOpen = true">
+          Verificar envío pendiente
+        </button>
+      </p>
+    }
     <nav class="sales-view-tabs" aria-label="Vista de ventas">
       <button
         type="button"
@@ -200,7 +239,11 @@ import { SelectComponent } from "./select";
               }
               <label class="sales-product"
                 ><span class="sales-field-label">Producto / promo</span
-                ><strong>{{ selected(line)?.name }}</strong>
+                ><strong>{{
+                  selected(line)?.name ||
+                    line.savedName ||
+                    "Producto no disponible"
+                }}</strong>
                 @if (selected(line); as p) {
                   <small>{{
                     p.kind === "kit"
@@ -246,10 +289,17 @@ import { SelectComponent } from "./select";
                   @for (slot of slotsForPromo(line, 0); track slot.key) {
                     <small>{{ slotName(slot) }}</small>
                   }
-                  <button class="text-button" [disabled]="line.quantity >= 100" (click)="repeatPromo(line)">
+                  <button
+                    class="text-button"
+                    [disabled]="line.quantity >= 100"
+                    (click)="repeatPromo(line)"
+                  >
                     Repetir combinación
                   </button>
-                  <button class="text-button" (click)="addProduct(selected(line))">
+                  <button
+                    class="text-button"
+                    (click)="addProduct(selected(line))"
+                  >
                     Otra combinación
                   </button>
                 </div>
@@ -382,11 +432,29 @@ import { SelectComponent } from "./select";
           (click)="$event.stopPropagation()"
         >
           <h2 id="sales-review-title">Revisar venta</h2>
+          @if (pendingSubmission) {
+            <p class="alert" role="status">
+              Estamos verificando el envío original. Los cambios posteriores del
+              carrito no se enviarán en este intento.
+            </p>
+            <ul>
+              @for (item of pendingSubmission.items; track $index) {
+                <li>
+                  {{ item.quantity }} × {{ productsName(item.product_id) }} ·
+                  {{ amount(item.unit_price) }} por unidad
+                </li>
+              }
+            </ul>
+          }
           <p>{{ chosenCustomer?.name || "Consumidor final" }} · {{ soldOn }}</p>
           @for (line of lines; track line) {
             <div class="sales-review-line">
               <span
-                ><strong>{{ selected(line)?.name }}</strong>
+                ><strong>{{
+                  selected(line)?.name ||
+                    line.savedName ||
+                    "Producto no disponible"
+                }}</strong>
                 <small
                   >{{ line.quantity }} × {{ amount(line.unit_price) }}</small
                 >
@@ -483,7 +551,7 @@ import { SelectComponent } from "./select";
             <button
               type="button"
               appButton="primary"
-              [disabled]="busy || !valid"
+              [disabled]="busy || (!valid && !pendingSubmission)"
               (click)="save()"
             >
               {{ busy ? "Registrando…" : "Confirmar venta" }}
@@ -554,7 +622,12 @@ import { SelectComponent } from "./select";
                   <p class="purchase-help">
                     Cobro {{ p.occurred_on }} · {{ p.account_name }} ·
                     {{ amount(p.amount) }}
-                    <button class="text-button" (click)="correctingPayment={sale:s,payment:p}">Corregir cobro</button>
+                    <button
+                      class="text-button"
+                      (click)="correctingPayment = { sale: s, payment: p }"
+                    >
+                      Corregir cobro
+                    </button>
                   </p>
                 }
               </div>
@@ -624,8 +697,12 @@ export class SalesComponent implements OnInit {
   clients: any[] = [];
   accounts: any[] = [];
   history: any[] = [];
-  correctingPayment:any=null;
-  async paymentCorrected(){this.correctingPayment=null;await this.load();this.saved.emit();}
+  correctingPayment: any = null;
+  async paymentCorrected() {
+    this.correctingPayment = null;
+    await this.load();
+    this.saved.emit();
+  }
   customer: any = "";
   soldOn = this.today();
   note = "";
@@ -687,8 +764,12 @@ export class SalesComponent implements OnInit {
       !this.promoDraft.slots.every((s: any) =>
         s.options.some((o: any) => o.value === Number(s.product_id)),
       )
-    ) return;
-    this.promoDraft.combination = this.promoDraft.slots.map((s: any) => ({ ...s }));
+    )
+      return;
+    this.promoDraft.combination = this.promoDraft.slots.map((s: any) => ({
+      ...s,
+    }));
+    this.promoDraft.frozenPrice = true;
     this.lines.push(this.promoDraft);
     this.closePromo();
   }
@@ -701,8 +782,13 @@ export class SalesComponent implements OnInit {
   addProduct(p: any) {
     if (p.kind === "kit") {
       this.promoDraft = {
-        product_id: p.id, quantity: 1, unit_price: p.selling_price,
-        discount: 0, discount_mode: "amount", priceEdited: false, slots: [],
+        product_id: p.id,
+        quantity: 1,
+        unit_price: p.selling_price,
+        discount: 0,
+        discount_mode: "amount",
+        priceEdited: false,
+        slots: [],
       };
       this.syncSlots(this.promoDraft);
       return;
@@ -721,8 +807,12 @@ export class SalesComponent implements OnInit {
     this.focusSearch();
   }
   discardCart() {
-    this.lines = [];
-    this.useTotal();
+    if (this.pendingSubmission) {
+      this.error =
+        "Primero verificá el envío pendiente confirmando la venta original.";
+      return;
+    }
+    this.resetDraft();
     this.focusSearch();
   }
   closeReview() {
@@ -774,8 +864,190 @@ export class SalesComponent implements OnInit {
       day: "2-digit",
     }).format(new Date());
   }
+  productsName(id: any) {
+    return (
+      this.products.find((p) => p.id === Number(id))?.name || "Producto #" + id
+    );
+  }
+  private draftReady = false;
+  private draftSnapshot = "";
+  private readonly draftKey = "gevafit.sales-draft.v1";
+  pendingSubmission: any = null;
+  storageError = false;
+  ngDoCheck() {
+    if (this.draftReady) this.persistDraft();
+  }
+  private draftState() {
+    return {
+      version: 1,
+      lines: this.lines,
+      customer: this.customer,
+      soldOn: this.soldOn,
+      note: this.note,
+      discountMode: this.discountMode,
+      discountValue: this.discountValue,
+      account: this.account,
+      paymentMode: this.paymentMode,
+      customPaymentAmount: this.customPaymentAmount,
+      requestKey: this.requestKey,
+      pendingSubmission: this.pendingSubmission,
+    };
+  }
+  persistDraft() {
+    try {
+      for (const line of this.lines) {
+        if (!line.savedName) line.savedName = this.selected(line)?.name;
+        if (line.savedComposition == null && this.selected(line))
+          line.savedComposition = this.composition(this.selected(line));
+      }
+      const serialized = JSON.stringify(this.draftState());
+      if (serialized === this.draftSnapshot) return;
+      localStorage.setItem(this.draftKey, serialized);
+      this.draftSnapshot = serialized;
+    } catch {
+      this.storageError = true;
+    }
+  }
+  private restoreDraft() {
+    try {
+      const state = JSON.parse(localStorage.getItem(this.draftKey) || "null");
+      if (state?.version === 1 && Array.isArray(state.lines)) {
+        for (const field of [
+          "customer",
+          "soldOn",
+          "note",
+          "discountMode",
+          "discountValue",
+          "account",
+          "paymentMode",
+          "customPaymentAmount",
+          "requestKey",
+          "pendingSubmission",
+        ])
+          if (field in state) (this as any)[field] = state[field];
+        this.lines = state.lines.map((line: any) => ({
+          ...line,
+          frozenPrice: true,
+          slots: line.slots || [],
+          combination:
+            line.combination ||
+            (line.slots || []).filter((s: any) => s.promo === 0),
+        }));
+        if (this.lines.length)
+          this.notice =
+            "Carrito recuperado. Revisá los precios y el cobro antes de confirmar.";
+      }
+    } catch {
+      this.error =
+        "No se pudo recuperar el borrador guardado. Podés descartarlo para empezar otra venta.";
+    }
+    this.draftReady = true;
+  }
+  private resetDraft() {
+    this.pendingSubmission = null;
+    this.lines = [];
+    this.customer = "";
+    this.soldOn = this.today();
+    this.note = "";
+    this.discountMode = "amount";
+    this.discountValue = 0;
+    this.paymentMode = "now";
+    this.account = "";
+    this.useTotal();
+    this.requestKey = crypto.randomUUID();
+    localStorage.removeItem(this.draftKey);
+    this.draftSnapshot = "";
+    this.persistDraft();
+  }
+  currentDraftPrice(line: any) {
+    const current = { ...line, frozenPrice: false, priceEdited: false };
+    if (
+      this.selected(line)?.kind !== "kit" ||
+      this.selected(line)?.kit_pricing_mode !== "discount"
+    )
+      return this.selected(line)?.selling_price;
+    return this.basePromoPrice(current, 0).toString();
+  }
+  get draftPriceChanged() {
+    return this.lines.some((l) => {
+      try {
+        return (
+          this.currentDraftPrice(l) != null &&
+          !new Decimal(l.unit_price || 0).eq(this.currentDraftPrice(l))
+        );
+      } catch {
+        return false;
+      }
+    });
+  }
+  updateDraftPrices() {
+    for (const line of this.lines) {
+      const price = this.currentDraftPrice(line);
+      if (price != null) {
+        line.unit_price = price;
+        line.priceEdited = false;
+        line.frozenPrice = true;
+      }
+    }
+    this.persistDraft();
+  }
+  composition(product: any) {
+    return JSON.stringify(
+      (product?.components || []).map((c: any) => [
+        c.product_id,
+        c.quantity,
+        c.variant_group || null,
+      ]),
+    );
+  }
+  get draftProblems(): string[] {
+    const issues: string[] = [];
+    if (
+      this.customer &&
+      !this.clients.some((c) => c.id === Number(this.customer))
+    )
+      issues.push("Cliente no disponible");
+    if (
+      this.paymentMode === "now" &&
+      this.account &&
+      !this.accountOptions.some((a) => a.value === Number(this.account))
+    )
+      issues.push("Cuenta de cobro no disponible");
+    for (const line of this.lines) {
+      const product = this.selected(line);
+      if (!product) {
+        issues.push((line.savedName || "Producto") + ": ya no disponible");
+        continue;
+      }
+      if (
+        line.savedComposition != null &&
+        line.savedComposition !== this.composition(product)
+      )
+        issues.push(product.name + ": cambiaron los componentes");
+      for (const slot of line.slots || []) {
+        const component = product.components?.find(
+          (c: any) => c.product_id === slot.component,
+        );
+        if (
+          !component?.variants?.some(
+            (v: any) => v.id === Number(slot.product_id),
+          )
+        )
+          issues.push(product.name + ": sabor no disponible");
+      }
+      const expected =
+        (product.components || [])
+          .filter((c: any) => c.variant_group)
+          .reduce((n: number, c: any) => n + Number(c.quantity), 0) *
+        Number(line.quantity);
+      if (expected !== (line.slots || []).length)
+        issues.push(product.name + ": cambiaron los componentes");
+    }
+    return [...new Set(issues)];
+  }
   async ngOnInit() {
     await this.load();
+    this.restoreDraft();
     this.focusSearch();
   }
   async load() {
@@ -875,9 +1147,12 @@ export class SalesComponent implements OnInit {
               promo,
               component: c.product_id,
               label: c.name + (c.quantity > 1 ? " · unidad " + (n + 1) : ""),
-              product_id: line.combination?.find((s: any) =>
-                s.component === c.product_id && s.key.split(":").at(-1) === String(n),
-              )?.product_id || "",
+              product_id:
+                line.combination?.find(
+                  (s: any) =>
+                    s.component === c.product_id &&
+                    s.key.split(":").at(-1) === String(n),
+                )?.product_id || "",
               options: c.variants.map((v: any) => ({
                 value: v.id,
                 label: v.name,
@@ -892,6 +1167,7 @@ export class SalesComponent implements OnInit {
   }
   updateKitPrice(line: any) {
     if (
+      !line.frozenPrice &&
       !line.priceEdited &&
       this.selected(line)?.kit_pricing_mode === "discount"
     )
@@ -900,6 +1176,7 @@ export class SalesComponent implements OnInit {
   basePromoPrice(line: any, promo: number): Decimal {
     const p = this.selected(line);
     if (
+      line.frozenPrice ||
       line.priceEdited ||
       p?.kind !== "kit" ||
       p.kit_pricing_mode !== "discount"
@@ -1085,6 +1362,7 @@ export class SalesComponent implements OnInit {
   get cartValid() {
     try {
       return (
+        !this.draftProblems.length &&
         !!this.soldOn &&
         this.lines.length > 0 &&
         this.saleItems().length <= 100 &&
@@ -1128,28 +1406,62 @@ export class SalesComponent implements OnInit {
     }
   }
   async save() {
-    if (this.busy || !this.valid || !this.reviewOpen) return;
+    if (
+      this.busy ||
+      (!this.valid && !this.pendingSubmission) ||
+      !this.reviewOpen
+    )
+      return;
     this.busy = true;
     this.error = "";
     this.notice = "";
     try {
-      const result: any = await firstValueFrom(
-        this.http.post("/api/sales", {
-          customer_id: this.customer || null,
-          sold_on: this.soldOn,
-          note: this.note,
-          request_key: this.requestKey,
-          items: this.saleItems(),
-          discount: {
-            mode: this.discountMode,
-            value: String(this.discountValue ?? 0),
-          },
-          payment:
-            this.paymentMode === "now" && new Decimal(this.total).gt(0)
-              ? { account_id: this.account, amount: String(this.paymentAmount) }
-              : null,
-        }),
-      );
+      if (!this.pendingSubmission) {
+        [this.products, this.accounts, this.clients] = await Promise.all([
+          firstValueFrom(this.http.get<any[]>("/api/products")),
+          firstValueFrom(this.http.get<any[]>("/api/cash/accounts")),
+          firstValueFrom(this.http.get<any[]>("/api/customers")),
+        ]);
+        if (!this.valid)
+          throw new Error(
+            "Revisá las selecciones del carrito: un producto, sabor, cliente o cuenta ya no está disponible.",
+          );
+      }
+      // A lost response keeps its immutable payload and key, including across reloads.
+      // Resolve that attempt before accepting any changed cart as another sale.
+      let result: any;
+      if (this.pendingSubmission) {
+        result = await firstValueFrom(
+          this.http.get<any>(
+            "/api/sales/requests/" + this.pendingSubmission.request_key,
+          ),
+        );
+      }
+      if (!result?.id) {
+        if (!this.pendingSubmission)
+          this.pendingSubmission = {
+            customer_id: this.customer || null,
+            sold_on: this.soldOn,
+            note: this.note,
+            request_key: this.requestKey,
+            items: this.saleItems(),
+            discount: {
+              mode: this.discountMode,
+              value: String(this.discountValue ?? 0),
+            },
+            payment:
+              this.paymentMode === "now" && new Decimal(this.total).gt(0)
+                ? {
+                    account_id: this.account,
+                    amount: String(this.paymentAmount),
+                  }
+                : null,
+          };
+        this.persistDraft();
+        result = await firstValueFrom(
+          this.http.post("/api/sales", this.pendingSubmission),
+        );
+      }
       this.notice =
         "Venta #" +
         result.id +
@@ -1157,22 +1469,18 @@ export class SalesComponent implements OnInit {
       if (result.warnings?.length)
         this.notice += " Aviso: " + result.warnings.join("; ") + ".";
       this.reviewOpen = false;
-      this.lines = [];
-      this.discountMode = "amount";
-      this.discountValue = 0;
-      this.customer = "";
-      this.soldOn = this.today();
+      this.resetDraft();
       this.focusSearch();
-      this.note = "";
-      this.useTotal();
-      this.account = "";
-      this.paymentMode = "now";
-      this.requestKey = crypto.randomUUID();
       this.saved.emit();
       await this.load();
     } catch (e: any) {
+      // Definite validation failures did not commit; transport/5xx remain uncertain.
+      if (e.status >= 400 && e.status < 500 && e.status !== 409)
+        this.pendingSubmission = null;
+      this.persistDraft();
       this.error =
         e?.error?.message ||
+        (e.status == null ? e.message : null) ||
         "No se pudo registrar la venta. Podés reintentar sin duplicarla.";
     } finally {
       this.busy = false;

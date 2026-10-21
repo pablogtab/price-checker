@@ -481,3 +481,13 @@ export async function salesSummary() {
     pending: new Decimal(s.total).minus(paid.total).toString(),
   };
 }
+
+// Share the create-sale lock so an in-flight submission resolves before its status.
+export async function saleRequest(value: string) {
+ const requestKey = key(value);
+ return db.transaction(async em => {
+  await em.query("SELECT pg_advisory_xact_lock(713450)");
+  const [sale] = await em.query("SELECT id FROM sales WHERE request_key=$1",[requestKey]);
+  return sale || {id:null};
+ });
+}

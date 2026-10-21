@@ -39,6 +39,7 @@ import {
   createSale,
   collectSale,
   salesSummary,
+  saleRequest,
 } from "./sales";
 import { purchases, receivePurchase, purchaseSummary } from "./purchases";
 import { AppService } from "./service";
@@ -150,6 +151,7 @@ class AppController {
   @Get("sales/summary") salesSummary() {
     return salesSummary();
   }
+  @Get("sales/requests/:key") saleRequest(@Param("key") key: string) {return saleRequest(key);}
   @Get("sales") sales(@Query() query: any) {
     return sales(query);
   }
