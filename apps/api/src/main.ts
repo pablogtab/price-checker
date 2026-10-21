@@ -1,3 +1,4 @@
+import {previewPaymentCorrection,correctPayment,correctionHistory} from "./sale-corrections";
 import "reflect-metadata";
 import {
   customerSearch,
@@ -155,6 +156,9 @@ class AppController {
   @Post("sales") sale(@Body() body: any) {
     return createSale(body);
   }
+  @Post("sales/:id/payments/:payment/preview") previewCorrection(@Param("id") id:string,@Param("payment") payment:string,@Body() body:any){return previewPaymentCorrection(integer(id),integer(payment),body);}
+  @Post("sales/:id/payments/:payment/corrections") confirmCorrection(@Param("id") id:string,@Param("payment") payment:string,@Body() body:any){return correctPayment(integer(id),integer(payment),body);}
+  @Get("sales/:id/corrections") corrections(@Param("id") id:string){return correctionHistory(integer(id));}
   @Post("sales/:id/payments") collect(
     @Param("id") id: string,
     @Body() body: any,

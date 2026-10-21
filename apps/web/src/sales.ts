@@ -1,3 +1,5 @@
+import {SaleCorrectionHistoryComponent} from "./sale-correction-history";
+import {PaymentCorrectionComponent} from "./payment-correction";
 import { CustomerEditorComponent } from "./customer-editor";
 import { ButtonDirective } from "./ui/button";
 import { discountItems } from "./sale-discount";
@@ -24,12 +26,15 @@ import { SelectComponent } from "./select";
   standalone: true,
   imports: [
     CustomerEditorComponent,
+    PaymentCorrectionComponent,
+    SaleCorrectionHistoryComponent,
     FormsModule,
     SelectComponent,
     A11yModule,
     ButtonDirective,
   ],
   template: ` <div class="purchase-page">
+    @if (correctingPayment) {<app-payment-correction [sale]="correctingPayment.sale" [payment]="correctingPayment.payment" [accounts]="accounts" (closed)="correctingPayment=null" (saved)="paymentCorrected()" />}
     @if (clientForm) {
       <app-customer-editor
         [customer]="editingClient"
@@ -522,9 +527,11 @@ import { SelectComponent } from "./select";
                   <p class="purchase-help">
                     Cobro {{ p.occurred_on }} · {{ p.account_name }} ·
                     {{ amount(p.amount) }}
+                    <button class="text-button" (click)="correctingPayment={sale:s,payment:p}">Corregir cobro</button>
                   </p>
                 }
               </div>
+              <app-sale-correction-history [saleId]="s.id" />
             </details>
             @if (+s.pending > 0) {
               <button class="purchase-add" (click)="openCollection(s)">
@@ -590,6 +597,8 @@ export class SalesComponent implements OnInit {
   clients: any[] = [];
   accounts: any[] = [];
   history: any[] = [];
+  correctingPayment:any=null;
+  async paymentCorrected(){this.correctingPayment=null;await this.load();this.saved.emit();}
   customer: any = "";
   soldOn = this.today();
   note = "";
