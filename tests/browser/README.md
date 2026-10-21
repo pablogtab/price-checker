@@ -31,3 +31,7 @@ Coverage includes keyboard product addition, quantity consolidation preserving a
 manual price, explicit review/cancel, mobile layout, real stock/cash/debt effects,
 customer creation without losing the cart, partial payment and a lost response
 followed by an idempotent retry.
+
+`node --test tests/browser/sales-promos.mjs` uses the same harness to verify
+promo flavor selection/cancel, combination repetition, fixed/discounted prices,
+manual price preservation, mobile review and exact variant stock consumption.
