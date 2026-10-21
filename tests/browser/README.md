@@ -45,3 +45,6 @@ The companion REST suite runs against the same isolated API/PostgreSQL using
 percentage calculations, indivisible cents without splitting quantities, promo
 rounding, full/partial/zero receipts, limits and unchanged stock on rejection.
 The browser suite verifies desktop and mobile review, persistence and detail.
+`node --test tests/browser/sales-promos.mjs` uses the same harness to verify
+promo flavor selection/cancel, combination repetition, fixed/discounted prices,
+manual price preservation, mobile review and exact variant stock consumption.

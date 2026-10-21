@@ -1,3 +1,6 @@
+import {SaleCorrectionHistoryComponent} from "./sale-correction-history";
+import {PaymentCorrectionComponent} from "./payment-correction";
+import { SalesPromoPickerComponent } from "./sales-promo-picker";
 import { CustomerEditorComponent } from "./customer-editor";
 import { ButtonDirective } from "./ui/button";
 import {
@@ -23,12 +26,16 @@ import { SelectComponent } from "./select";
   standalone: true,
   imports: [
     CustomerEditorComponent,
+    PaymentCorrectionComponent,
+    SaleCorrectionHistoryComponent,
+    SalesPromoPickerComponent,
     FormsModule,
     SelectComponent,
     A11yModule,
     ButtonDirective,
   ],
   template: ` <div class="purchase-page">
+    @if (correctingPayment) {<app-payment-correction [sale]="correctingPayment.sale" [payment]="correctingPayment.payment" [accounts]="accounts" (closed)="correctingPayment=null" (saved)="paymentCorrected()" />}
     @if (clientForm) {
       <app-customer-editor
         [customer]="editingClient"
@@ -234,36 +241,17 @@ import { SelectComponent } from "./select";
               >
                 ×
               </button>
-              @if (line.slots.length) {
+              @if (selected(line)?.kind === "kit") {
                 <div class="sales-flavors">
-                  <p>Elegí los sabores de cada promo por separado.</p>
-                  @for (promo of promoIndexes(line); track promo) {
-                    <section class="sales-promo-group">
-                      <h4>
-                        Promo {{ promo + 1 }}
-                        <small>{{ amount(promoPrice(line, promo)) }}</small>
-                      </h4>
-                      <div class="sales-promo-options">
-                        @for (
-                          slot of slotsForPromo(line, promo);
-                          track slot.key
-                        ) {
-                          <label
-                            >{{ slot.label
-                            }}<app-select
-                              [label]="
-                                'Promo ' + (promo + 1) + ' · ' + slot.label
-                              "
-                              placeholder="Elegir sabor"
-                              [options]="slot.options"
-                              [(ngModel)]="slot.product_id"
-                              (ngModelChange)="updateKitPrice(line)"
-                            />
-                          </label>
-                        }
-                      </div>
-                    </section>
+                  @for (slot of slotsForPromo(line, 0); track slot.key) {
+                    <small>{{ slotName(slot) }}</small>
                   }
+                  <button class="text-button" [disabled]="line.quantity >= 100" (click)="repeatPromo(line)">
+                    Repetir combinación
+                  </button>
+                  <button class="text-button" (click)="addProduct(selected(line))">
+                    Otra combinación
+                  </button>
                 </div>
               }
             </div>
@@ -367,6 +355,16 @@ import { SelectComponent } from "./select";
           </button>
         </footer>
       </section>
+    }
+    @if (promoDraft) {
+      <app-sales-promo-picker
+        [name]="selected(promoDraft)?.name || ''"
+        [slots]="promoDraft.slots"
+        [price]="amount(promoDraft.unit_price)"
+        (changed)="updateKitPrice(promoDraft)"
+        (cancel)="closePromo()"
+        (confirm)="acceptPromo()"
+      />
     }
     @if (reviewOpen) {
       <div
@@ -556,9 +554,11 @@ import { SelectComponent } from "./select";
                   <p class="purchase-help">
                     Cobro {{ p.occurred_on }} · {{ p.account_name }} ·
                     {{ amount(p.amount) }}
+                    <button class="text-button" (click)="correctingPayment={sale:s,payment:p}">Corregir cobro</button>
                   </p>
                 }
               </div>
+              <app-sale-correction-history [saleId]="s.id" />
             </details>
             @if (+s.pending > 0) {
               <button class="purchase-add" (click)="openCollection(s)">
@@ -624,6 +624,8 @@ export class SalesComponent implements OnInit {
   clients: any[] = [];
   accounts: any[] = [];
   history: any[] = [];
+  correctingPayment:any=null;
+  async paymentCorrected(){this.correctingPayment=null;await this.load();this.saved.emit();}
   customer: any = "";
   soldOn = this.today();
   note = "";
@@ -672,7 +674,39 @@ export class SalesComponent implements OnInit {
       .getElementById("sales-result-" + this.activeResult)
       ?.scrollIntoView({ block: "nearest" });
   }
+  promoDraft: any = null;
+  closePromo() {
+    this.promoDraft = null;
+    this.searchQuery = "";
+    this.activeResult = 0;
+    this.focusSearch();
+  }
+  acceptPromo() {
+    if (
+      !this.promoDraft ||
+      !this.promoDraft.slots.every((s: any) =>
+        s.options.some((o: any) => o.value === Number(s.product_id)),
+      )
+    ) return;
+    this.promoDraft.combination = this.promoDraft.slots.map((s: any) => ({ ...s }));
+    this.lines.push(this.promoDraft);
+    this.closePromo();
+  }
+  repeatPromo(line: any) {
+    if (Number(line.quantity) >= 100) return;
+    line.quantity = Number(line.quantity) + 1;
+    this.syncSlots(line);
+    this.focusSearch();
+  }
   addProduct(p: any) {
+    if (p.kind === "kit") {
+      this.promoDraft = {
+        product_id: p.id, quantity: 1, unit_price: p.selling_price,
+        discount: 0, discount_mode: "amount", priceEdited: false, slots: [],
+      };
+      this.syncSlots(this.promoDraft);
+      return;
+    }
     const existing =
       p.kind !== "kit" && this.lines.find((l) => Number(l.product_id) === p.id);
     if (existing) existing.quantity = Number(existing.quantity) + 1;
@@ -841,7 +875,9 @@ export class SalesComponent implements OnInit {
               promo,
               component: c.product_id,
               label: c.name + (c.quantity > 1 ? " · unidad " + (n + 1) : ""),
-              product_id: "",
+              product_id: line.combination?.find((s: any) =>
+                s.component === c.product_id && s.key.split(":").at(-1) === String(n),
+              )?.product_id || "",
               options: c.variants.map((v: any) => ({
                 value: v.id,
                 label: v.name,
