@@ -440,7 +440,10 @@ import { SelectComponent } from "./select";
                 </li>
               }
             </ul>
-          }
+            <p>{{ pendingCustomerName }} · {{ pendingSubmission.sold_on }}</p>
+            <p>Total original: <strong>{{ amount(pendingTotal) }}</strong></p>
+            <p>Cobro original: {{ amount(pendingSubmission.payment?.amount || 0) }} · {{ pendingAccountName }}</p>
+          } @else {
           <p>{{ chosenCustomer?.name || "Consumidor final" }} · {{ soldOn }}</p>
           @for (line of lines; track line) {
             <div class="sales-review-line">
@@ -526,10 +529,11 @@ import { SelectComponent } from "./select";
               cliente.
             </p>
           }
+          }
           @if (error) {
             <p class="alert danger" role="alert">{{ error }}</p>
           }
-          @if (hasNegativeStock) {
+          @if (!pendingSubmission && hasNegativeStock) {
             <p class="stock-warning">
               La venta dejará stock negativo. Podés confirmarla igualmente.
             </p>
@@ -801,14 +805,24 @@ export class SalesComponent implements OnInit, DoCheck {
     this.activeResult = 0;
     this.focusSearch();
   }
-  discardCart() {
-    if (this.pendingSubmission) {
-      this.error =
-        "Primero verificá el envío pendiente confirmando la venta original.";
-      return;
-    }
-    this.resetDraft();
-    this.focusSearch();
+  async discardCart() {
+    if (this.busy) return;
+    this.busy = true;
+    try {
+      if (this.pendingSubmission) {
+        const result = await firstValueFrom(this.http.get<any>("/api/sales/requests/" + this.pendingSubmission.request_key));
+        if (result?.id) {
+          this.notice = "La venta #" + result.id + " ya estaba registrada. Se limpió el carrito sin registrar otra venta.";
+          this.saved.emit();
+          await this.load();
+        }
+      }
+      this.resetDraft();
+      this.error = "";
+      this.focusSearch();
+    } catch {
+      this.error = "No pudimos verificar el envío anterior. Conservamos el carrito; reintentá cuando vuelva la conexión.";
+    } finally { this.busy = false; this.cdr.markForCheck(); }
   }
   closeReview() {
     if (this.busy) return;
@@ -863,6 +877,14 @@ export class SalesComponent implements OnInit, DoCheck {
     return (
       this.products.find((p) => p.id === Number(id))?.name || "Producto #" + id
     );
+  }
+  get pendingCustomerName() {return this.clients.find(c=>c.id===Number(this.pendingSubmission?.customer_id))?.name || "Consumidor final";}
+  get pendingAccountName() {return this.accounts.find(a=>a.id===Number(this.pendingSubmission?.payment?.account_id))?.name || "Cuenta corriente / sin cobro";}
+  get pendingTotal() {
+    const subtotal = (this.pendingSubmission?.items || []).reduce((sum: Decimal,i:any)=>sum.plus(new Decimal(i.unit_price).mul(i.quantity)),new Decimal(0));
+    const discount = this.pendingSubmission?.discount || {mode:"amount",value:0};
+    const reduction = discount.mode === "percent" ? subtotal.mul(discount.value).div(100).toDecimalPlaces(2,Decimal.ROUND_HALF_UP) : new Decimal(discount.value);
+    return subtotal.minus(reduction).toString();
   }
   private draftReady = false;
   private draftSnapshot = "";
@@ -950,7 +972,7 @@ export class SalesComponent implements OnInit, DoCheck {
     this.account = "";
     this.useTotal();
     this.requestKey = crypto.randomUUID();
-    localStorage.removeItem(this.draftKey);
+    try { localStorage.removeItem(this.draftKey); } catch { this.storageError = true; }
     this.draftSnapshot = "";
     this.persistDraft();
   }

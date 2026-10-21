@@ -24,6 +24,24 @@ async function api(path, body, method = "POST") {
   assert.equal(response.ok, true, `${path}: ${await response.clone().text()}`);
   return response.json();
 }
+async function readyTransfer() {
+  let account = (await api("cash/accounts")).find(
+    (a) => a.name === "Transferencia" && a.currency === "ARS",
+  );
+  if (!account)
+    account = await api("cash/accounts", {
+      name: "Transferencia",
+      currency: "ARS",
+      opening_balance: "0",
+    });
+  else if (account.balance == null)
+    await api(
+      `cash/accounts/${account.id}/opening-balance`,
+      { amount: "0" },
+      "PUT",
+    );
+  return (await api("cash/accounts")).find((a) => a.id === account.id);
+}
 test("draft survives reload and preserves manual prices until explicitly updated", async () => {
   const id = Date.now();
   const product = await api("products", {
@@ -33,6 +51,7 @@ test("draft survives reload and preserves manual prices until explicitly updated
   const browser = await chromium.launch({
     headless: true,
     executablePath:
+      process.env.CHROME_EXECUTABLE ||
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   });
   try {
@@ -76,6 +95,7 @@ test("draft survives reload and preserves manual prices until explicitly updated
 });
 
 test("uncertain submission survives reload and changed cart without duplicating sale or stock", async () => {
+  const transfer = await readyTransfer();
   const id = Date.now();
   const product = await api("products", {
     name: `Retry ${id}`,
@@ -85,6 +105,7 @@ test("uncertain submission survives reload and changed cart without duplicating 
   const browser = await chromium.launch({
     headless: true,
     executablePath:
+      process.env.CHROME_EXECUTABLE ||
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   });
   try {
@@ -117,6 +138,17 @@ test("uncertain submission survives reload and changed cart without duplicating 
     await page
       .getByRole("button", { name: "Verificar envío pendiente", exact: true })
       .click();
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+    );
+    if (process.env.E2E_SCREENSHOTS)
+      await page.screenshot({
+        path: process.env.E2E_SCREENSHOTS + "/draft-retry-mobile.png",
+        fullPage: true,
+      });
     await page
       .getByRole("dialog", { name: "Revisar venta" })
       .getByRole("button", { name: "Confirmar venta", exact: true })
@@ -130,6 +162,10 @@ test("uncertain submission survives reload and changed cart without duplicating 
     assert.equal(sales.length, 1);
     assert.equal(sales[0].total, "10000");
     assert.equal(sales[0].paid, "10000");
+    const after = (await api("cash/accounts")).find(
+      (a) => a.id === transfer.id,
+    );
+    assert.equal(Number(after.balance) - Number(transfer.balance), 10000);
     assert.equal(
       (await api("products")).find((p) => p.id === product.id).own_stock,
       4,
@@ -150,6 +186,7 @@ test("removed product is explained after restoration and remaining cart can be c
   const browser = await chromium.launch({
     headless: true,
     executablePath:
+      process.env.CHROME_EXECUTABLE ||
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   });
   try {
@@ -179,6 +216,7 @@ test("removed product is explained after restoration and remaining cart can be c
 });
 
 test("promo combinations, metadata, discount and partial collection survive closing a tab", async () => {
+  await readyTransfer();
   const id = Date.now(),
     group = `Draft group ${id}`;
   const choc = await api("products", {
@@ -205,6 +243,7 @@ test("promo combinations, metadata, discount and partial collection survive clos
   const browser = await chromium.launch({
     headless: true,
     executablePath:
+      process.env.CHROME_EXECUTABLE ||
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   });
   try {
@@ -297,6 +336,7 @@ test("promo combinations, metadata, discount and partial collection survive clos
   }
 });
 test("unreceived submission retries original payload after a network failure and reload", async () => {
+  const transfer = await readyTransfer();
   const id = Date.now();
   const product = await api("products", {
     name: `Retry ${id}`,
@@ -306,6 +346,7 @@ test("unreceived submission retries original payload after a network failure and
   const browser = await chromium.launch({
     headless: true,
     executablePath:
+      process.env.CHROME_EXECUTABLE ||
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   });
   try {
@@ -337,6 +378,17 @@ test("unreceived submission retries original payload after a network failure and
     await page
       .getByRole("button", { name: "Verificar envío pendiente", exact: true })
       .click();
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+    );
+    if (process.env.E2E_SCREENSHOTS)
+      await page.screenshot({
+        path: process.env.E2E_SCREENSHOTS + "/draft-retry-mobile.png",
+        fullPage: true,
+      });
     await page
       .getByRole("dialog", { name: "Revisar venta" })
       .getByRole("button", { name: "Confirmar venta", exact: true })
@@ -350,6 +402,10 @@ test("unreceived submission retries original payload after a network failure and
     assert.equal(sales.length, 1);
     assert.equal(sales[0].total, "10000");
     assert.equal(sales[0].paid, "10000");
+    const after = (await api("cash/accounts")).find(
+      (a) => a.id === transfer.id,
+    );
+    assert.equal(Number(after.balance) - Number(transfer.balance), 10000);
     assert.equal(
       (await api("products")).find((p) => p.id === product.id).own_stock,
       4,
@@ -357,6 +413,71 @@ test("unreceived submission retries original payload after a network failure and
     assert.equal((await api(`sales/requests/${key}`)).id, sales[0].id);
     await page.reload();
     assert.equal(await page.getByLabel("Cantidad", { exact: true }).count(), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test("discard resolves an uncertain attempt and never creates an unreceived sale", async () => {
+  const transfer = await readyTransfer(),
+    id = Date.now();
+  const product = await api("products", {
+    name: `Discard uncertain ${id}`,
+    selling_price: "10000",
+  });
+  await api(`products/${product.id}/stock`, { quantity: 5 }, "PUT");
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath:
+      process.env.CHROME_EXECUTABLE ||
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  });
+  try {
+    const page = await browser.newPage();
+    await page.goto(`${base}/sales`);
+    await page
+      .getByRole("combobox", { name: "Buscar productos" })
+      .fill(`Discard uncertain ${id}`);
+    await page.keyboard.press("Enter");
+    await page
+      .getByRole("button", { name: "Revisar venta", exact: true })
+      .click();
+    await page.route("**/api/sales", (route) =>
+      route.request().method() === "POST"
+        ? route.abort("failed")
+        : route.continue(),
+    );
+    const review = page.getByRole("dialog", { name: "Revisar venta" });
+    await review
+      .getByRole("button", { name: "Confirmar venta", exact: true })
+      .click();
+    await review.getByRole("alert").waitFor();
+    await page.unroute("**/api/sales");
+    await review
+      .getByRole("button", { name: "Volver al carrito", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Descartar carrito", exact: true })
+      .click();
+    await page
+      .getByLabel("Cantidad", { exact: true })
+      .waitFor({ state: "hidden" });
+    await page.reload();
+    assert.equal(await page.getByLabel("Cantidad", { exact: true }).count(), 0);
+    assert.equal(
+      (await api("sales")).filter((s) =>
+        s.items.some((i) => i.product_id === product.id),
+      ).length,
+      0,
+    );
+    assert.equal(
+      (await api("products")).find((p) => p.id === product.id).own_stock,
+      5,
+    );
+    assert.equal(
+      (await api("cash/accounts")).find((a) => a.id === transfer.id).balance,
+      transfer.balance,
+    );
   } finally {
     await browser.close();
   }
