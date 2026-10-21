@@ -11,8 +11,8 @@ import { ars, date, key, sales } from "./sales";
 
 const aggregate = `SELECT c.*,coalesce(s.sold,0)::text sold,coalesce(p.paid,0)::text paid,
  (coalesce(s.sold,0)-coalesce(p.paid,0))::text balance,coalesce(s.sale_count,0)::int sale_count,s.last_sale::text
- FROM customers c LEFT JOIN LATERAL(SELECT sum(total) sold,count(*) sale_count,max(sold_on) last_sale FROM sales WHERE customer_id=c.id) s ON true
- LEFT JOIN LATERAL(SELECT sum(sp.amount) paid FROM sale_payments sp JOIN sales s ON s.id=sp.sale_id WHERE s.customer_id=c.id) p ON true`;
+ FROM customers c LEFT JOIN LATERAL(SELECT sum(total) sold,count(*) sale_count,max(sold_on) last_sale FROM sales WHERE customer_id=c.id AND status='active') s ON true
+ LEFT JOIN LATERAL(SELECT sum(sp.amount) paid FROM sale_payments sp JOIN sales s ON s.id=sp.sale_id WHERE s.customer_id=c.id AND s.status='active') p ON true`;
 function pageOf(q: any) {
   return q.page == null ? 1 : integer(q.page);
 }
@@ -89,9 +89,9 @@ export async function customerLedger(id: number, q: any) {
   await customerDetail(id);
   const page = pageOf(q);
   const cte = `WITH events AS (
- SELECT 'sale' kind,s.id,s.id sale_id,s.sold_on occurred_on,s.created_at,s.total debit,0::numeric credit,'Venta #'||s.id concept FROM sales s WHERE s.customer_id=$1
+ SELECT 'sale' kind,s.id,s.id sale_id,s.sold_on occurred_on,s.created_at,CASE WHEN s.status='annulled' THEN 0 ELSE s.total END debit,0::numeric credit,(CASE WHEN s.status='annulled' THEN 'Venta anulada #' ELSE 'Venta #' END)||s.id concept FROM sales s WHERE s.customer_id=$1
  UNION ALL
- SELECT 'payment',o.id,NULL::int,o.occurred_on,o.created_at,0::numeric,sum(p.amount),coalesce(o.note,'Cobro') FROM sale_payments p JOIN sales s ON s.id=p.sale_id JOIN cash_operations o ON o.id=p.operation_id WHERE s.customer_id=$1 GROUP BY o.id
+ SELECT 'payment',o.id,NULL::int,o.occurred_on,o.created_at,0::numeric,sum(p.amount),coalesce(o.note,'Cobro') FROM sale_payments p JOIN sales s ON s.id=p.sale_id JOIN cash_operations o ON o.id=p.operation_id WHERE s.customer_id=$1 AND s.status='active' GROUP BY o.id
  ),ledger AS(SELECT *,sum(debit-credit) OVER(ORDER BY occurred_on,created_at,kind DESC,id ROWS UNBOUNDED PRECEDING) balance FROM events)`;
   const [count] = await db.query(
     `${cte} SELECT count(*)::int total FROM ledger`,
@@ -109,7 +109,7 @@ async function allocation(em: any, id: number, amount: string) {
   ]);
   if (!customer) throw new NotFoundException("Cliente inexistente");
   const rows = await em.query(
-    `SELECT s.id,s.sold_on::text,(s.total-coalesce(p.paid,0))::text pending FROM sales s LEFT JOIN LATERAL(SELECT sum(amount) paid FROM sale_payments WHERE sale_id=s.id) p ON true WHERE customer_id=$1 AND s.total>coalesce(p.paid,0) ORDER BY s.sold_on,s.id`,
+    `SELECT s.id,s.sold_on::text,(s.total-coalesce(p.paid,0))::text pending FROM sales s LEFT JOIN LATERAL(SELECT sum(amount) paid FROM sale_payments WHERE sale_id=s.id) p ON true WHERE customer_id=$1 AND s.status='active' AND s.total>coalesce(p.paid,0) ORDER BY s.sold_on,s.id`,
     [id],
   );
   const debt = rows.reduce(

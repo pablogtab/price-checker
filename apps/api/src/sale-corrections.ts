@@ -152,7 +152,7 @@ async function preview(em: any, saleId: number, paymentId: number, body: any) {
     pending: new Decimal(state.sale.total).minus(next).toString(),
   };
   const [debt] = await em.query(
-    "SELECT coalesce(sum(s.total),0)-(SELECT coalesce(sum(p.amount),0) FROM sale_payments p JOIN sales x ON x.id=p.sale_id WHERE x.customer_id=$1) balance FROM sales s WHERE s.customer_id=$1",
+    "SELECT coalesce(sum(s.total),0)-(SELECT coalesce(sum(p.amount),0) FROM sale_payments p JOIN sales x ON x.id=p.sale_id WHERE x.customer_id=$1 AND x.status='active') balance FROM sales s WHERE s.customer_id=$1 AND s.status='active'",
     [state.sale.customer_id],
   );
   const deltas = new Map<number, Decimal>();

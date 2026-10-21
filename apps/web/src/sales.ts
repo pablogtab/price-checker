@@ -1,5 +1,6 @@
-import { SaleCorrectionHistoryComponent } from "./sale-correction-history";
-import { PaymentCorrectionComponent } from "./payment-correction";
+import {SaleAnnulmentComponent} from "./sale-annulment";
+import {SaleCorrectionHistoryComponent} from "./sale-correction-history";
+import {PaymentCorrectionComponent} from "./payment-correction";
 import { SalesPromoPickerComponent } from "./sales-promo-picker";
 import { CustomerEditorComponent } from "./customer-editor";
 import { ButtonDirective } from "./ui/button";
@@ -28,6 +29,7 @@ import { SelectComponent } from "./select";
   imports: [
     CustomerEditorComponent,
     PaymentCorrectionComponent,
+    SaleAnnulmentComponent,
     SaleCorrectionHistoryComponent,
     SalesPromoPickerComponent,
     FormsModule,
@@ -36,15 +38,8 @@ import { SelectComponent } from "./select";
     ButtonDirective,
   ],
   template: ` <div class="purchase-page">
-    @if (correctingPayment) {
-      <app-payment-correction
-        [sale]="correctingPayment.sale"
-        [payment]="correctingPayment.payment"
-        [accounts]="accounts"
-        (closed)="correctingPayment = null"
-        (saved)="paymentCorrected()"
-      />
-    }
+    @if (annullingSale) {<app-sale-annulment [sale]="annullingSale" (closed)="annullingSale=null" (saved)="saleAnnulled()" />}
+    @if (correctingPayment) {<app-payment-correction [sale]="correctingPayment.sale" [payment]="correctingPayment.payment" [accounts]="accounts" (closed)="correctingPayment=null" (saved)="paymentCorrected()" />}
     @if (clientForm) {
       <app-customer-editor
         [customer]="editingClient"
@@ -579,6 +574,7 @@ import { SelectComponent } from "./select";
                   Venta #{{ s.id }} ·
                   {{ s.customer_name || "Consumidor final" }}
                 </h3>
+                @if(s.status === "annulled"){<strong class="alert danger">Anulada · {{s.annulled_at}}</strong>}
                 <small
                   >{{ s.sold_on }}
                   @if (s.note) {
@@ -633,7 +629,8 @@ import { SelectComponent } from "./select";
               </div>
               <app-sale-correction-history [saleId]="s.id" />
             </details>
-            @if (+s.pending > 0) {
+            @if (s.status !== "annulled") {<button appButton="ghost" (click)="annullingSale=s">Anular</button>}
+            @if (s.status !== "annulled" && +s.pending > 0) {
               <button class="purchase-add" (click)="openCollection(s)">
                 Registrar cobro
               </button>
@@ -689,7 +686,7 @@ import { SelectComponent } from "./select";
     }
   </div>`,
 })
-export class SalesComponent implements OnInit {
+export class SalesComponent implements OnInit, DoCheck {
   @Input() products: any[] = [];
   @Output() saved = new EventEmitter<void>();
   http = inject(HttpClient);
@@ -697,12 +694,10 @@ export class SalesComponent implements OnInit {
   clients: any[] = [];
   accounts: any[] = [];
   history: any[] = [];
-  correctingPayment: any = null;
-  async paymentCorrected() {
-    this.correctingPayment = null;
-    await this.load();
-    this.saved.emit();
-  }
+  annullingSale:any=null;
+  async saleAnnulled(){this.annullingSale=null;this.collecting=null;await this.load();this.saved.emit();}
+  correctingPayment:any=null;
+  async paymentCorrected(){this.correctingPayment=null;await this.load();this.saved.emit();}
   customer: any = "";
   soldOn = this.today();
   note = "";
