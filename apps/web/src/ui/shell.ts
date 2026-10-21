@@ -3,7 +3,7 @@ import { IconComponent } from "./icon";
 const GROUPS = [
   {
     title: "",
-    items: [{ id: "dashboard", label: "Dashboard", icon: "dashboard" }],
+    items: [{ id: "dashboard", label: "Dashboard", icon: "dashboard" },{id:"new-sale",label:"Nueva venta",icon:"plus"}],
   },
   {
     title: "Catálogo",
@@ -44,7 +44,7 @@ const GROUPS = [
             }
             @for (item of group.items; track item.id) {
               <a
-                [href]="'/' + item.id"
+                [href]="item.id==='new-sale'?'/sales/new':'/'+item.id"
                 [class.active]="view === item.id"
                 [attr.aria-current]="view === item.id ? 'page' : null"
                 (click)="go($event, item.id)"

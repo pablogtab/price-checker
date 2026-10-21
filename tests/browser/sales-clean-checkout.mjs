@@ -56,7 +56,7 @@ test("checkout offers direct account choices and optional partial payment withou
     const page = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
     });
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     const search = page.getByRole("combobox", { name: "Buscar productos" });
     await search.fill(`UX${suffix}`);
     await search.press("Enter");

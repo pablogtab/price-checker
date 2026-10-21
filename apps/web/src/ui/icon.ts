@@ -1,6 +1,7 @@
 import { Component, Input } from "@angular/core";
 import { ICONS } from "./icons";
 const EXTRA = {
+  calendar: ["M8 2v4", "M16 2v4", "M3 10h18", "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"],
   plus: ["M12 5v14", "M5 12h14"],
   refresh: [
     "M20 7v5h-5",

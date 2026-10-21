@@ -442,6 +442,22 @@ Registrar un pago actualiza la cuenta y la deuda de forma conjunta y conserva el
 stock recibido. Los reintentos de una misma operación no duplican movimientos.
 
 
+**Nueva venta** está debajo de Dashboard y abre `/sales/new`; **Ventas** abre
+`/sales`, el historial. La composición Mostrador deja productos y descuento en
+una columna y cliente, fecha, nota, cobro y total en el resumen lateral. En móvil
+se apilan. El descuento $/% y el importe se editan en una sola fila. La fecha
+usa un calendario propio con Hoy/Ayer, navegación por mes y flechas, y admite
+escribir dd/mm/aaaa; la API conserva YYYY-MM-DD.
+
+Al vender, un stock sin recuento se considera **0**: se permite continuar y
+queda negativo con aviso. Las unidades consumidas registran stock previo 0;
+los reintentos no vuelven a descontar. Esta interpretación se usa también al
+editar o anular ventas; no se cambia masivamente el stock de productos todavía
+sin movimientos. Las correcciones y anulaciones aplican sus diferencias al
+stock actual. En Ventas, las tarjetas compactas muestran total y estado; **Ver
+venta** abre productos, cobros y acciones. Se puede buscar por cliente/número y
+filtrar Todas, Pendientes o Cobradas dentro de las últimas 100 ventas.
+
 ## Ventas y clientes
 
 En **Clientes**, pulsá **Nuevo cliente** para abrir el popup y cargar nombre, teléfono, Instagram y una nota opcional. El nombre es obligatorio;

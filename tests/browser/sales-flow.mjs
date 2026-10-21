@@ -62,7 +62,7 @@ test("keyboard cart, review cancellation and confirmation affect the real app on
     const page = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
     });
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     const search = page.getByRole("combobox", { name: "Buscar productos" });
     await search.fill(`CHOC${suffix}`);
     await search.press("ArrowDown");
@@ -143,7 +143,7 @@ test("keyboard cart, review cancellation and confirmation affect the real app on
     ).balance;
     assert.equal(Number(after) - Number(before), 36000);
     assert.equal(await page.getByLabel("Cantidad", { exact: true }).count(), 0);
-    await page.getByRole("button", { name: "Historial", exact: true }).click();
+    await page.getByRole("link", { name: "Ventas", exact: true }).click();
     await page.getByText(`Venta #${sales[0].id} ·`).waitFor();
     if (process.env.E2E_SCREENSHOTS)
       await page.screenshot({
@@ -172,7 +172,7 @@ test("customer editor preserves cart; partial receipt survives a lost response w
     const page = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
     });
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     const search = page.getByRole("combobox", { name: "Buscar productos" });
     await search.fill(`NEUTRA ${suffix}`);
     await search.press("Enter");

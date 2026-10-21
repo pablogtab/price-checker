@@ -323,7 +323,7 @@ export class AppComponent implements OnInit, OnDestroy {
     void this.loadCatalog();
   }
   pathView() {
-    const v = location.pathname.startsWith("/customers/") ? "customers" : location.pathname.slice(1);
+    const v = location.pathname === "/sales/new" ? "new-sale" : location.pathname.startsWith("/customers/") ? "customers" : location.pathname.slice(1);
     return [
       "dashboard",
       "products",
@@ -332,6 +332,7 @@ export class AppComponent implements OnInit, OnDestroy {
       "purchases",
       "cash",
       "sales",
+      "new-sale",
       "customers",
     ].includes(v)
       ? v
@@ -410,7 +411,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   navigate(v: string) {
     this.view = v;
-    history.pushState({}, "", v === "dashboard" ? "/" : "/" + v);
+    history.pushState({}, "", v === "dashboard" ? "/" : v === "new-sale" ? "/sales/new" : "/" + v);
     this.page = 1;
     this.filters = {
       search: "",

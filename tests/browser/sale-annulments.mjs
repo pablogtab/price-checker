@@ -1,3 +1,4 @@
+import {openSaleDetails} from "../helpers/sales-ui.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -47,9 +48,9 @@ test("desktop and mobile preview, cancel, confirm annulment and inspect historic
         request_key: randomUUID(),
       });
       const page = await browser.newPage({ viewport: { width, height: 950 } });
-      await page.goto(base + "/sales");
+      await page.goto(base + "/sales/new");
       await page
-        .getByRole("button", { name: "Historial", exact: true })
+        .getByRole("link", { name: "Ventas", exact: true })
         .click();
       const row = page
         .locator("article")
@@ -58,6 +59,7 @@ test("desktop and mobile preview, cancel, confirm annulment and inspect historic
             name: `Venta #${s.id} · Consumidor final`,
           }),
         });
+      await openSaleDetails(row);
       await row.getByRole("button", { name: "Anular", exact: true }).click();
       const dialog = page.getByRole("dialog", {
         name: "Anular venta #" + s.id,
@@ -70,6 +72,7 @@ test("desktop and mobile preview, cancel, confirm annulment and inspect historic
       await dialog
         .getByRole("button", { name: "Cancelar", exact: true })
         .click();
+      await openSaleDetails(row);
       await row.getByRole("button", { name: "Anular", exact: true }).click();
       await dialog.getByText("Revisá los efectos", { exact: true }).waitFor();
       if (process.env.E2E_SCREENSHOTS)
@@ -82,12 +85,12 @@ test("desktop and mobile preview, cancel, confirm annulment and inspect historic
         .getByRole("button", { name: "Confirmar anulación", exact: true })
         .click();
       await dialog.waitFor({ state: "hidden" });
-      await row.getByText(/Anulada ·/).waitFor();
+      await row.getByText("Anulada",{exact:true}).waitFor();
       assert.equal(
         await row.getByRole("button", { name: "Anular", exact: true }).count(),
         0,
       );
-      await row.locator("summary").click();
+      await openSaleDetails(row);
       await row
         .getByRole("button", { name: "Ver correcciones", exact: true })
         .click();

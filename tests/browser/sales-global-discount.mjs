@@ -53,13 +53,10 @@ test("global discount ARS and percent appears in review and persisted sale detai
     const page = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
     });
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     const search = page.getByRole("combobox", { name: "Buscar productos" });
     await search.fill(suffix);
     await search.press("Enter");
-    await page
-      .getByText("Aplicar descuento a la venta", { exact: true })
-      .click();
     await page
       .getByLabel("Descuento de venta (ARS)", { exact: true })
       .fill("10");
@@ -91,11 +88,11 @@ test("global discount ARS and percent appears in review and persisted sale detai
     );
     assert.equal(saved.total, "75");
     assert.equal(saved.discount_mode, "percent");
-    await page.getByRole("button", { name: "Historial", exact: true }).click();
+    await page.getByRole("link", { name: "Ventas", exact: true }).click();
     const article = page
       .locator(".sales-history-item")
       .filter({ hasText: `Venta #${saved.id} ·` });
-    await article.getByText("Ver productos y cobros", { exact: true }).click();
+    await article.getByRole("button", { name: "Ver venta", exact: true }).click();
     assert.match(await article.innerText(), /Descuento.*25,00/s);
     if (process.env.E2E_SCREENSHOTS)
       await page.screenshot({
@@ -124,14 +121,11 @@ test("mobile ARS discount persists and full discount creates no fake payment", a
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
     });
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     await page.getByRole("combobox", { name: "Buscar productos" }).fill(suffix);
     await page
       .getByRole("combobox", { name: "Buscar productos" })
       .press("Enter");
-    await page
-      .getByText("Aplicar descuento a la venta", { exact: true })
-      .click();
     await page
       .getByLabel("Descuento de venta (ARS)", { exact: true })
       .fill("100");

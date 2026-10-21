@@ -69,7 +69,7 @@ test("promo picker cancels safely, repeats chosen combinations and consumes exac
       viewport: { width: 1440, height: 1000 },
     });
     page.setDefaultTimeout(8000);
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     const search = page.getByRole("combobox", { name: "Buscar productos" });
     await search.fill(`PROMO${suffix}`);
     await search.press("Enter");
@@ -205,10 +205,10 @@ test("promo picker cancels safely, repeats chosen combinations and consumes exac
         .reduce((s, c) => s + Number(c.quantity), 0),
       2,
     );
-    await page.getByRole("button", { name: "Historial", exact: true }).click();
+    await page.getByRole("link", { name: "Ventas", exact: true }).click();
     await page.getByText(`Venta #${sales[0].id} ·`).waitFor();
     await page
-      .getByText("Ver productos y cobros", { exact: true })
+      .getByRole("button", { name: "Ver venta", exact: true })
       .first()
       .click();
     assert.match(
@@ -248,7 +248,7 @@ test("fixed-price promo keeps rounded final price, requires explicit flavor and 
       viewport: { width: 1440, height: 1000 },
     });
     page.setDefaultTimeout(8000);
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     const search = page.getByRole("combobox", { name: "Buscar productos" });
     await search.fill(`FINAL${suffix}`);
     await search.press("Enter");

@@ -1,3 +1,4 @@
+import {openSaleDetails} from "../helpers/sales-ui.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -54,13 +55,14 @@ for (const mobile of [false, true])
           ? { width: 390, height: 844 }
           : { width: 1440, height: 1100 },
       });
-      await page.goto(base + "/sales");
+      await page.goto(base + "/sales/new");
       await page
-        .getByRole("button", { name: "Historial", exact: true })
+        .getByRole("link", { name: "Ventas", exact: true })
         .click();
       const row = page
         .locator(".sales-history-item")
         .filter({ hasText: "Venta #" + s.id + " ·" });
+      await openSaleDetails(row);
       await row
         .getByRole("button", { name: "Editar venta", exact: true })
         .click();
@@ -83,6 +85,7 @@ for (const mobile of [false, true])
         (await api("sales")).find((x) => x.id === s.id).total,
         "20000",
       );
+      await openSaleDetails(row);
       await row
         .getByRole("button", { name: "Editar venta", exact: true })
         .click();

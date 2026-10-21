@@ -56,7 +56,7 @@ test("draft survives reload and preserves manual prices until explicitly updated
   });
   try {
     const page = await browser.newPage();
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     const search = page.getByRole("combobox", { name: "Buscar productos" });
     await search.fill(`Draft Chocolate ${id}`);
     await search.press("Enter");
@@ -112,7 +112,7 @@ test("uncertain submission survives reload and changed cart without duplicating 
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
     });
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     await page
       .getByRole("combobox", { name: "Buscar productos" })
       .fill(`Retry ${id}`);
@@ -191,7 +191,7 @@ test("removed product is explained after restoration and remaining cart can be c
   });
   try {
     const page = await browser.newPage();
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     await page
       .getByRole("combobox", { name: "Buscar productos" })
       .fill(`Removed ${id}`);
@@ -249,12 +249,11 @@ test("promo combinations, metadata, discount and partial collection survive clos
   try {
     const context = await browser.newContext();
     let page = await context.newPage();
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     await page.getByRole("button", { name: /^Cliente:/ }).click();
     await page
       .getByRole("button", { name: new RegExp(`^Draft customer ${id}`) })
       .click();
-    await page.getByText("Fecha y nota", { exact: true }).click();
     await page.getByLabel("Fecha de venta", { exact: true }).fill("2026-10-20");
     await page.getByLabel(/^Nota/).fill("Persisted note");
     await page
@@ -282,9 +281,6 @@ test("promo combinations, metadata, discount and partial collection survive clos
       .getByRole("button", { name: "Repetir combinación", exact: true })
       .click();
     await page
-      .getByText("Aplicar descuento a la venta", { exact: true })
-      .click();
-    await page
       .getByLabel("Descuento de venta (ARS)", { exact: true })
       .fill("400");
     await page
@@ -297,7 +293,7 @@ test("promo combinations, metadata, discount and partial collection survive clos
       .click();
     await page.close();
     page = await context.newPage();
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     assert.equal(
       await page.getByLabel("Cantidad", { exact: true }).inputValue(),
       "2",
@@ -354,7 +350,7 @@ test("unreceived submission retries original payload after a network failure and
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
     });
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     await page
       .getByRole("combobox", { name: "Buscar productos" })
       .fill(`Retry ${id}`);
@@ -435,7 +431,7 @@ test("discard resolves an uncertain attempt and never creates an unreceived sale
   });
   try {
     const page = await browser.newPage();
-    await page.goto(`${base}/sales`);
+    await page.goto(`${base}/sales/new`);
     await page
       .getByRole("combobox", { name: "Buscar productos" })
       .fill(`Discard uncertain ${id}`);

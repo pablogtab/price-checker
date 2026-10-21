@@ -1,3 +1,4 @@
+import {openSaleDetails} from "../helpers/sales-ui.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -77,8 +78,9 @@ test("new edited discount promo uses selected flavors, rounding and manual overr
   });
   try {
     const page = await browser.newPage();
-    await page.goto(base + "/sales");
-    await page.getByRole("button", { name: "Historial", exact: true }).click();
+    await page.goto(base + "/sales/new");
+    await page.getByRole("link", { name: "Ventas", exact: true }).click();
+    await openSaleDetails(page.locator(".sales-history-item").filter({hasText:"Venta #"+s.id+" ·"}));
     await page
       .locator(".sales-history-item")
       .filter({ hasText: "Venta #" + s.id + " ·" })
@@ -191,8 +193,9 @@ test("populated mobile editor keeps large monetary fields, dates and promo flavo
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
     });
-    await page.goto(base + "/sales");
-    await page.getByRole("button", { name: "Historial", exact: true }).click();
+    await page.goto(base + "/sales/new");
+    await page.getByRole("link", { name: "Ventas", exact: true }).click();
+    await openSaleDetails(page.locator(".sales-history-item").filter({hasText:"Venta #"+s.id+" ·"}));
     await page
       .locator(".sales-history-item")
       .filter({ hasText: "Venta #" + s.id + " ·" })

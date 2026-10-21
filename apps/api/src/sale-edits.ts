@@ -218,15 +218,15 @@ export async function prepareSaleEdit(
       delta =
         (beforeNeeded.get(product_id) || 0) -
         (afterNeeded.get(product_id) || 0);
-    if (!p || p.own_stock == null)
-      throw new BadRequestException("Cargá el stock real de los componentes");
-    const after = p.own_stock + delta;
+    if (!p) throw new BadRequestException("Componente inexistente");
+    const before = p.own_stock ?? 0;
+    const after = before + delta;
     if (!Number.isSafeInteger(after) || Math.abs(after) > 1e9)
       throw new BadRequestException("Stock fuera de rango");
     stock.push({
       product_id,
       name: p.name,
-      before: p.own_stock,
+      before,
       delta,
       after,
       consumed_before: beforeNeeded.get(product_id) || 0,

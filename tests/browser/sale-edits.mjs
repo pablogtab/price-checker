@@ -1,3 +1,4 @@
+import {openSaleDetails} from "../helpers/sales-ui.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -49,13 +50,14 @@ for (const mobile of [false, true])
           ? { width: 390, height: 844 }
           : { width: 1440, height: 1000 },
       });
-      await page.goto(base + "/sales");
+      await page.goto(base + "/sales/new");
       await page
-        .getByRole("button", { name: "Historial", exact: true })
+        .getByRole("link", { name: "Ventas", exact: true })
         .click();
       const row = page
         .locator(".sales-history-item")
         .filter({ hasText: "Venta #" + s.id + " ·" });
+      await openSaleDetails(row);
       await row
         .getByRole("button", { name: "Editar venta", exact: true })
         .click();
@@ -77,6 +79,7 @@ for (const mobile of [false, true])
       await dialog
         .getByRole("button", { name: "Cancelar", exact: true })
         .click();
+      await openSaleDetails(row);
       await row
         .getByRole("button", { name: "Editar venta", exact: true })
         .click();
@@ -124,7 +127,7 @@ for (const mobile of [false, true])
       );
       await page.reload();
       await page
-        .getByRole("button", { name: "Historial", exact: true })
+        .getByRole("link", { name: "Ventas", exact: true })
         .click();
       await page
         .locator(".sales-history-item")
@@ -182,8 +185,9 @@ test("historical same-flavor promo exposes each recorded unit for flavor correct
     const page = await browser.newPage({
       viewport: { width: 390, height: 844 },
     });
-    await page.goto(base + "/sales");
-    await page.getByRole("button", { name: "Historial", exact: true }).click();
+    await page.goto(base + "/sales/new");
+    await page.getByRole("link", { name: "Ventas", exact: true }).click();
+    await openSaleDetails(page.locator(".sales-history-item").filter({hasText:"Venta #"+s.id+" ·"}));
     await page
       .locator(".sales-history-item")
       .filter({ hasText: "Venta #" + s.id + " ·" })

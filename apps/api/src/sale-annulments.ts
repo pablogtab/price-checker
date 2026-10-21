@@ -22,10 +22,7 @@ async function preview(em: any, id: number) {
     [id],
   );
   for (const p of stock) {
-    if (p.before == null)
-      throw new BadRequestException(
-        "Cargá el stock actual de " + p.name + " antes de anular",
-      );
+    p.before ??= 0;
     const after = new Decimal(p.before).plus(p.quantity);
     if (after.abs().gt(1000000000))
       throw new BadRequestException("El stock resultante supera el límite");

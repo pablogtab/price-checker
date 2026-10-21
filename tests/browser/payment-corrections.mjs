@@ -1,3 +1,4 @@
+import {openSaleDetails} from "../helpers/sales-ui.mjs";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -50,9 +51,9 @@ test("desktop and mobile correct a real receipt, cancel preview, and show audit"
   try {
     for (const width of [1440, 390]) {
       const page = await browser.newPage({ viewport: { width, height: 950 } });
-      await page.goto(base + "/sales");
+      await page.goto(base + "/sales/new");
       await page
-        .getByRole("button", { name: "Historial", exact: true })
+        .getByRole("link", { name: "Ventas", exact: true })
         .click();
       const row = page
         .locator("article")
@@ -61,7 +62,7 @@ test("desktop and mobile correct a real receipt, cancel preview, and show audit"
             name: `Venta #${sale.id} · Cliente corrección ${suffix}`,
           }),
         });
-      await row.locator("summary").click();
+      await openSaleDetails(row);
       await row
         .getByRole("button", { name: "Corregir cobro", exact: true })
         .click();

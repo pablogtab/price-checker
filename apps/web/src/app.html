@@ -6,11 +6,11 @@
             {{view==='dashboard'?'Dashboard':view==='products'?'Mis
             productos':view==='catalog'?'Catálogo de
             proveedores':view==='purchases'?'Compras':view==='cash'?'Caja y
-            cuentas':view==='sales'?'Ventas':view==='customers'?'Clientes':'Configuración'}}
+            cuentas':view==='new-sale'?'Nueva venta':view==='sales'?'Ventas':view==='customers'?'Clientes':'Configuración'}}
           </h1>
         </div>
         <div class="heading-actions">
-          @if(view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='customers'){<button
+          @if(view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='new-sale'&&view!=='customers'){<button
             appButton
             (click)="refresh()"
             [disabled]="!!activeRun"
@@ -126,7 +126,7 @@
         usan el stock de sus componentes.
       </p>
       } }
-      @if(view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='customers'){
+      @if(view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='new-sale'&&view!=='customers'){
       <section class="sync-banner">
         <span class="sync-symbol"><pc-icon name="refresh"/></span>
         <div>
@@ -637,8 +637,8 @@
           }
         </footer>
       </section>
-      } @else if(view==='sales') {
-      <app-sales [products]="products" (saved)="load()" />
+      } @else if(view==='sales'||view==='new-sale') {
+      <app-sales [products]="products" [mode]="view==='new-sale'?'cart':'history'" (saved)="load()" />
       } @else if(view==='customers') {
       <app-customers (saved)="load()" />
       } @else if(view==='cash') {

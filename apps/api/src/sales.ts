@@ -257,10 +257,8 @@ export async function createSale(body: any) {
     const warnings: string[] = [];
     for (const [id, q] of needed) {
       const p = products.find((p: any) => p.id === id);
-      if (p.own_stock == null)
-        throw new BadRequestException(
-          "Cargá primero el stock real de " + p.name,
-        );
+      // Uncounted inventory starts at zero only when this sale consumes it.
+      p.own_stock ??= 0;
       if (p.own_stock - q < -1e9)
         throw new BadRequestException("Stock fuera de rango: " + p.name);
       if (p.own_stock < q)
