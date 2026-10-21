@@ -18,7 +18,7 @@ import { stockQuantity } from "./inventory";
 import { calculate, chooseCost } from "./pricing";
 import { kitSellingPrice } from "./bundles";
 
-function date(value: any) {
+export function date(value: any) {
   const d = String(value || "");
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(d) ||
@@ -28,7 +28,7 @@ function date(value: any) {
     throw new BadRequestException("Fecha inválida");
   return d;
 }
-function key(value: any) {
+export function key(value: any) {
   if (
     !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
       value || "",
@@ -37,7 +37,7 @@ function key(value: any) {
     throw new BadRequestException("Identificador inválido");
   return value;
 }
-function ars(value: any, positive = false) {
+export function ars(value: any, positive = false) {
   const amount = money(value, positive);
   if (new Decimal(amount).decimalPlaces() > 2)
     throw new BadRequestException("Usá hasta dos decimales en ARS");
@@ -76,8 +76,8 @@ export async function saveCustomer(body: any, id?: number) {
 export async function sales(query: any = {}) {
   const customer = query.customer_id ? integer(query.customer_id) : null;
   const rows = await db.query(
-    `SELECT s.*,s.sold_on::text,s.total::text,s.cost_total::text,(s.total-coalesce(p.paid,0))::text pending,coalesce(p.paid,0)::text paid FROM sales s LEFT JOIN LATERAL(SELECT sum(amount) paid FROM sale_payments WHERE sale_id=s.id) p ON true WHERE ($1::int IS NULL OR customer_id=$1) ORDER BY s.sold_on DESC,s.id DESC LIMIT 100`,
-    [customer],
+    `SELECT s.*,s.sold_on::text,s.total::text,s.cost_total::text,(s.total-coalesce(p.paid,0))::text pending,coalesce(p.paid,0)::text paid FROM sales s LEFT JOIN LATERAL(SELECT sum(amount) paid FROM sale_payments WHERE sale_id=s.id) p ON true WHERE ($1::int IS NULL OR customer_id=$1) ORDER BY s.sold_on DESC,s.id DESC LIMIT $2 OFFSET $3`,
+    [customer, query.page ? 25 : 100, query.page ? (integer(query.page)-1)*25 : 0],
   );
   if (!rows.length) return rows;
   const ids = rows.map((s: any) => s.id);

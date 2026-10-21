@@ -1,3 +1,4 @@
+import { ButtonDirective } from "./ui/button";
 import {
   Component,
   EventEmitter,
@@ -15,7 +16,7 @@ import { firstValueFrom } from "rxjs";
 @Component({
   selector: "supplier-login",
   standalone: true,
-  imports: [FormsModule, A11yModule],
+  imports: [FormsModule, A11yModule, ButtonDirective],
   template: ` <div class="modal-overlay">
     <section
       class="login-dialog"
@@ -33,7 +34,12 @@ import { firstValueFrom } from "rxjs";
             después guardá la sesión.
           </p>
         </div>
-        <button type="button" aria-label="Cerrar login" (click)="close()">
+        <button
+          appButton
+          type="button"
+          aria-label="Cerrar login"
+          (click)="close()"
+        >
           ×
         </button>
       </header>
@@ -70,7 +76,7 @@ import { firstValueFrom } from "rxjs";
               autocomplete="off"
               maxlength="500"
               placeholder="Primero tocá el campo en el navegador"
-            /><button type="submit" [disabled]="!text || busy()">
+            /><button appButton type="submit" [disabled]="!text || busy()">
               Escribir
             </button>
           </div>
@@ -80,16 +86,17 @@ import { firstValueFrom } from "rxjs";
           >
         </form>
         <div class="login-tools">
-          <button (click)="action({ op: 'key', key: 'Tab' })">
+          <button appButton (click)="action({ op: 'key', key: 'Tab' })">
             Siguiente campo</button
-          ><button (click)="action({ op: 'key', key: 'Control+A' })">
+          ><button appButton (click)="action({ op: 'key', key: 'Control+A' })">
             Seleccionar texto</button
-          ><button (click)="action({ op: 'key', key: 'Backspace' })">
+          ><button appButton (click)="action({ op: 'key', key: 'Backspace' })">
             Borrar</button
-          ><button (click)="action({ op: 'key', key: 'Enter' })">Enter</button
-          ><button (click)="action({ op: 'scroll', delta: -500 })">
+          ><button appButton (click)="action({ op: 'key', key: 'Enter' })">
+            Enter</button
+          ><button appButton (click)="action({ op: 'scroll', delta: -500 })">
             Subir página</button
-          ><button (click)="action({ op: 'scroll', delta: 500 })">
+          ><button appButton (click)="action({ op: 'scroll', delta: 500 })">
             Bajar página
           </button>
         </div>
@@ -99,8 +106,9 @@ import { firstValueFrom } from "rxjs";
         10 minutos.</small
       >
       <footer>
-        <button (click)="close()">Cancelar</button
+        <button appButton (click)="close()">Cancelar</button
         ><button
+          appButton
           class="save-login"
           [disabled]="!authenticated() || busy()"
           (click)="save()"
@@ -119,7 +127,7 @@ import { firstValueFrom } from "rxjs";
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #102b2666;
+        background: #0b0b0b55;
         padding: 10px;
       }
       .login-dialog {
@@ -128,7 +136,7 @@ import { firstValueFrom } from "rxjs";
         max-height: 94vh;
         overflow: auto;
         background: white;
-        border-radius: 18px;
+        border-radius: var(--radius);
         padding: 22px;
         box-sizing: border-box;
       }
@@ -143,16 +151,7 @@ import { firstValueFrom } from "rxjs";
       }
       p {
         margin: 0 0 15px;
-        color: #657365;
-      }
-      button {
-        cursor: pointer;
-        border: 1px solid #d9e1d5;
-        background: #f5f7f1;
-        border-radius: 8px;
-        padding: 10px 14px;
-        color: #163e32;
-        font: inherit;
+        color: var(--ink-muted);
       }
       button:disabled {
         opacity: 0.4;
@@ -165,12 +164,12 @@ import { firstValueFrom } from "rxjs";
         max-height: 55vh;
         margin: 0 auto;
         height: auto;
-        border: 1px solid #d9e1d5;
+        border: 1px solid var(--line);
         cursor: pointer;
         touch-action: none;
       }
       .remote-browser:focus {
-        outline: 2px solid #44765c;
+        outline: 2px solid var(--accent);
       }
       .login-input {
         margin: 15px 0;
@@ -187,7 +186,7 @@ import { firstValueFrom } from "rxjs";
         flex: 1;
         min-width: 0;
         padding: 12px;
-        border: 1px solid #d9e1d5;
+        border: 1px solid var(--line);
         border-radius: 8px;
         font: inherit;
       }
@@ -206,7 +205,7 @@ import { firstValueFrom } from "rxjs";
         padding: 8px;
       }
       small {
-        color: #657365;
+        color: var(--ink-muted);
       }
       footer {
         display: flex;

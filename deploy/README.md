@@ -28,7 +28,7 @@ docker compose -f compose.prod.yaml ps
 docker compose -f compose.prod.yaml logs --tail=100 api worker
 ```
 
-El worker actualiza diariamente a las 08:00 de Argentina y respeta el límite
+El worker actualiza diariamente a las 11:00 de Argentina y respeta el límite
 configurado de solicitudes. El worker local quedó detenido para evitar que
 ambas instalaciones consulten al proveedor simultáneamente. Renovar la sesión
 desde Configuración si Coverweb la vence o rechaza desde el servidor.

@@ -29,6 +29,7 @@ services:
       SEED_FILE: /app/data/disfit-prices.json
     volumes:
       - ./data:/app/data:ro
+      - ./data/images:/app/data/images
       - ./.auth:/app/.auth
     depends_on:
       db:

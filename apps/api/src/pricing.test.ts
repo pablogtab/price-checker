@@ -102,3 +102,37 @@ test("box costs use the configured selling units; x7 remains the first choice", 
     true,
   );
 });
+
+test("preferred supplier packs use configurable quantities rather than a fixed x7", () => {
+  assert.equal(
+    chooseCost({
+      kit: { ...kit, name: "Pack x12", price: "1200" },
+      kit_units: 12,
+      individual,
+    })?.amount,
+    "100",
+  );
+  assert.equal(
+    chooseCost({
+      kit: { ...kit, name: "Pack x6", price: "1200" },
+      kit_units: 6,
+      individual,
+    })?.amount,
+    "200",
+  );
+  assert.equal(
+    chooseCost({
+      kit: { ...kit, name: "Pack x12", price: "1200" },
+      kit_units: 1,
+    })?.amount,
+    "1200",
+  );
+  assert.equal(
+    chooseCost({
+      kit: { ...kit, name: "Pack x12", price: "1200", available: false },
+      kit_units: 12,
+      individual,
+    })?.amount,
+    "25000",
+  );
+});

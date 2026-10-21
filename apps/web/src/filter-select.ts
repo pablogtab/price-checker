@@ -1,3 +1,4 @@
+import { IconComponent } from "./ui/icon";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { OverlayModule } from "@angular/cdk/overlay";
@@ -12,7 +13,7 @@ let nextId = 0;
 @Component({
   selector: "app-filter-select",
   standalone: true,
-  imports: [FormsModule, OverlayModule, A11yModule],
+  imports: [FormsModule, OverlayModule, A11yModule, IconComponent],
   template: `
     <button
       class="filter-trigger"
@@ -30,7 +31,7 @@ let nextId = 0;
         ><small>{{ label }}</small
         ><span class="filter-summary">{{ summary }}</span></span
       >
-      <span aria-hidden="true">⌄</span>
+      <pc-icon name="chevron" />
     </button>
     <ng-template
       cdkConnectedOverlay
@@ -51,14 +52,16 @@ let nextId = 0;
         cdkTrapFocus
         [cdkTrapFocusAutoCapture]="true"
       >
-        @if(options.length > 6){<input
-          class="filter-option-search"
-          cdkFocusInitial
-          type="search"
-          [attr.aria-label]="'Buscar en ' + label"
-          placeholder="Buscar opciones…"
-          [(ngModel)]="search"
-        />}
+        @if (options.length > 6) {
+          <input
+            class="filter-option-search"
+            cdkFocusInitial
+            type="search"
+            [attr.aria-label]="'Buscar en ' + label"
+            placeholder="Buscar opciones…"
+            [(ngModel)]="search"
+          />
+        }
         <div class="filter-panel-actions">
           <span aria-live="polite">{{ value.length }} seleccionados</span>
           <button

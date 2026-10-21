@@ -12,7 +12,10 @@
             "browser": "src/main.ts",
             "index": "src/index.html",
             "tsConfig": "tsconfig.json",
-            "styles": ["src/styles.css"],
+            "styles": [
+              "src/styles.css",
+              "src/ui/gym-theme.css"
+            ],
             "outputPath": "dist/web",
             "assets": [
               {

@@ -214,3 +214,62 @@ export class PriceAnalysis1760097600014 implements MigrationInterface {
     );
   }
 }
+
+export class NegativeCashBalance1760097600015 implements MigrationInterface {
+  async up(q: QueryRunner) {
+    await q.query(
+      "ALTER TABLE cash_accounts DROP CONSTRAINT cash_accounts_opening_balance_check",
+    );
+  }
+  async down(q: QueryRunner) {
+    await q.query(
+      "ALTER TABLE cash_accounts ADD CONSTRAINT cash_accounts_opening_balance_check CHECK(opening_balance>=0)",
+    );
+  }
+}
+
+export class ProductUploads1760097600016 implements MigrationInterface {
+  async up(q: QueryRunner) {
+    await q.query("ALTER TABLE products ADD COLUMN custom_image_path text");
+  }
+  async down(q: QueryRunner) {
+    await q.query("ALTER TABLE products DROP COLUMN custom_image_path");
+  }
+}
+
+export class SupplierPackUnits1760097600017 implements MigrationInterface {
+  async up(q: QueryRunner) {
+    await q.query(
+      "ALTER TABLE product_links DROP CONSTRAINT product_links_kit_units_check; ALTER TABLE product_links ALTER COLUMN kit_units SET DEFAULT 1; ALTER TABLE product_links ADD CONSTRAINT product_links_kit_units_check CHECK(kit_units BETWEEN 1 AND 10000);",
+    );
+  }
+  async down(q: QueryRunner) {
+    await q.query(
+      "ALTER TABLE product_links DROP CONSTRAINT product_links_kit_units_check; ALTER TABLE product_links ALTER COLUMN kit_units SET DEFAULT 7; ALTER TABLE product_links ADD CONSTRAINT product_links_kit_units_check CHECK(kit_units=7);",
+    );
+  }
+}
+
+export class MinimumStock1760097600018 implements MigrationInterface {
+  async up(q: QueryRunner) {
+    await q.query(
+      "ALTER TABLE products ADD COLUMN minimum_stock integer CHECK(minimum_stock BETWEEN 0 AND 1000000000)",
+    );
+  }
+  async down(q: QueryRunner) {
+    await q.query("ALTER TABLE products DROP COLUMN minimum_stock");
+  }
+}
+
+export class CustomerCollections1760097600019 implements MigrationInterface {
+  async up(q: QueryRunner) {
+    await q.query(
+      "ALTER TABLE sale_payments DROP CONSTRAINT sale_payments_operation_id_key; ALTER TABLE sale_payments ADD CONSTRAINT sale_payments_operation_sale_key UNIQUE(operation_id,sale_id); CREATE INDEX sales_customer_date ON sales(customer_id,sold_on,id)",
+    );
+  }
+  async down(q: QueryRunner) {
+    await q.query(
+      "DROP INDEX sales_customer_date; ALTER TABLE sale_payments DROP CONSTRAINT sale_payments_operation_sale_key; ALTER TABLE sale_payments ADD CONSTRAINT sale_payments_operation_id_key UNIQUE(operation_id)",
+    );
+  }
+}

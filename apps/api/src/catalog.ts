@@ -88,6 +88,7 @@ export function linkShape(row: any): any {
     kit: row.kit,
     individual: row.individual,
     individual_units: row.individual_units,
+    kit_units: row.kit_units,
     last_cost: row.last_cost,
     last_currency: row.last_currency,
     last_basis: row.last_basis,

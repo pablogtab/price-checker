@@ -23,7 +23,7 @@ function argentinaNow() {
   };
 }
 export async function schedule(now = argentinaNow()) {
-  if (now.hour >= 8)
+  if (now.hour >= 11)
     await db.query(
       "INSERT INTO refresh_runs(provider_id,status,trigger,scheduled_for) SELECT id,'queued','scheduled',$1::date FROM providers WHERE adapter='coverweb' ON CONFLICT DO NOTHING",
       [now.date],

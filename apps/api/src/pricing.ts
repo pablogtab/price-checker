@@ -13,11 +13,17 @@ export type Link = {
   kit?: Offer;
   individual?: Offer;
   individual_units?: number;
+  kit_units?: number;
   last_cost?: string | null;
   last_currency?: string | null;
   last_basis?: string | null;
   last_item_id?: number | null;
 };
+export function inferredPackUnits(name: string): number | null {
+  const match = /\bx\s*(\d+)\b/i.exec(name);
+  const n = match ? Number(match[1]) : 0;
+  return Number.isSafeInteger(n) && n > 0 && n <= 10000 ? n : null;
+}
 export function chooseCost(link: Link) {
   const offer = link.kit?.available
     ? link.kit
@@ -27,11 +33,18 @@ export function chooseCost(link: Link) {
   if (offer)
     return {
       amount: new Decimal(offer.price)
-        .div(offer === link.kit ? 7 : link.individual_units || 1)
+        .div(
+          offer === link.kit
+            ? link.kit_units || inferredPackUnits(offer.name) || 1
+            : link.individual_units || 1,
+        )
         .toString(),
       currency: offer.currency,
       basis: offer === link.kit ? "kit" : offer.is_pack ? "pack" : "individual",
-      units: offer === link.kit ? 7 : link.individual_units || 1,
+      units:
+        offer === link.kit
+          ? link.kit_units || inferredPackUnits(offer.name) || 1
+          : link.individual_units || 1,
       itemId: offer.id,
       stock: offer.stock,
       stale: false,

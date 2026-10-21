@@ -1,4 +1,12 @@
 import "reflect-metadata";
+import {
+  customerSearch,
+  customerDetail,
+  customerSales,
+  customerLedger,
+  previewCustomerPayment,
+  collectCustomer,
+} from "./customers";
 import { NestFactory } from "@nestjs/core";
 import {
   Module,
@@ -98,6 +106,36 @@ class AppController {
   }
   @Get("customers") customers() {
     return customers();
+  }
+  @Get("customers/search") searchCustomers(@Query() q: any) {
+    return customerSearch(q);
+  }
+  @Get("customers/:id") customerDetail(@Param("id") id: string) {
+    return customerDetail(integer(id));
+  }
+  @Get("customers/:id/sales") customerSales(
+    @Param("id") id: string,
+    @Query() q: any,
+  ) {
+    return customerSales(integer(id), q);
+  }
+  @Get("customers/:id/ledger") customerLedger(
+    @Param("id") id: string,
+    @Query() q: any,
+  ) {
+    return customerLedger(integer(id), q);
+  }
+  @Post("customers/:id/payments/preview") previewCustomer(
+    @Param("id") id: string,
+    @Body() body: any,
+  ) {
+    return previewCustomerPayment(integer(id), body);
+  }
+  @Post("customers/:id/payments") collectCustomer(
+    @Param("id") id: string,
+    @Body() body: any,
+  ) {
+    return collectCustomer(integer(id), body);
   }
   @Post("customers") customer(@Body() body: any) {
     return saveCustomer(body);
@@ -227,7 +265,11 @@ class AppController {
 class AppModule {}
 async function main() {
   await connect();
-  const app = await NestFactory.create(AppModule);
+  const app =
+    await NestFactory.create<
+      import("@nestjs/platform-express").NestExpressApplication
+    >(AppModule);
+  app.useBodyParser("json", { limit: "8mb" });
   app.enableShutdownHooks();
   await app.listen(
     Number(process.env.PORT || 3215),

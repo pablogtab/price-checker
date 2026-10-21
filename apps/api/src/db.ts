@@ -16,6 +16,11 @@ import {
   NegativeSaleStock1760097600012,
   CustomerInstagram1760097600013,
   PriceAnalysis1760097600014,
+  NegativeCashBalance1760097600015,
+  ProductUploads1760097600016,
+  SupplierPackUnits1760097600017,
+  MinimumStock1760097600018,
+  CustomerCollections1760097600019,
 } from "./migration";
 export const db = new DataSource({
   type: "postgres",
@@ -38,6 +43,11 @@ export const db = new DataSource({
     NegativeSaleStock1760097600012,
     CustomerInstagram1760097600013,
     PriceAnalysis1760097600014,
+    NegativeCashBalance1760097600015,
+    ProductUploads1760097600016,
+    SupplierPackUnits1760097600017,
+    MinimumStock1760097600018,
+    CustomerCollections1760097600019,
   ],
   synchronize: false,
 });

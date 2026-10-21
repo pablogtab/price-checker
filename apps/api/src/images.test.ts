@@ -16,3 +16,34 @@ test("image cache keys reject unsafe URLs and recognize only image formats", () 
   assert.equal(imageMime(Buffer.from("GIF89a")), "image/gif");
   assert.throws(() => imageMime(Buffer.from("<html>login</html>")));
 });
+
+test("product uploads are cached once by content and reject invalid and oversized files", async () => {
+  const { saveProductImage, cachedImage } = await import("./images");
+  const { mkdtemp, rm, stat } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const folder = await mkdtemp(join(tmpdir(), "product-image-test-"));
+  try {
+    const value =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jX1sAAAAASUVORK5CYII=";
+    const key = await saveProductImage(value, folder);
+    assert(key);
+    const before = await stat(join(folder, key));
+    assert.equal(await saveProductImage(value, folder), key);
+    assert.equal((await stat(join(folder, key))).mtimeMs, before.mtimeMs);
+    assert.equal((await cachedImage(key, folder)).type, "image/png");
+    assert.equal(await saveProductImage(null, folder), null);
+    assert.equal(await saveProductImage(undefined, folder), undefined);
+    await assert.rejects(
+      saveProductImage("data:image/png;base64,PGh0bWw+", folder),
+    );
+    await assert.rejects(
+      saveProductImage("data:image/svg+xml;base64,PHN2Zz4=", folder),
+    );
+    await assert.rejects(
+      saveProductImage("a".repeat(7 * 1024 * 1024 + 1), folder),
+    );
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
+});

@@ -1,3 +1,6 @@
+import { CustomerEditorComponent } from "./customer-editor";
+import { ButtonDirective } from "./ui/button";
+import { discountItems } from "./sale-discount";
 import {
   Component,
   Input,
@@ -17,104 +20,20 @@ import { SelectComponent } from "./select";
 @Component({
   selector: "app-sales",
   standalone: true,
-  imports: [FormsModule, SelectComponent, A11yModule],
+  imports: [
+    CustomerEditorComponent,
+    FormsModule,
+    SelectComponent,
+    A11yModule,
+    ButtonDirective,
+  ],
   template: ` <div class="purchase-page">
     @if (clientForm) {
-      <div
-        class="modal-backdrop"
-        (click)="!clientBusy && cancelClient()"
-        (keydown.escape)="
-          !clientBusy && cancelClient(); $event.stopPropagation()
-        "
-      >
-        <section
-          class="modal customer-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="customer-dialog-title"
-          cdkTrapFocus
-          [cdkTrapFocusAutoCapture]="true"
-          (click)="$event.stopPropagation()"
-        >
-          <button
-            type="button"
-            class="modal-close"
-            aria-label="Cerrar cliente"
-            [disabled]="clientBusy"
-            (click)="cancelClient()"
-          >
-            ×
-          </button>
-          <div class="purchase-heading">
-            <div>
-              <h2 id="customer-dialog-title">
-                {{ editingClient ? "Editar cliente" : "Nuevo cliente" }}
-              </h2>
-              <p>Solo los datos que necesitás para identificarlo.</p>
-            </div>
-          </div>
-          <form (ngSubmit)="saveClient()" class="cash-form">
-            <label
-              >Nombre<input
-                cdkFocusInitial
-                name="clientName"
-                maxlength="100"
-                required
-                [(ngModel)]="clientName"
-                placeholder="Nombre y apellido"
-            /></label>
-            <label
-              >Teléfono <span class="optional">opcional</span
-              ><input
-                name="clientPhone"
-                maxlength="100"
-                [(ngModel)]="clientPhone"
-                type="tel"
-            /></label>
-            <label class="cash-wide"
-              >Instagram <span class="optional">opcional</span
-              ><input
-                name="clientInstagram"
-                maxlength="100"
-                [(ngModel)]="clientInstagram"
-                placeholder="@usuario"
-                autocomplete="off"
-            /></label>
-            <label class="cash-wide"
-              >Nota <span class="optional">opcional</span
-              ><input
-                name="clientNote"
-                maxlength="500"
-                [(ngModel)]="clientNote"
-            /></label>
-            <div class="sales-actions cash-wide">
-              <button
-                class="purchase-save"
-                [disabled]="clientBusy || !clientName.trim()"
-              >
-                {{
-                  clientBusy
-                    ? "Guardando…"
-                    : editingClient
-                      ? "Guardar cliente"
-                      : "Crear cliente"
-                }}
-              </button>
-              <button
-                type="button"
-                class="text-button"
-                [disabled]="clientBusy"
-                (click)="cancelClient()"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
-          @if (clientError) {
-            <p class="alert danger" role="alert">{{ clientError }}</p>
-          }
-        </section>
-      </div>
+      <app-customer-editor
+        [customer]="editingClient"
+        (closed)="cancelClient()"
+        (saved)="customerSaved($event)"
+      />
     }
     @if (error) {
       <p class="alert danger" role="alert">{{ error }}</p>
@@ -122,465 +41,378 @@ import { SelectComponent } from "./select";
     @if (notice) {
       <p class="purchase-notice" role="status">{{ notice }}</p>
     }
-    @if (mode === "customers") {
-      <section class="catalog-panel purchase-panel">
-        <div class="purchase-heading">
-          <div>
-            <h2>Clientes</h2>
-            <p>El saldo indica cuánto queda por cobrar.</p>
-          </div>
-          <div class="sales-client-tools">
-            <button type="button" class="purchase-add" (click)="newClient()">
+
+    <section class="catalog-panel purchase-panel">
+      <div class="purchase-heading">
+        <div>
+          <h2>Nueva venta</h2>
+          <p>Elegí productos y sabores. Al guardar se descuenta el stock.</p>
+        </div>
+        <span class="purchase-badge">ARS</span>
+      </div>
+      <div class="sales-fields">
+        <label
+          >Cliente<app-select
+            label="Cliente"
+            placeholder="Consumidor final"
+            [clearable]="true"
+            [options]="clientOptions"
+            [(ngModel)]="customer"
+          />
+          <div class="sales-customer-actions">
+            <button
+              type="button"
+              aria-label="Nuevo cliente"
+              class="sales-new-client"
+              (click)="newClient()"
+            >
               + Nuevo cliente
             </button>
-            <input
-              class="sales-client-search"
-              type="search"
-              aria-label="Buscar cliente"
-              placeholder="Buscar nombre, teléfono o Instagram…"
-              [(ngModel)]="clientSearch"
-            />
-          </div>
-        </div>
-        <div class="client-list">
-          @for (c of filteredClients; track c.id) {
-            <article
-              class="client-card"
-              [class.client-selected]="selectedClient?.id === c.id"
-            >
-              <div>
-                <strong>{{ c.name }}</strong
-                ><small
-                  >{{ c.phone || "Sin teléfono" }}
-                  @if (c.instagram) {
-                    · {{ c.instagram }}
-                  }
-                </small>
-              </div>
-              <div class="client-balance">
-                <span>Pendiente</span><strong>{{ amount(c.balance) }}</strong>
-              </div>
-              <div class="sales-actions">
-                <button class="purchase-add" (click)="openClient(c)">
-                  Cuenta corriente</button
-                ><button class="text-button" (click)="editClient(c)">
-                  Editar
-                </button>
-              </div>
-            </article>
-          } @empty {
-            <p class="purchase-empty">
-              {{
-                clientSearch
-                  ? "No hay coincidencias."
-                  : "Todavía no cargaste clientes."
-              }}
-            </p>
-          }
-        </div>
-      </section>
-      @if (selectedClient) {
-        <section class="catalog-panel purchase-panel">
-          <div class="purchase-heading">
-            <div>
-              <h2>{{ selectedClient.name }}</h2>
-              <p>
-                {{ selectedClient.phone }}
-                @if (selectedClient.instagram) {
-                  · {{ selectedClient.instagram }}
-                }
-                {{ selectedClient.note }}
-              </p>
-            </div>
-            <div class="sales-balance">
-              <span>Saldo pendiente · ARS</span
-              ><strong>{{ amount(currentClientBalance) }}</strong>
-            </div>
-          </div>
-          <h3>Cuenta corriente</h3>
-          <p class="purchase-help">
-            Últimas 100 ventas y sus cobros. El saldo incluye todo el historial.
-          </p>
-          <div class="ledger-list">
-            @for (entry of clientLedger; track entry.key) {
-              <div class="ledger-row">
-                <span
-                  >{{ entry.date }}<small>{{ entry.label }}</small></span
-                ><span
-                  >{{ entry.debit ? "Venta" : "Cobro"
-                  }}<strong>{{ amount(entry.value) }}</strong></span
-                >
-              </div>
-            } @empty {
-              <p class="purchase-empty">
-                Este cliente todavía no tiene ventas.
-              </p>
-            }
-          </div>
-        </section>
-      }
-    } @else {
-      <section class="catalog-panel purchase-panel">
-        <div class="purchase-heading">
-          <div>
-            <h2>Nueva venta</h2>
-            <p>Elegí productos y sabores. Al guardar se descuenta el stock.</p>
-          </div>
-          <span class="purchase-badge">ARS</span>
-        </div>
-        <div class="sales-fields">
-          <label
-            >Cliente<app-select
-              label="Cliente"
-              placeholder="Consumidor final"
-              [clearable]="true"
-              [options]="clientOptions"
-              [(ngModel)]="customer"
-            />
-            <div class="sales-customer-actions">
+            @if (chosenCustomer; as c) {
               <button
                 type="button"
-                aria-label="Nuevo cliente"
                 class="sales-new-client"
-                (click)="newClient()"
+                aria-label="Editar cliente"
+                (click)="editClient(c)"
               >
-                + Nuevo cliente
+                ✎ Editar cliente
               </button>
-              @if (chosenCustomer; as c) {
-                <button
-                  type="button"
-                  class="sales-new-client"
-                  aria-label="Editar cliente"
-                  (click)="editClient(c)"
-                >
-                  ✎ Editar cliente
-                </button>
-              }
-            </div></label
-          >
-          <label
-            >Fecha de venta<input type="date" [(ngModel)]="soldOn"
-          /></label>
-          <label
-            >Nota <span class="optional">opcional</span
-            ><input maxlength="500" [(ngModel)]="note"
-          /></label>
+            }
+          </div></label
+        >
+        <label>Fecha de venta<input type="date" [(ngModel)]="soldOn" /></label>
+        <label
+          >Nota <span class="optional">opcional</span
+          ><input maxlength="500" [(ngModel)]="note"
+        /></label>
+      </div>
+      <div class="purchase-section-heading">
+        <h3>Productos vendidos</h3>
+        <span
+          >{{ lines.length }}
+          {{ lines.length === 1 ? "producto" : "productos" }}</span
+        >
+      </div>
+      <div class="sales-table">
+        <div class="sales-table-header">
+          <span>Producto / promo</span><span>Cantidad</span
+          ><span>Precio unitario</span><span>Subtotal</span><span></span>
         </div>
-        <div class="purchase-section-heading">
-          <h3>Productos vendidos</h3>
-          <span>{{ lines.length }} productos</span>
-        </div>
-        <div class="sales-table">
-          <div class="sales-table-header">
-            <span>Producto / promo</span><span>Cantidad</span
-            ><span>Precio unitario</span><span>Subtotal</span><span></span>
-          </div>
-          @for (line of lines; track line; let i = $index) {
-            <div class="sales-line">
-              @if (selected(line)?.components?.length && line.quantity > 100) {
-                <p class="sales-line-warning">
-                  Podés cargar hasta 100 promos por venta.
-                </p>
+        @for (line of lines; track line; let i = $index) {
+          <div class="sales-line">
+            @if (selected(line)?.components?.length && line.quantity > 100) {
+              <p class="sales-line-warning">
+                Podés cargar hasta 100 promos por venta.
+              </p>
+            }
+            <label class="sales-product"
+              ><span class="sales-field-label">Producto / promo</span
+              ><app-select
+                label="Producto vendido"
+                placeholder="Buscar producto o promo…"
+                [options]="productOptions"
+                [(ngModel)]="line.product_id"
+                (ngModelChange)="choose(line)"
+              />
+              @if (selected(line); as p) {
+                <small>{{
+                  p.kind === "kit"
+                    ? "Stock según los sabores elegidos"
+                    : "Stock actual: " + (p.own_stock ?? "Sin cargar")
+                }}</small>
               }
-              <label class="sales-product"
-                ><span class="sales-field-label">Producto / promo</span
-                ><app-select
-                  label="Producto vendido"
-                  placeholder="Buscar producto o promo…"
-                  [options]="productOptions"
-                  [(ngModel)]="line.product_id"
-                  (ngModelChange)="choose(line)"
+            </label>
+            <label
+              ><span class="sales-field-label">Cantidad</span
+              ><input
+                type="number"
+                min="1"
+                step="1"
+                [(ngModel)]="line.quantity"
+                (ngModelChange)="syncSlots(line)"
+            /></label>
+            <label
+              ><span class="sales-field-label">Precio unitario (ARS)</span
+              ><input
+                type="number"
+                min="0"
+                step="0.01"
+                aria-label="Precio unitario (ARS)"
+                [(ngModel)]="line.unit_price"
+                (ngModelChange)="line.priceEdited = true"
+              />
+            </label>
+            <div class="sales-subtotal">
+              <span class="sales-field-label">Subtotal</span
+              ><strong>{{ lineAmount(line) }}</strong>
+            </div>
+            <button
+              class="purchase-remove"
+              aria-label="Quitar producto vendido"
+              (click)="lines.splice(i, 1)"
+              [disabled]="lines.length === 1"
+            >
+              ×
+            </button>
+            <div class="sales-discount">
+              <label
+                ><span>Tipo de descuento</span>
+                <app-select
+                  label="Tipo de descuento"
+                  [(ngModel)]="line.discount_mode"
+                  (ngModelChange)="line.discount = 0"
+                  [options]="discountModes"
                 />
-                @if (selected(line); as p) {
-                  <small>{{
-                    p.kind === "kit"
-                      ? "Stock según los sabores elegidos"
-                      : "Stock actual: " + (p.own_stock ?? "Sin cargar")
-                  }}</small>
-                }
               </label>
-              <label
-                ><span class="sales-field-label">Cantidad</span
-                ><input
-                  type="number"
-                  min="1"
-                  step="1"
-                  [(ngModel)]="line.quantity"
-                  (ngModelChange)="syncSlots(line)"
-              /></label>
-              <label
-                ><span class="sales-field-label">Precio unitario (ARS)</span
-                ><input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  aria-label="Precio unitario (ARS)"
-                  [(ngModel)]="line.unit_price"
-                  (ngModelChange)="line.priceEdited = true"
-                />
-                <span>Descuento de venta (%)</span>
+              <label>
+                <span>{{
+                  line.discount_mode === "percent"
+                    ? "Descuento de venta (%)"
+                    : "Descuento total de la línea (ARS)"
+                }}</span>
                 <input
                   type="number"
                   min="0"
-                  max="100"
+                  [attr.max]="line.discount_mode === 'percent' ? 100 : null"
                   step="0.01"
-                  aria-label="Descuento de venta (%)"
+                  [attr.aria-label]="
+                    line.discount_mode === 'percent'
+                      ? 'Descuento de venta (%)'
+                      : 'Descuento total de la línea (ARS)'
+                  "
                   [(ngModel)]="line.discount"
                 />
               </label>
-              <div class="sales-subtotal">
-                <span class="sales-field-label">Subtotal</span
-                ><strong>{{ lineAmount(line) }}</strong>
+              <small>Se aplica al subtotal de esta línea.</small>
+            </div>
+            @if (line.slots.length) {
+              <div class="sales-flavors">
+                <p>Elegí los sabores de cada promo por separado.</p>
+                @for (promo of promoIndexes(line); track promo) {
+                  <section class="sales-promo-group">
+                    <h4>
+                      Promo {{ promo + 1 }}
+                      <small>{{ amount(promoPrice(line, promo)) }}</small>
+                    </h4>
+                    <div class="sales-promo-options">
+                      @for (
+                        slot of slotsForPromo(line, promo);
+                        track slot.key
+                      ) {
+                        <label
+                          >{{ slot.label
+                          }}<app-select
+                            [label]="
+                              'Promo ' + (promo + 1) + ' · ' + slot.label
+                            "
+                            placeholder="Elegir sabor"
+                            [options]="slot.options"
+                            [(ngModel)]="slot.product_id"
+                            (ngModelChange)="updateKitPrice(line)"
+                          />
+                        </label>
+                      }
+                    </div>
+                  </section>
+                }
               </div>
-              <button
-                class="purchase-remove"
-                aria-label="Quitar producto vendido"
-                (click)="lines.splice(i, 1)"
-                [disabled]="lines.length === 1"
-              >
-                ×
-              </button>
-              @if (line.slots.length) {
-                <div class="sales-flavors">
-                  <p>Elegí los sabores de cada promo por separado.</p>
-                  @for (promo of promoIndexes(line); track promo) {
-                    <section class="sales-promo-group">
-                      <h4>
-                        Promo {{ promo + 1 }}
-                        <small>{{ amount(promoPrice(line, promo)) }}</small>
-                      </h4>
-                      <div class="sales-promo-options">
-                        @for (
-                          slot of slotsForPromo(line, promo);
-                          track slot.key
-                        ) {
-                          <label
-                            >{{ slot.label
-                            }}<app-select
-                              [label]="
-                                'Promo ' + (promo + 1) + ' · ' + slot.label
-                              "
-                              placeholder="Elegir sabor"
-                              [options]="slot.options"
-                              [(ngModel)]="slot.product_id"
-                              (ngModelChange)="updateKitPrice(line)"
-                            />
-                          </label>
-                        }
-                      </div>
-                    </section>
+            }
+          </div>
+        }
+      </div>
+      <button class="purchase-add" (click)="add()">+ Agregar producto</button>
+      @if (stockPreview.length) {
+        <section
+          class="sales-stock-preview"
+          aria-label="Stock actual y después de la venta"
+        >
+          <h3>Stock de los productos elegidos</h3>
+          <div class="sales-stock-heading">
+            <span>Producto / sabor</span><span>Actual</span><span>Después</span>
+          </div>
+          @for (p of stockPreview; track p.id) {
+            <div
+              class="sales-stock-row"
+              [class.stock-negative]="p.after !== null && p.after < 0"
+            >
+              <span>{{ p.name }}</span
+              ><strong>{{ p.stock ?? "Sin cargar" }}</strong
+              ><strong>{{ p.after ?? "—" }}</strong>
+            </div>
+          }
+          @if (hasNegativeStock) {
+            <p class="stock-warning" role="status">
+              Esta venta dejará stock negativo en los productos marcados. Podés
+              registrarla igualmente.
+            </p>
+          }
+        </section>
+      }
+      <div class="sales-payment">
+        <h3>Cobro de la venta</h3>
+        <div class="cash-form">
+          <label
+            >Forma de registro<app-select
+              label="Cobro de la venta"
+              [options]="paymentModes"
+              [(ngModel)]="paymentMode"
+          /></label>
+          @if (paymentMode === "now") {
+            <label
+              >Cuenta<app-select
+                label="Cuenta para el cobro"
+                placeholder="Elegir cuenta"
+                [options]="accountOptions"
+                [(ngModel)]="account" /></label
+            ><label
+              >Cobrar ahora (ARS)<input
+                type="number"
+                min="0.01"
+                step="0.01"
+                [(ngModel)]="paymentAmount" /></label
+            ><button class="sales-pay-total" type="button" (click)="useTotal()">
+              Cobrar el total
+            </button>
+          }
+        </div>
+        <p class="purchase-help">
+          @if (!customer) {
+            Elegí un cliente para dejar saldo pendiente.
+          } @else {
+            El importe pendiente queda en la cuenta corriente del cliente.
+          }
+        </p>
+        @if (paymentMode === "now" && !accountOptions.length) {
+          <p class="rate-note">
+            Cargá el saldo inicial de una cuenta en Caja y cuentas para
+            registrar el cobro.
+          </p>
+        }
+      </div>
+      <footer class="purchase-footer">
+        <div class="sales-total">
+          <span>Total de venta</span><strong>{{ amount(total) }}</strong
+          ><small>Pendiente: {{ amount(pendingDraft) }}</small>
+        </div>
+        <button
+          class="purchase-save"
+          appButton="primary"
+          [disabled]="busy || !valid"
+          (click)="save()"
+        >
+          {{ busy ? "Registrando…" : "Registrar venta" }}
+        </button>
+      </footer>
+    </section>
+    <section class="catalog-panel purchase-panel purchase-history">
+      <div class="purchase-heading">
+        <div>
+          <h2>Ventas registradas</h2>
+          <p>
+            Últimas 100 ventas. Podés registrar nuevos cobros sobre el saldo
+            pendiente.
+          </p>
+        </div>
+      </div>
+      @for (s of history; track s.id) {
+        <article class="sales-history-item">
+          <div class="purchase-history-heading">
+            <div>
+              <h3>
+                Venta #{{ s.id }} ·
+                {{ s.customer_name || "Consumidor final" }}
+              </h3>
+              <small
+                >{{ s.sold_on }}
+                @if (s.note) {
+                  · {{ s.note }}
+                }
+              </small>
+            </div>
+            <div class="sales-balance">
+              <strong>{{ amount(s.total) }}</strong
+              ><span>Pendiente: {{ amount(s.pending) }}</span>
+            </div>
+          </div>
+          <details>
+            <summary>Ver productos y cobros</summary>
+            <div class="purchase-history-lines">
+              @for (item of s.items; track item.id) {
+                <div class="sale-item-detail">
+                  <strong>{{ item.product_name }}</strong
+                  ><span
+                    >{{ item.quantity }} × {{ amount(item.unit_price) }} ·
+                    {{ amount(item.total) }}</span
+                  >
+                  @for (c of item.components; track c.id) {
+                    <small>{{ c.quantity }} × {{ c.product_name }}</small>
                   }
                 </div>
               }
+              @for (p of s.payments; track p.id) {
+                <p class="purchase-help">
+                  Cobro {{ p.occurred_on }} · {{ p.account_name }} ·
+                  {{ amount(p.amount) }}
+                </p>
+              }
+            </div>
+          </details>
+          @if (+s.pending > 0) {
+            <button class="purchase-add" (click)="openCollection(s)">
+              Registrar cobro
+            </button>
+          }
+          @if (collecting?.id === s.id) {
+            <div class="purchase-payment-form">
+              <h3>Cobrar venta #{{ s.id }}</h3>
+              <div class="cash-form">
+                <label
+                  >Cuenta<app-select
+                    label="Cuenta de cobro"
+                    placeholder="Elegir cuenta"
+                    [options]="accountOptions"
+                    [(ngModel)]="collectAccount" /></label
+                ><label
+                  >Importe (ARS)<input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    [(ngModel)]="collectAmount" /></label
+                ><label
+                  >Fecha<input type="date" [(ngModel)]="collectDate"
+                /></label>
+              </div>
+              @if (!accountOptions.length) {
+                <p class="rate-note">
+                  Cargá primero el saldo inicial de una cuenta en Caja y
+                  cuentas.
+                </p>
+              }
+              @if (collectionError) {
+                <p class="alert danger" role="alert">{{ collectionError }}</p>
+              }
+              <div class="sales-actions">
+                <button
+                  class="purchase-save"
+                  appButton="primary"
+                  [disabled]="collectBusy || !validCollection"
+                  (click)="collect()"
+                >
+                  Guardar cobro</button
+                ><button class="text-button" (click)="collecting = null">
+                  Cancelar
+                </button>
+              </div>
             </div>
           }
-        </div>
-        <button class="purchase-add" (click)="add()">+ Agregar producto</button>
-        @if (stockPreview.length) {
-          <section
-            class="sales-stock-preview"
-            aria-label="Stock actual y después de la venta"
-          >
-            <h3>Stock de los productos elegidos</h3>
-            <div class="sales-stock-heading">
-              <span>Producto / sabor</span><span>Actual</span
-              ><span>Después</span>
-            </div>
-            @for (p of stockPreview; track p.id) {
-              <div
-                class="sales-stock-row"
-                [class.stock-negative]="p.after !== null && p.after < 0"
-              >
-                <span>{{ p.name }}</span
-                ><strong>{{ p.stock ?? "Sin cargar" }}</strong
-                ><strong>{{ p.after ?? "—" }}</strong>
-              </div>
-            }
-            @if (hasNegativeStock) {
-              <p class="stock-warning" role="status">
-                Esta venta dejará stock negativo en los productos marcados.
-                Podés registrarla igualmente.
-              </p>
-            }
-          </section>
-        }
-        <div class="sales-payment">
-          <h3>Cobro de la venta</h3>
-          <div class="cash-form">
-            <label
-              >Forma de registro<app-select
-                label="Cobro de la venta"
-                [options]="paymentModes"
-                [(ngModel)]="paymentMode"
-            /></label>
-            @if (paymentMode === "now") {
-              <label
-                >Cuenta<app-select
-                  label="Cuenta para el cobro"
-                  placeholder="Elegir cuenta"
-                  [options]="accountOptions"
-                  [(ngModel)]="account" /></label
-              ><label
-                >Cobrar ahora (ARS)<input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  [(ngModel)]="paymentAmount" /></label
-              ><button
-                class="sales-pay-total"
-                type="button"
-                (click)="useTotal()"
-              >
-                Cobrar el total
-              </button>
-            }
-          </div>
-          <p class="purchase-help">
-            @if (!customer) {
-              Elegí un cliente para dejar saldo pendiente.
-            } @else {
-              El importe pendiente queda en la cuenta corriente del cliente.
-            }
-          </p>
-          @if (paymentMode === "now" && !accountOptions.length) {
-            <p class="rate-note">
-              Cargá el saldo inicial de una cuenta en Caja y cuentas para
-              registrar el cobro.
-            </p>
-          }
-        </div>
-        <footer class="purchase-footer">
-          <div class="sales-total">
-            <span>Total de venta</span><strong>{{ amount(total) }}</strong
-            ><small>Pendiente: {{ amount(pendingDraft) }}</small>
-          </div>
-          <button
-            class="purchase-save"
-            [disabled]="busy || !valid"
-            (click)="save()"
-          >
-            {{ busy ? "Registrando…" : "Registrar venta" }}
-          </button>
-        </footer>
-      </section>
-    }
-    @if (mode !== "customers" || selectedClient) {
-      <section class="catalog-panel purchase-panel purchase-history">
-        <div class="purchase-heading">
-          <div>
-            <h2>
-              {{
-                mode === "customers"
-                  ? "Ventas del cliente"
-                  : "Ventas registradas"
-              }}
-            </h2>
-            <p>
-              Últimas 100 ventas. Podés registrar nuevos cobros sobre el saldo
-              pendiente.
-            </p>
-          </div>
-        </div>
-        @for (s of visibleHistory; track s.id) {
-          <article class="sales-history-item">
-            <div class="purchase-history-heading">
-              <div>
-                <h3>
-                  Venta #{{ s.id }} ·
-                  {{ s.customer_name || "Consumidor final" }}
-                </h3>
-                <small
-                  >{{ s.sold_on }}
-                  @if (s.note) {
-                    · {{ s.note }}
-                  }
-                </small>
-              </div>
-              <div class="sales-balance">
-                <strong>{{ amount(s.total) }}</strong
-                ><span>Pendiente: {{ amount(s.pending) }}</span>
-              </div>
-            </div>
-            <details>
-              <summary>Ver productos y cobros</summary>
-              <div class="purchase-history-lines">
-                @for (item of s.items; track item.id) {
-                  <div class="sale-item-detail">
-                    <strong>{{ item.product_name }}</strong
-                    ><span
-                      >{{ item.quantity }} × {{ amount(item.unit_price) }} ·
-                      {{ amount(item.total) }}</span
-                    >
-                    @for (c of item.components; track c.id) {
-                      <small>{{ c.quantity }} × {{ c.product_name }}</small>
-                    }
-                  </div>
-                }
-                @for (p of s.payments; track p.id) {
-                  <p class="purchase-help">
-                    Cobro {{ p.occurred_on }} · {{ p.account_name }} ·
-                    {{ amount(p.amount) }}
-                  </p>
-                }
-              </div>
-            </details>
-            @if (+s.pending > 0) {
-              <button class="purchase-add" (click)="openCollection(s)">
-                Registrar cobro
-              </button>
-            }
-            @if (collecting?.id === s.id) {
-              <div class="purchase-payment-form">
-                <h3>Cobrar venta #{{ s.id }}</h3>
-                <div class="cash-form">
-                  <label
-                    >Cuenta<app-select
-                      label="Cuenta de cobro"
-                      placeholder="Elegir cuenta"
-                      [options]="accountOptions"
-                      [(ngModel)]="collectAccount" /></label
-                  ><label
-                    >Importe (ARS)<input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      [(ngModel)]="collectAmount" /></label
-                  ><label
-                    >Fecha<input type="date" [(ngModel)]="collectDate"
-                  /></label>
-                </div>
-                @if (!accountOptions.length) {
-                  <p class="rate-note">
-                    Cargá primero el saldo inicial de una cuenta en Caja y
-                    cuentas.
-                  </p>
-                }
-                @if (collectionError) {
-                  <p class="alert danger" role="alert">{{ collectionError }}</p>
-                }
-                <div class="sales-actions">
-                  <button
-                    class="purchase-save"
-                    [disabled]="collectBusy || !validCollection"
-                    (click)="collect()"
-                  >
-                    Guardar cobro</button
-                  ><button class="text-button" (click)="collecting = null">
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            }
-          </article>
-        } @empty {
-          <p class="purchase-empty">Todavía no hay ventas registradas.</p>
-        }
-      </section>
-    }
+        </article>
+      } @empty {
+        <p class="purchase-empty">Todavía no hay ventas registradas.</p>
+      }
+    </section>
   </div>`,
 })
 export class SalesComponent implements OnInit {
-  @Input() mode = "sales";
   @Input() products: any[] = [];
   @Output() saved = new EventEmitter<void>();
   http = inject(HttpClient);
@@ -588,8 +420,6 @@ export class SalesComponent implements OnInit {
   clients: any[] = [];
   accounts: any[] = [];
   history: any[] = [];
-  clientHistory: any[] = [];
-  selectedClient: any = null;
   customer: any = "";
   soldOn = this.today();
   note = "";
@@ -614,15 +444,8 @@ export class SalesComponent implements OnInit {
     { value: "now", label: "Cobrar ahora" },
     { value: "credit", label: "Cuenta corriente" },
   ];
-  clientError = "";
   clientForm = false;
   editingClient: any = null;
-  clientName = "";
-  clientPhone = "";
-  clientInstagram = "";
-  clientNote = "";
-  clientBusy = false;
-  clientSearch = "";
   collecting: any = null;
   collectAccount: any = "";
   collectAmount: any = "";
@@ -657,7 +480,6 @@ export class SalesComponent implements OnInit {
               a.balance != null &&
               a.name.trim().toLowerCase() === "transferencia",
           )?.id || "";
-      if (this.selectedClient) await this.openClient(this.selectedClient);
     } catch (e: any) {
       this.error = e?.error?.message || "No se pudieron cargar las ventas";
     } finally {
@@ -700,6 +522,7 @@ export class SalesComponent implements OnInit {
       quantity: 1,
       unit_price: "",
       discount: 0,
+      discount_mode: "amount",
       priceEdited: false,
       slots: [],
     });
@@ -787,16 +610,6 @@ export class SalesComponent implements OnInit {
       .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
       .mul(100);
   }
-  promoPrice(line: any, promo: number): string {
-    try {
-      return this.basePromoPrice(line, promo)
-        .mul(new Decimal(1).minus(new Decimal(line.discount || 0).div(100)))
-        .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
-        .toString();
-    } catch {
-      return "0";
-    }
-  }
   selections(line: any, promo = 0) {
     const map = new Map<string, any>();
     for (const s of this.slotsForPromo(line, promo)) {
@@ -811,32 +624,43 @@ export class SalesComponent implements OnInit {
     }
     return [...map.values()];
   }
-  saleItems() {
-    return this.lines.flatMap((l) =>
-      l.slots.length
-        ? this.promoIndexes(l).map((promo) => ({
+  discountModes = [
+    { value: "amount", label: "Importe (ARS)" },
+    { value: "percent", label: "Porcentaje (%)" },
+  ];
+  discountedLine(l: any) {
+    const items = l.slots.length
+      ? this.promoIndexes(l).map((promo) => ({
+          product_id: l.product_id,
+          quantity: 1,
+          unit_price: this.basePromoPrice(l, promo).toString(),
+          selections: this.selections(l, promo),
+        }))
+      : [
+          {
             product_id: l.product_id,
-            quantity: 1,
-            unit_price: this.promoPrice(l, promo),
-            selections: this.selections(l, promo),
-          }))
-        : [
-            {
-              product_id: l.product_id,
-              quantity: l.quantity,
-              unit_price: this.promoPrice(l, 0),
-              selections: [],
-            },
-          ],
-    );
+            quantity: Number(l.quantity) || 1,
+            unit_price: this.basePromoPrice(l, 0).toString(),
+            selections: [],
+          },
+        ];
+    return discountItems(items, l.discount_mode || "amount", l.discount);
+  }
+  promoPrice(line: any, promo: number): string {
+    try {
+      return this.discountedLine(line)[promo]?.unit_price || "0";
+    } catch {
+      return "0";
+    }
+  }
+  saleItems() {
+    return this.lines.flatMap((l) => this.discountedLine(l));
   }
   lineTotal(l: any): Decimal {
-    return l.slots.length
-      ? this.promoIndexes(l).reduce(
-          (sum, promo) => sum.plus(this.promoPrice(l, promo)),
-          new Decimal(0),
-        )
-      : new Decimal(this.promoPrice(l, 0)).mul(l.quantity || 0);
+    return this.discountedLine(l).reduce(
+      (sum, i) => sum.plus(new Decimal(i.unit_price).mul(i.quantity)),
+      new Decimal(0),
+    );
   }
   amount(v: any) {
     return new Intl.NumberFormat("es-AR", {
@@ -930,7 +754,8 @@ export class SalesComponent implements OnInit {
                 ? 100
                 : 1e9) &&
             new Decimal(l.discount || 0).gte(0) &&
-            new Decimal(l.discount || 0).lte(100) &&
+            (l.discount_mode !== "percent" ||
+              new Decimal(l.discount || 0).lte(100)) &&
             l.unit_price !== "" &&
             new Decimal(l.unit_price).gte(0) &&
             new Decimal(l.unit_price).decimalPlaces() <= 2 &&
@@ -992,107 +817,22 @@ export class SalesComponent implements OnInit {
     }
   }
   newClient() {
-    this.cancelClient();
+    this.editingClient = null;
     this.clientForm = true;
-    this.clientError = "";
   }
   editClient(c: any) {
-    this.clientError = "";
     this.editingClient = c;
-    this.clientName = c.name;
-    this.clientPhone = c.phone || "";
-    this.clientInstagram = c.instagram || "";
-    this.clientNote = c.note || "";
     this.clientForm = true;
   }
   cancelClient() {
     this.editingClient = null;
-    this.clientName = "";
-    this.clientPhone = "";
-    this.clientInstagram = "";
-    this.clientNote = "";
     this.clientForm = false;
   }
-  async saveClient() {
-    if (this.clientBusy || !this.clientName.trim()) return;
-    this.clientBusy = true;
-    this.clientError = "";
-    try {
-      const c: any = await firstValueFrom(
-        this.http.request(
-          this.editingClient ? "PUT" : "POST",
-          "/api/customers" +
-            (this.editingClient ? "/" + this.editingClient.id : ""),
-          {
-            body: {
-              name: this.clientName,
-              phone: this.clientPhone,
-              instagram: this.clientInstagram,
-              note: this.clientNote,
-            },
-          },
-        ),
-      );
-      if (this.mode === "sales") this.customer = c.id;
-      this.cancelClient();
-      this.notice = "Cliente guardado.";
-      await this.load();
-    } catch (e: any) {
-      this.clientError = e?.error?.message || "No se pudo guardar el cliente";
-    } finally {
-      this.clientBusy = false;
-      this.cdr.markForCheck();
-    }
-  }
-  get filteredClients() {
-    const q = this.clientSearch.toLowerCase();
-    return this.clients.filter((c) =>
-      (c.name + " " + (c.phone || "") + " " + (c.instagram || ""))
-        .toLowerCase()
-        .includes(q),
-    );
-  }
-  async openClient(c: any) {
-    this.selectedClient = this.clients.find((x) => x.id === c.id) || c;
-    try {
-      this.clientHistory = await firstValueFrom(
-        this.http.get<any[]>("/api/sales?customer_id=" + c.id),
-      );
-    } catch (e: any) {
-      this.error = e?.error?.message || "No se pudo cargar la cuenta corriente";
-    }
-    this.cdr.markForCheck();
-  }
-  get currentClientBalance() {
-    return (
-      this.clients.find((c) => c.id === this.selectedClient?.id)?.balance || "0"
-    );
-  }
-  get visibleHistory() {
-    return this.mode === "customers" ? this.clientHistory : this.history;
-  }
-  get clientLedger() {
-    return this.clientHistory
-      .flatMap((s) => [
-        {
-          key: "sale" + s.id,
-          date: s.sold_on,
-          label: "Venta #" + s.id,
-          value: s.total,
-          debit: true,
-        },
-        ...s.payments.map((p: any) => ({
-          key: "payment" + p.id,
-          date: p.occurred_on,
-          label: "Cobro venta #" + s.id + " · " + p.account_name,
-          value: p.amount,
-          debit: false,
-        })),
-      ])
-      .sort(
-        (a, b) =>
-          b.date.localeCompare(a.date) || Number(b.debit) - Number(a.debit),
-      );
+  async customerSaved(c: any) {
+    this.customer = c.id;
+    this.cancelClient();
+    this.notice = "Cliente guardado.";
+    await this.load();
   }
   openCollection(s: any) {
     this.collecting = s;

@@ -1,3 +1,4 @@
+import { ButtonDirective } from "./ui/button";
 import {
   Component,
   Input,
@@ -14,7 +15,7 @@ import { SelectComponent } from "./select";
 @Component({
   selector: "price-analysis",
   standalone: true,
-  imports: [FormsModule, SelectComponent],
+  imports: [FormsModule, SelectComponent, ButtonDirective],
   template: ` <section class="price-review" aria-label="Diferencias de precios">
     <div class="review-heading">
       <div>
@@ -42,7 +43,12 @@ import { SelectComponent } from "./select";
         >
       </div>
       @if (!run.price_analysis.baseline) {
-        <button type="button" (click)="toggle()" [attr.aria-expanded]="open">
+        <button
+          appButton
+          type="button"
+          (click)="toggle()"
+          [attr.aria-expanded]="open"
+        >
           {{ open ? "Ocultar diferencias" : "Ver diferencias" }}
         </button>
       }
@@ -69,7 +75,7 @@ import { SelectComponent } from "./select";
       </p>
       @if (error) {
         <p role="alert">
-          {{ error }} <button (click)="load()">Reintentar</button>
+          {{ error }} <button appButton (click)="load()">Reintentar</button>
         </p>
       } @else if (loading) {
         <p role="status">Cargando diferencias…</p>
@@ -130,6 +136,7 @@ import { SelectComponent } from "./select";
         <div class="review-pagination">
           <span>{{ data.total }} cambios</span
           ><button
+            appButton
             aria-label="Página anterior de diferencias"
             [disabled]="page <= 1"
             (click)="page = page - 1; load()"
@@ -137,6 +144,7 @@ import { SelectComponent } from "./select";
             ←</button
           ><span>{{ page }} / {{ pages }}</span
           ><button
+            appButton
             aria-label="Página siguiente de diferencias"
             [disabled]="page >= pages"
             (click)="page = page + 1; load()"

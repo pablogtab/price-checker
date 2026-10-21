@@ -1,3 +1,5 @@
+import { inferredPackUnits } from "./pricing";
+import { saveProductImage } from "./images";
 import {
   Injectable,
   BadRequestException,
@@ -25,6 +27,12 @@ import { checkPackaging } from "./presentation";
 import Decimal from "decimal.js";
 import { kitStock } from "./inventory";
 
+function minimumStock(value:any):number|null {
+  if(value == null || value === '') return null;
+  const n=Number(value);
+  if(!Number.isSafeInteger(n) || n<0 || n>1e9) throw new BadRequestException('Stock mínimo inválido');
+  return n;
+}
 @Injectable()
 export class AppService {
   async health() {
@@ -117,10 +125,7 @@ export class AppService {
       where.push(
         "NOT EXISTS(SELECT 1 FROM product_links l WHERE l.individual_item_id=s.id OR l.kit_item_id=s.id)",
       );
-    if (query.kind === "kit")
-      where.push("s.is_pack AND s.name ~* '\\mx[[:space:]]*7\\M'");
-    if (query.kind === "pack")
-      where.push("s.is_pack AND s.name !~* '\\mx[[:space:]]*7\\M'");
+    if (query.kind === "kit" || query.kind === "pack") where.push("s.is_pack");
     if (query.kind === "individual") where.push("NOT s.is_pack");
     const orders: Record<string, string> = {
       name: "s.name",
@@ -167,9 +172,11 @@ export class AppService {
       return {
         ...p,
         image_path:
+          p.custom_image_path ||
           offers
             .map((l: any) => l.individual?.image_path || l.kit?.image_path)
-            .find(Boolean) || null,
+            .find(Boolean) ||
+          null,
         offers,
         selected:
           offers.find((l: any) => l.provider_id === p.preferred_provider_id) ||
@@ -274,6 +281,7 @@ export class AppService {
     return db.transaction(async (em) => {
       await em.query("SELECT pg_advisory_xact_lock(713450)");
       let source: any = null;
+      let sourceUnits = 1;
       if (body.source_item_id) {
         [source] = await em.query("SELECT * FROM supplier_items WHERE id=$1", [
           integer(body.source_item_id),
@@ -281,11 +289,16 @@ export class AppService {
         if (!source || !source.available)
           throw new BadRequestException("Oferta inexistente");
         checkPackaging(name, source.name, body.presentation_confirmed === true);
-        if (source.is_pack && !/\bx\s*7\b/i.test(source.name))
-          throw new BadRequestException("Solo se admiten unidades o kits x7");
+        if (source.is_pack) {
+          sourceUnits = integer(
+            body.source_units ?? inferredPackUnits(source.name),
+          );
+          if (sourceUnits > 10000)
+            throw new BadRequestException("Cantidad por pack inválida");
+        }
       }
       const [p] = await em.query(
-        "INSERT INTO products(name,code,barcode,selling_price,position,preferred_provider_id,kind,variant_group) SELECT $1,$2,$3,$4,coalesce(max(position),-1)+1,$5,$6,$7 FROM products RETURNING *",
+        "INSERT INTO products(name,code,barcode,selling_price,position,preferred_provider_id,kind,variant_group,minimum_stock) SELECT $1,$2,$3,$4,coalesce(max(position),-1)+1,$5,$6,$7,$8 FROM products RETURNING *",
         [
           name,
           optionalText(body.code),
@@ -294,16 +307,26 @@ export class AppService {
           source?.provider_id || null,
           kind,
           kind === "kit" ? null : optionalText(body.variant_group),
+          minimumStock(body.minimum_stock),
         ],
       );
+      const image = await saveProductImage(body.image_data);
+      if (image !== undefined) {
+        await em.query("UPDATE products SET custom_image_path=$2 WHERE id=$1", [
+          p.id,
+          image,
+        ]);
+        p.custom_image_path = image;
+      }
       if (source) {
         await em.query(
-          "INSERT INTO product_links(product_id,provider_id,individual_item_id,kit_item_id) VALUES($1,$2,$3,$4)",
+          "INSERT INTO product_links(product_id,provider_id,individual_item_id,kit_item_id,kit_units) VALUES($1,$2,$3,$4,$5)",
           [
             p.id,
             source.provider_id,
             source.is_pack ? null : source.id,
             source.is_pack ? source.id : null,
+            sourceUnits,
           ],
         );
         await rememberCosts(em);
@@ -431,7 +454,7 @@ export class AppService {
       }
       if (old.kind === "kit") await saveComponents(em, id, body.components);
       const [p] = await em.query(
-        "UPDATE products SET name=$1,code=$2,barcode=$3,selling_price=$4,preferred_provider_id=$5,variant_group=$7 WHERE id=$6 RETURNING *",
+        "UPDATE products SET name=$1,code=$2,barcode=$3,selling_price=$4,preferred_provider_id=$5,variant_group=$7,minimum_stock=$8 WHERE id=$6 RETURNING *",
         [
           text(body.name),
           optionalText(body.code),
@@ -440,8 +463,17 @@ export class AppService {
           preferred,
           id,
           old.kind === "kit" ? null : group,
+          body.minimum_stock === undefined ? old.minimum_stock : minimumStock(body.minimum_stock),
         ],
       );
+      const image = await saveProductImage(body.image_data);
+      if (image !== undefined) {
+        await em.query("UPDATE products SET custom_image_path=$2 WHERE id=$1", [
+          id,
+          image,
+        ]);
+        p.custom_image_path = image;
+      }
       if (old.kind === "kit")
         return saveKitPricing(
           em,
@@ -515,6 +547,9 @@ export class AppService {
       throw new BadRequestException(
         "Confirmá que la unidad y el kit coinciden en producto, presentación y sabor",
       );
+    let kitUnits = body.kit_units == null ? null : integer(body.kit_units);
+    if (kitUnits != null && kitUnits > 10000)
+      throw new BadRequestException("Cantidad por pack inválida");
     await db.transaction(async (em) => {
       const [p] = await em.query(
         "SELECT * FROM products WHERE id=$1 FOR UPDATE",
@@ -537,13 +572,16 @@ export class AppService {
         if (!item || item.provider_id !== providerId)
           throw new BadRequestException("La oferta no pertenece al proveedor");
         checkPackaging(p.name, item.name, body.presentation_confirmed === true);
-        if (kind === "kit" && (!item.is_pack || !/\bx\s*7\b/i.test(item.name)))
-          throw new BadRequestException("Seleccioná un kit x7");
-        if (kind === "individual") {
-          if (/\bx\s*7\b/i.test(item.name) && item.is_pack)
+        if (kind === "kit") {
+          if (!item.is_pack)
+            throw new BadRequestException("Seleccioná una oferta por pack");
+          kitUnits = kitUnits ?? inferredPackUnits(item.name);
+          if (!kitUnits)
             throw new BadRequestException(
-              "Usá el selector de kit x7 para esta oferta",
+              "Indicá cuántas unidades vendibles contiene el pack",
             );
+        }
+        if (kind === "individual") {
           if (
             (item.is_pack || individualUnits !== 1) &&
             body.pack_confirmed !== true
@@ -558,8 +596,15 @@ export class AppService {
         }
       }
       await em.query(
-        `INSERT INTO product_links(product_id,provider_id,individual_item_id,kit_item_id,individual_units) VALUES($1,$2,$3,$4,$5) ON CONFLICT(product_id,provider_id) DO UPDATE SET individual_item_id=excluded.individual_item_id,kit_item_id=excluded.kit_item_id,individual_units=excluded.individual_units,last_cost=NULL,last_currency=NULL,last_basis=NULL,last_item_id=NULL,last_cost_at=NULL`,
-        [productId, providerId, individual, kit, individualUnits],
+        `INSERT INTO product_links(product_id,provider_id,individual_item_id,kit_item_id,individual_units,kit_units) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(product_id,provider_id) DO UPDATE SET individual_item_id=excluded.individual_item_id,kit_item_id=excluded.kit_item_id,individual_units=excluded.individual_units,kit_units=excluded.kit_units,last_cost=NULL,last_currency=NULL,last_basis=NULL,last_item_id=NULL,last_cost_at=NULL`,
+        [
+          productId,
+          providerId,
+          individual,
+          kit,
+          individualUnits,
+          kitUnits ?? 1,
+        ],
       );
       await em.query(
         "UPDATE products SET preferred_provider_id=coalesce(preferred_provider_id,$1) WHERE id=$2",

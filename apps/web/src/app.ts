@@ -1,3 +1,9 @@
+import { CustomersComponent } from "./customers";
+import { ProductImageComponent } from "./ui/product-image";
+import { ShellComponent } from "./ui/shell";
+import { ButtonDirective } from "./ui/button";
+import { IconComponent } from "./ui/icon";
+import { ActionButton } from "./ui/action-button";
 import {
   Component,
   ChangeDetectorRef,
@@ -12,8 +18,6 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { A11yModule } from "@angular/cdk/a11y";
-import { MatDialogModule } from "@angular/material/dialog";
-import { MatButtonModule } from "@angular/material/button";
 import { firstValueFrom } from "rxjs";
 import { PriceAnalysisComponent } from "./price-analysis";
 import { InstallComponent } from "./install";
@@ -35,13 +39,18 @@ Decimal.set({ precision: 40 });
     CommonModule,
     FormsModule,
     A11yModule,
-    MatDialogModule,
-    MatButtonModule,
+    ShellComponent,
+    ProductImageComponent,
+    ButtonDirective,
+    IconComponent,
+    ActionButton,
+
     SupplierLoginComponent,
     PurchasesComponent,
     SelectComponent,
     CashComponent,
     SalesComponent,
+    CustomersComponent,
     FilterSelectComponent,
   ],
   templateUrl: "./app.html",
@@ -189,6 +198,8 @@ export class AppComponent implements OnInit, OnDestroy {
   confirmSame = false;
   confirmPresentation = false;
   packUnits = 1;
+  kitUnits: any = 1;
+  quickUnits: any = 1;
   confirmPack = false;
   tab = "individual";
   filterOptions(key: string): FilterOption[] {
@@ -226,7 +237,7 @@ export class AppComponent implements OnInit, OnDestroy {
         ["no", "Sin vincular"],
       ],
       basis: [
-        ["kit", "Kit x7"],
+        ["kit", "Pack del proveedor"],
         ["individual", "Individual"],
         ["pack", "Caja / pack"],
         ["assembled", "Kit propio"],
@@ -261,8 +272,9 @@ export class AppComponent implements OnInit, OnDestroy {
     );
   }
   productPhotos(p: any): string[] {
-    const keys =
-      p.kind === "kit"
+    const keys = p.custom_image_path
+      ? [p.custom_image_path]
+      : p.kind === "kit"
         ? p.components.map((c: any) => c.image_path).filter(Boolean)
         : [p.image_path].filter(Boolean);
     return [...new Set(keys)] as string[];
@@ -311,7 +323,7 @@ export class AppComponent implements OnInit, OnDestroy {
     void this.loadCatalog();
   }
   pathView() {
-    const v = location.pathname.slice(1);
+    const v = location.pathname.startsWith("/customers/") ? "customers" : location.pathname.slice(1);
     return [
       "dashboard",
       "products",
@@ -458,6 +470,13 @@ export class AppComponent implements OnInit, OnDestroy {
   get staleCount() {
     return this.products.filter((p) => p.selected?.cost?.stale).length;
   }
+  isLowStock(p: any) {
+    return (
+      p.minimum_stock != null &&
+      p.own_stock != null &&
+      p.own_stock <= p.minimum_stock
+    );
+  }
   get stockMetrics() {
     const units = this.products.filter((p) => p.kind !== "kit");
     let quantity = 0,
@@ -499,6 +518,7 @@ export class AppComponent implements OnInit, OnDestroy {
       retail: retail.toString(),
       profit: profit.toString(),
       units: units.length,
+      low: units.filter((p) => this.isLowStock(p)).length,
     };
   }
   get missingCount() {
@@ -570,6 +590,9 @@ export class AppComponent implements OnInit, OnDestroy {
     });
     {
       rows = [...rows].sort((a, b) => {
+        const stockGroup =
+          Number(Number(b.own_stock) > 0) - Number(Number(a.own_stock) > 0);
+        if (stockGroup) return stockGroup;
         const field = this.sort;
         const value = (p: any): string | number | null => {
           if (field === "name") return p.name;
@@ -730,7 +753,7 @@ export class AppComponent implements OnInit, OnDestroy {
       : p.selected.cost.stale
         ? "Costo anterior"
         : p.selected.cost.basis === "kit"
-          ? "Kit x7 ÷ 7"
+          ? `Pack ÷ ${p.selected.cost.units}`
           : "Individual";
   }
   async refresh() {
@@ -753,11 +776,14 @@ export class AppComponent implements OnInit, OnDestroy {
     this.renewingSession = false;
     this.toast("Sesión de Coverweb renovada. Ya podés actualizar los precios.");
   }
-  isX7(item: any) {
-    return item.is_pack && /\bx\s*7\b/i.test(item.name);
+  suggestedUnits(item: any) {
+    const match = /\bx\s*(\d+)\b/i.exec(item?.name || "");
+    const n = match ? Number(match[1]) : 1;
+    return n > 0 && n <= 10000 ? n : 1;
   }
   startQuickCreate(item: any) {
     this.quickItem = item;
+    this.quickUnits = this.suggestedUnits(item);
     this.quickPrice = "";
     this.error = "";
   }
@@ -772,6 +798,7 @@ export class AppComponent implements OnInit, OnDestroy {
         barcode: item.barcode,
         selling_price: String(this.quickPrice),
         source_item_id: item.id,
+        source_units: this.quickUnits,
       });
       this.products = await this.api("GET", "products");
       this.quickItem = null;
@@ -789,6 +816,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.error = "";
     const enteredPrice =
       item && this.quickItem?.id === item.id ? this.quickPrice : "";
+    if (item) this.quickUnits = this.suggestedUnits(item);
     this.quickItem = null;
     this.editing = p
       ? { ...p, components: (p.components || []).map((c: any) => ({ ...c })) }
@@ -903,7 +931,44 @@ export class AppComponent implements OnInit, OnDestroy {
       "Elegí un producto"
     );
   }
+  imageReading = false;
+  async chooseProductImage(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const editing = this.editing;
+    this.error = "";
+    if (
+      !["image/jpeg", "image/png", "image/gif", "image/webp"].includes(
+        file.type,
+      ) ||
+      file.size > 5 * 1024 * 1024
+    ) {
+      this.error = "Elegí una imagen JPG, PNG, GIF o WebP de hasta 5 MB";
+      input.value = "";
+      return;
+    }
+    this.imageReading = true;
+    try {
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+        reader.readAsDataURL(file);
+      });
+      if (this.editing === editing) {
+        editing.image_data = data;
+        editing.image_preview = data;
+      }
+    } catch (e) {
+      this.fail(e);
+    } finally {
+      this.imageReading = false;
+      this.cdr.markForCheck();
+    }
+  }
   async saveProduct() {
+    if (this.imageReading) return;
     this.busy = true;
     this.error = "";
     try {
@@ -912,6 +977,8 @@ export class AppComponent implements OnInit, OnDestroy {
         e.id ? "PUT" : "POST",
         "products" + (e.id ? "/" + e.id : ""),
         {
+          image_data: e.image_data,
+          minimum_stock: e.minimum_stock ?? null,
           name: e.name,
           code: e.code,
           barcode: e.barcode,
@@ -920,6 +987,7 @@ export class AppComponent implements OnInit, OnDestroy {
           kit_pricing_mode: e.kit_pricing_mode || "final",
           preferred_provider_id: e.preferred_provider_id,
           source_item_id: e.source?.id,
+          source_units: this.quickUnits,
           kind: e.kind || "product",
           variant_group: e.variant_group || null,
           components: e.components,
@@ -1144,6 +1212,7 @@ export class AppComponent implements OnInit, OnDestroy {
     );
     this.individual = l?.individual || null;
     this.kit = l?.kit || null;
+    this.kitUnits = l?.kit_units || 1;
     this.packUnits = l?.individual_units || 1;
     this.confirmPack = false;
     this.linkSearch = this.linking?.name || "";
@@ -1176,8 +1245,10 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   choose(item: any) {
     this.confirmPresentation = false;
-    if (this.tab === "kit") this.kit = item;
-    else {
+    if (this.tab === "kit") {
+      this.kit = item;
+      this.kitUnits = this.suggestedUnits(item);
+    } else {
       this.individual = item;
       this.packUnits = 1;
       this.confirmPack = false;
@@ -1191,6 +1262,7 @@ export class AppComponent implements OnInit, OnDestroy {
         provider_id: Number(this.linkProvider),
         individual_item_id: this.individual?.id || null,
         kit_item_id: this.kit?.id || null,
+        kit_units: this.kitUnits,
         matches_confirmed: this.confirmSame,
         presentation_confirmed: this.confirmPresentation,
         individual_units: this.packUnits,

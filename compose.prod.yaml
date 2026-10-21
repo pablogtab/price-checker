@@ -30,6 +30,7 @@ services:
       PYTHON: python3
     volumes:
       - ./data:/app/data:ro
+      - ./data/images:/app/data/images
       - ./.auth:/app/.auth
     depends_on:
       db:

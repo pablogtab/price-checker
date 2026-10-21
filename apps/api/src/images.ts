@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, access, mkdir } from "node:fs/promises";
+import { readFile, access, mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
@@ -109,4 +109,32 @@ export async function processImage(
     );
   }
   return true;
+}
+
+export async function saveProductImage(
+  value: unknown,
+  cacheRoot = imageRoot,
+): Promise<string | null | undefined> {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "string" || value.length > 7 * 1024 * 1024)
+    throw new BadRequestException("La imagen debe pesar hasta 5 MB");
+  const match =
+    /^data:image\/(?:png|jpeg|gif|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(
+      value,
+    );
+  if (!match)
+    throw new BadRequestException("Elegí una imagen JPG, PNG, GIF o WebP");
+  const data = Buffer.from(match[1], "base64");
+  if (!data.length || data.length > 5 * 1024 * 1024)
+    throw new BadRequestException("La imagen debe pesar hasta 5 MB");
+  imageMime(data);
+  const key = createHash("sha256").update(data).digest("hex");
+  await mkdir(cacheRoot, { recursive: true });
+  try {
+    await writeFile(join(cacheRoot, key), data, { flag: "wx" });
+  } catch (e: any) {
+    if (e.code !== "EEXIST") throw e;
+  }
+  return key;
 }

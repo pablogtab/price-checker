@@ -1,14 +1,16 @@
+import { ButtonDirective } from "./ui/button";
 import { Component, HostListener } from "@angular/core";
 @Component({
   selector: "app-install",
   standalone: true,
+  imports: [ButtonDirective],
   template: ` <section class="card">
     <h2>Instalar app</h2>
     <p>Abrí la app desde un icono en tu teléfono o computadora.</p>
     @if (installed) {
       <p>La app está abierta en modo instalado.</p>
     } @else if (promptEvent) {
-      <button class="primary" (click)="install()">Instalar app</button>
+      <button appButton="primary" (click)="install()">Instalar app</button>
     } @else {
       <p>
         En Android o Chrome: menú → Instalar app. En iPhone: Compartir → Agregar

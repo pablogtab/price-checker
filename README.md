@@ -39,8 +39,8 @@ no file-upload/import interface or speculative automatic matching in this versio
 
 ## Supplier refreshes
 
-The worker runs daily at **08:00 America/Argentina/Buenos_Aires** and processes the
-**Actualizar precios** button. If started after 08:00, it catches up that day's run.
+The worker runs daily at **11:00 America/Argentina/Buenos_Aires** and processes the
+**Actualizar precios** button. If started after 11:00, it catches up that day's run.
 Requests are spaced at least 2 seconds apart, with an additional random 0.25–0.75
 seconds. The scraper honors `Retry-After`, backs off on throttling/server errors,
 and stops after three failed attempts. Set `COVERWEB_DELAY` to increase the interval;
@@ -431,7 +431,7 @@ cuentas en ARS o USD.
 
 Registrá ingresos, egresos y transferencias entre cuentas de la misma moneda,
 indicando importe, fecha y concepto. El saldo se calcula a partir del saldo
-inicial y los movimientos. Los egresos requieren saldo suficiente; las
+inicial y los movimientos. Se permiten saldos iniciales y resultantes negativos para registrar deudas; las
 transferencias quedan registradas en ambas cuentas en una sola operación.
 
 Recibir una compra suma stock. Su pago se registra por separado desde el historial
@@ -446,8 +446,17 @@ stock recibido. Los reintentos de una misma operación no duplican movimientos.
 
 En **Clientes**, pulsá **Nuevo cliente** para abrir el popup y cargar nombre, teléfono, Instagram y una nota opcional. El nombre es obligatorio;
 el teléfono, Instagram y la nota son opcionales. Podés editar esos datos y consultar su cuenta
-corriente, con ventas, cobros y saldo pendiente en ARS. El historial muestra las
-últimas 100 ventas; el saldo incluye todas.
+corriente, con ventas, cobros y saldo pendiente en ARS. El listado tiene búsqueda
+por nombre y contacto, filtros de deuda, ordenamiento y páginas de 25 clientes.
+Los indicadores superiores son generales, independientes del filtro y la página.
+La ficha `/customers/:id` muestra todo el historial paginado, el detalle de las ventas
+y la cuenta corriente con saldo acumulado por fecha. Volver conserva los filtros.
+
+**Registrar cobro** permite cobrar al cliente sin elegir una venta individual:
+se previsualiza la distribución entre las ventas pendientes más antiguas. Al confirmar
+se registra un único ingreso en Caja y sus aplicaciones a las ventas. Si el saldo
+cambió mientras revisabas, hay que confirmar la nueva distribución. No se admiten
+anticipos ni cobros superiores a la deuda. Se sugieren Transferencia y la fecha de Argentina.
 
 En **Ventas**, elegí cliente o consumidor final, productos, cantidades y fecha.
 **Nuevo cliente** abre el mismo popup; al crearlo queda seleccionado en la venta.
@@ -470,7 +479,7 @@ y el total de la venta, que acompaña los cambios de productos y cantidades.
 Podés corregir el importe para un cobro parcial; Cobrar el total restaura el cálculo automático.
 Podés cobrar el total o una parte en una cuenta ARS con saldo inicial cargado, o
 registrar la venta en cuenta corriente. Se necesita un cliente para dejar saldo
-pendiente. Los cobros posteriores se cargan desde la venta o desde su historial
+pendiente. Los cobros posteriores se cargan desde la venta o desde la ficha
 en Clientes; suman dinero a la cuenta elegida y reducen la deuda sin volver a
 descontar stock. Los cobros no pueden superar lo pendiente.
 
@@ -507,3 +516,56 @@ no se reemplazan. También se cuentan productos nuevos/recuperados, faltantes y
 cambios de stock. La primera lista sirve de referencia; las ejecuciones anteriores
 a esta funcionalidad no tienen diferencias registradas. Las actualizaciones
 fallidas conservan la última lista y no generan una comparación parcial.
+
+## Actualización de operación — octubre 2026
+
+- Actualización automática diaria a las **11:00 de Argentina**. Se conserva una
+  ejecución programada por proveedor y fecha, incluso si el worker se reinicia.
+- Caja admite saldos iniciales y resultantes negativos. Un egreso se carga con
+  importe positivo y se resta del saldo; permite registrar deudas desde cero.
+- En la edición de productos podés subir una imagen JPG, PNG, GIF o WebP de hasta
+  5 MB. La foto propia tiene prioridad sobre la del proveedor, también en promos,
+  y persiste entre actualizaciones y reinicios. Quitarla restaura la foto vinculada.
+- Ventas ofrece descuentos en ARS por defecto o en porcentaje. El importe en ARS
+  descuenta del subtotal completo de la línea. Los centavos se distribuyen entre
+  las unidades sin modificar las cantidades ni los sabores seleccionados.
+- El pack preferido del proveedor admite cantidades configurables de 1 a 10.000
+  unidades vendibles. El costo es precio del pack dividido por esa cantidad;
+  si falta el pack, usa la oferta base. Los vínculos existentes conservan sus
+  cantidades. Al crear desde catálogo o vincular, revisá la cantidad indicada.
+- Productos con stock propio positivo siempre aparecen primero, y luego se
+  aplica el orden de columnas dentro de cada grupo.
+- Cada producto puede tener un stock mínimo opcional desde su edición. La tabla
+  marca cuando el stock conocido llega al mínimo o queda por debajo; el Dashboard
+  cuenta los productos individuales con stock bajo. Las promos usan el stock
+  calculado de sus componentes y pueden tener su propio marcador.
+
+## Componentes visuales
+
+El frontend reutiliza la base visual del proyecto Gym: tokens neutros/azules,
+controles de 42 px, navegación agrupada, iconos SVG y botones de acción accesibles.
+Los componentes adaptados viven en `apps/web/src/ui/`; `gym-theme.css` centraliza
+las superficies, tipografía, tablas, formularios, estados y variantes de botón.
+Los selectores siguen siendo personalizados: búsqueda en listas largas y
+selección múltiple en filtros, sin buscador para listas cortas. En pantallas
+angostas la navegación pasa a una fila desplazable y los formularios se apilan.
+
+### API y pruebas de clientes
+
+`GET /api/customers` conserva el listado simple para los selectores de Ventas.
+`GET /api/customers/search` acepta `search`, `status` (`all`, `debt`, `settled`, `new`),
+`sort` (`name`, `last_sale`, `sale_count`, `sold`, `balance`), `direction` y `page`.
+La respuesta incluye `items`, `total`, `page`, `size` y `summary` general.
+`GET /api/customers/:id` devuelve la ficha; `/sales` y `/ledger` devuelven historial paginado.
+
+Para cobrar: `POST /api/customers/:id/payments/preview` con `amount` devuelve
+`allocations`, `balance`, `remaining` y `token`. Luego `POST /api/customers/:id/payments`
+con `amount`, `account_id`, `occurred_on`, `request_key` UUID y `preview_token`.
+Los importes se envían como cadenas decimales. Un cambio de distribución devuelve HTTP 409.
+
+Las pruebas de clientes requieren **otra base descartable terminada en `_test`**,
+separada de la base de integración general porque ambas suites eliminan sus datos:
+
+```sh
+TEST_CUSTOMER_DATABASE_URL=postgres://price_checker:local_price_checker@127.0.0.1:5442/customer_management_test npm test
+```

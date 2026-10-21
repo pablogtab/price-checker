@@ -24,6 +24,7 @@ test(
       await db.query(
         "TRUNCATE refresh_runs,product_links,products,supplier_items,cash_accounts,purchases,customers,sales RESTART IDENTITY CASCADE",
       );
+      await db.query("DELETE FROM providers WHERE id<>1");
       const snapshot = JSON.parse(
         await readFile(
           resolve(process.cwd(), "../../data/disfit-prices.json"),
@@ -125,8 +126,8 @@ test(
         /Moneda/,
       );
       await assert.rejects(service.catalog({ provider: ["1", "invalid"] }));
-      const kits = await service.catalog({ kind: "kit" });
-      assert.equal(kits.total, 4);
+      const kits = await service.catalog({ kind: "kit", size:100 });
+      assert.equal(kits.total, (await db.query("SELECT count(*)::int n FROM supplier_items WHERE available AND is_pack"))[0].n);
       const [jarOffer] = await db.query(
         "SELECT id FROM supplier_items WHERE external_id='202796'",
       );
@@ -163,7 +164,7 @@ test(
         selling_price: "30000",
         barcode: "000123",
       });
-      const kit = kits.items.find((i: any) => i.external_id === "949685");
+      const [kit] = await db.query("SELECT * FROM supplier_items WHERE external_id='949685' AND provider_id=1");
       assert(kit);
       const individuals = await service.catalog({
         kind: "individual",
@@ -359,7 +360,7 @@ test(
         await rm(fixture, { recursive: true, force: true });
       }
       const { schedule } = await import("./worker");
-      await schedule({ date: "2030-01-01", hour: 7 });
+      await schedule({ date: "2030-01-01", hour: 10 });
       assert.equal(
         (
           await db.query(
@@ -368,8 +369,8 @@ test(
         )[0].n,
         0,
       );
-      await schedule({ date: "2030-01-01", hour: 8 });
-      await schedule({ date: "2030-01-01", hour: 9 });
+      await schedule({ date: "2030-01-01", hour: 11 });
+      await schedule({ date: "2030-01-01", hour: 12 });
       assert.equal(
         (
           await db.query(
@@ -1062,13 +1063,59 @@ test(
         600.1,
       );
       await assert.rejects(() => setOpeningBalance(cashA.id, "0"));
+      const debtAccount = await createAccount({
+        name: "Deuda test",
+        currency: "ARS",
+        opening_balance: "-237600",
+      });
+      assert.equal(
+        (await cashAccounts()).find((a: any) => a.id === debtAccount.id)
+          .balance,
+        "-237600",
+      );
+      await cashOperation({
+        ...income,
+        account_id: debtAccount.id,
+        kind: "expense",
+        amount: "10000",
+        request_key: randomUUID(),
+      });
+      assert.equal(
+        (await cashAccounts()).find((a: any) => a.id === debtAccount.id)
+          .balance,
+        "-247600",
+      );
+      await cashOperation({
+        ...income,
+        account_id: debtAccount.id,
+        amount: "250000",
+        request_key: randomUUID(),
+      });
+      assert.equal(
+        (await cashAccounts()).find((a: any) => a.id === debtAccount.id)
+          .balance,
+        "2400",
+      );
+      await cashOperation({
+        ...income,
+        account_id: debtAccount.id,
+        destination_id: cashUsd.id,
+        kind: "transfer",
+        amount: "1",
+        request_key: randomUUID(),
+      }).then(
+        () => assert.fail("Currency mismatch must fail"),
+        () => {},
+      );
       await assert.rejects(() =>
-        cashOperation({
-          ...income,
-          kind: "expense",
-          amount: "10000",
-          request_key: randomUUID(),
+        createAccount({
+          name: "Invalid balance",
+          currency: "ARS",
+          opening_balance: "-1.001",
         }),
+      );
+      await assert.rejects(() =>
+        cashOperation({ ...income, amount: "-10", request_key: randomUUID() }),
       );
       await assert.rejects(() =>
         cashOperation({
@@ -1135,13 +1182,13 @@ test(
       ]);
       assert.equal(
         cashCompeting.filter((r) => r.status === "fulfilled").length,
-        1,
+        2,
       );
       assert.equal(
         Number(
           (await cashAccounts()).find((a: any) => a.id === cashB.id).balance,
         ),
-        100.1,
+        -399.9,
       );
       const [uncounted] = await db.query(
         "INSERT INTO cash_accounts(name,currency) VALUES('Sin saldo test','ARS') RETURNING id",
@@ -1153,7 +1200,7 @@ test(
           request_key: randomUUID(),
         }),
       );
-      await setOpeningBalance(uncounted.id, "0");
+      await setOpeningBalance(uncounted.id, "-20");
       await cashOperation({
         ...income,
         account_id: uncounted.id,
@@ -1162,7 +1209,7 @@ test(
       });
       assert.equal(
         (await cashAccounts()).find((a: any) => a.id === uncounted.id).balance,
-        "1",
+        "-19",
       );
       const {
         customers,
@@ -1452,6 +1499,74 @@ test(
         variedInvoice.items.map((i: any) => i.components.length).sort(),
         [1, 1, 2],
       );
+      // Generic supplier pack quantities are explicit and survive a catalog refresh.
+      const generic = await service.createProduct({
+        name: "Pack configurable",
+        selling_price: "10000",
+        source_item_id: boxOffer.id,
+        source_units: 12,
+      });
+      let genericView = (await service.products()).find(
+        (x: any) => x.id === generic.id,
+      );
+      assert.equal(genericView.selected.cost.units, 12);
+      await service.saveLink(generic.id, {
+        provider_id: 1,
+        kit_item_id: boxOffer.id,
+        kit_units: 6,
+        matches_confirmed: true,
+      });
+      genericView = (await service.products()).find(
+        (x: any) => x.id === generic.id,
+      );
+      assert.equal(genericView.selected.cost.units, 6);
+      await assert.rejects(
+        service.saveLink(generic.id, {
+          provider_id: 1,
+          kit_item_id: boxOffer.id,
+          kit_units: 0,
+        }),
+      );
+      // A custom photo takes precedence and survives provider imports; null restores the provider photo.
+      const upload =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jX1sAAAAASUVORK5CYII=";
+      const photo = await service.createProduct({
+        name: "Producto con imagen",
+        minimum_stock:3,
+        selling_price: "100",
+        image_data: upload,
+      });
+      const photoView = () =>
+        service
+          .products()
+          .then((rows: any[]) => rows.find((x) => x.id === photo.id));
+      assert.equal((await photoView()).minimum_stock,3);
+      await assert.rejects(service.editProduct(photo.id,{name:photo.name,selling_price:"100",minimum_stock:-1}));
+      assert.match((await photoView()).custom_image_path, /^[a-f0-9]{64}$/);
+      assert.equal(
+        (await photoView()).image_path,
+        (await photoView()).custom_image_path,
+      );
+      await importSnapshot(snapshot, 1);
+      assert.equal(
+        (await service.products()).find((x: any) => x.id === generic.id)
+          .selected.cost.units,
+        6,
+      );
+      assert((await photoView()).custom_image_path);
+      await service.editProduct(photo.id, {
+        name: photo.name,
+        selling_price: "100",
+        image_data: null,
+      });
+      assert.equal((await photoView()).custom_image_path, null);
+      await assert.rejects(
+        service.editProduct(photo.id, {
+          name: photo.name,
+          selling_price: "100",
+          image_data: "data:image/svg+xml;base64,PHN2Zz4=",
+        }),
+      );
       // Price comparisons are committed with the catalog, immutable afterwards,
       // and excluded from the frequently polled run list.
       const [comparisonProvider] = await db.query(
@@ -1459,18 +1574,16 @@ test(
       );
       const comparisonSnapshot = (amount: string) => ({
         ...snapshot,
-        products: snapshot.products
-          .slice(0, 35)
-          .map((p: any, i: number) => ({
-            ...p,
-            id: `comparison-${i}`,
-            price: {
-              ...p.price,
-              currency: "ARS",
-              amount,
-              source_amount: amount,
-            },
-          })),
+        products: snapshot.products.slice(0, 35).map((p: any, i: number) => ({
+          ...p,
+          id: `comparison-${i}`,
+          price: {
+            ...p.price,
+            currency: "ARS",
+            amount,
+            source_amount: amount,
+          },
+        })),
         product_count: 35,
         catalog_reported_total: 35,
         currencies: { ARS: 35 },
