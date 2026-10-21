@@ -46,8 +46,8 @@ export function ars(value: any, positive = false) {
 }
 export async function customers() {
   return db.query(`SELECT c.*,coalesce(d.total,0)::text sold,(coalesce(d.total,0)-coalesce(p.total,0))::text balance FROM customers c
-    LEFT JOIN LATERAL(SELECT sum(total) total FROM sales WHERE customer_id=c.id) d ON true
-    LEFT JOIN LATERAL(SELECT sum(sp.amount) total FROM sale_payments sp JOIN sales s ON s.id=sp.sale_id WHERE s.customer_id=c.id) p ON true ORDER BY c.name,c.id`);
+    LEFT JOIN LATERAL(SELECT sum(total) total FROM sales WHERE customer_id=c.id AND status='active') d ON true
+    LEFT JOIN LATERAL(SELECT sum(sp.amount) total FROM sale_payments sp JOIN sales s ON s.id=sp.sale_id WHERE s.customer_id=c.id AND s.status='active') p ON true ORDER BY c.name,c.id`);
 }
 export async function saveCustomer(body: any, id?: number) {
   const phone = optionalText(body.phone);
@@ -77,7 +77,7 @@ export async function saveCustomer(body: any, id?: number) {
 export async function sales(query: any = {}) {
   const customer = query.customer_id ? integer(query.customer_id) : null;
   const rows = await db.query(
-    `SELECT s.*,s.sold_on::text,s.total::text,s.subtotal::text,s.discount_value::text,s.discount_amount::text,s.cost_total::text,(s.total-coalesce(p.paid,0))::text pending,coalesce(p.paid,0)::text paid FROM sales s LEFT JOIN LATERAL(SELECT sum(amount) paid FROM sale_payments WHERE sale_id=s.id) p ON true WHERE ($1::int IS NULL OR customer_id=$1) ORDER BY s.sold_on DESC,s.id DESC LIMIT $2 OFFSET $3`,
+    `SELECT s.*,s.sold_on::text,s.total::text,s.subtotal::text,s.discount_value::text,s.discount_amount::text,s.cost_total::text,(CASE WHEN s.status='annulled' THEN 0 ELSE s.total-coalesce(p.paid,0) END)::text pending,coalesce(p.paid,0)::text paid FROM sales s LEFT JOIN LATERAL(SELECT sum(amount) paid FROM sale_payments WHERE sale_id=s.id) p ON true WHERE ($1::int IS NULL OR customer_id=$1) ORDER BY s.sold_on DESC,s.id DESC LIMIT $2 OFFSET $3`,
     [customer, query.page ? 25 : 100, query.page ? (integer(query.page)-1)*25 : 0],
   );
   if (!rows.length) return rows;
@@ -167,6 +167,7 @@ export async function collectSale(id: number, body: any) {
       [id],
     );
     if (!sale) throw new NotFoundException("Venta inexistente");
+    if(sale.status==='annulled') throw new BadRequestException("La venta está anulada");
     const [paid] = await em.query(
       "SELECT coalesce(sum(amount),0)::text amount FROM sale_payments WHERE sale_id=$1",
       [id],
@@ -356,10 +357,10 @@ export async function createSale(body: any) {
 }
 export async function salesSummary() {
   const [s] = await db.query(
-    `SELECT count(*)::int count,coalesce(sum(total),0)::text total,coalesce(sum(total) FILTER(WHERE sold_on >= (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date-29),0)::text recent_total,coalesce(sum(total-cost_total) FILTER(WHERE cost_total IS NOT NULL),0)::text profit,count(*) FILTER(WHERE cost_total IS NULL)::int missing_cost FROM sales`,
+    `SELECT count(*)::int count,coalesce(sum(total),0)::text total,coalesce(sum(total) FILTER(WHERE sold_on >= (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date-29),0)::text recent_total,coalesce(sum(total-cost_total) FILTER(WHERE cost_total IS NOT NULL),0)::text profit,count(*) FILTER(WHERE cost_total IS NULL)::int missing_cost FROM sales WHERE status='active'`,
   );
   const [paid] = await db.query(
-    "SELECT coalesce(sum(amount),0)::text total FROM sale_payments",
+    "SELECT coalesce(sum(p.amount),0)::text total FROM sale_payments p JOIN sales s ON s.id=p.sale_id WHERE s.status='active'",
   );
   return {
     ...s,

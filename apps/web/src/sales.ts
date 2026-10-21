@@ -1,4 +1,5 @@
 import {SaleEditorComponent} from "./sale-editor";
+import {SaleAnnulmentComponent} from "./sale-annulment";
 import {SaleCorrectionHistoryComponent} from "./sale-correction-history";
 import {PaymentCorrectionComponent} from "./payment-correction";
 import { SalesPromoPickerComponent } from "./sales-promo-picker";
@@ -29,6 +30,7 @@ import { SelectComponent } from "./select";
     SaleEditorComponent,
     CustomerEditorComponent,
     PaymentCorrectionComponent,
+    SaleAnnulmentComponent,
     SaleCorrectionHistoryComponent,
     SalesPromoPickerComponent,
     FormsModule,
@@ -38,6 +40,7 @@ import { SelectComponent } from "./select";
   ],
   template: ` <div class="purchase-page">
     @if (editingSale) {<app-sale-editor [sale]="editingSale" [products]="products" [clients]="clients" (closed)="editingSale=null" (saved)="saleEdited()" />}
+    @if (annullingSale) {<app-sale-annulment [sale]="annullingSale" (closed)="annullingSale=null" (saved)="saleAnnulled()" />}
     @if (correctingPayment) {<app-payment-correction [sale]="correctingPayment.sale" [payment]="correctingPayment.payment" [accounts]="accounts" (closed)="correctingPayment=null" (saved)="paymentCorrected()" />}
     @if (clientForm) {
       <app-customer-editor
@@ -514,6 +517,7 @@ import { SelectComponent } from "./select";
                   Venta #{{ s.id }} ·
                   {{ s.customer_name || "Consumidor final" }}
                 </h3>
+                @if(s.status === "annulled"){<strong class="alert danger">Anulada · {{s.annulled_at}}</strong>}
                 <small
                   >{{ s.sold_on }}
                   @if (s.note) {
@@ -564,7 +568,8 @@ import { SelectComponent } from "./select";
               </div>
               <app-sale-correction-history [saleId]="s.id" />
             </details>
-            @if (+s.pending > 0) {
+            @if (s.status !== "annulled") {<button appButton="ghost" (click)="annullingSale=s">Anular</button>}
+            @if (s.status !== "annulled" && +s.pending > 0) {
               <button class="purchase-add" (click)="openCollection(s)">
                 Registrar cobro
               </button>
@@ -630,6 +635,8 @@ export class SalesComponent implements OnInit {
   history: any[] = [];
   editingSale:any=null;
   async saleEdited(){this.editingSale=null;await this.load();this.saved.emit();}
+  annullingSale:any=null;
+  async saleAnnulled(){this.annullingSale=null;this.collecting=null;await this.load();this.saved.emit();}
   correctingPayment:any=null;
   async paymentCorrected(){this.correctingPayment=null;await this.load();this.saved.emit();}
   customer: any = "";
