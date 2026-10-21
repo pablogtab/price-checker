@@ -1,3 +1,4 @@
+import {SaleEditorComponent} from "./sale-editor";
 import {SaleCorrectionHistoryComponent} from "./sale-correction-history";
 import {PaymentCorrectionComponent} from "./payment-correction";
 import { SalesPromoPickerComponent } from "./sales-promo-picker";
@@ -25,6 +26,7 @@ import { SelectComponent } from "./select";
   selector: "app-sales",
   standalone: true,
   imports: [
+    SaleEditorComponent,
     CustomerEditorComponent,
     PaymentCorrectionComponent,
     SaleCorrectionHistoryComponent,
@@ -35,6 +37,7 @@ import { SelectComponent } from "./select";
     ButtonDirective,
   ],
   template: ` <div class="purchase-page">
+    @if (editingSale) {<app-sale-editor [sale]="editingSale" [products]="products" [clients]="clients" (closed)="editingSale=null" (saved)="saleEdited()" />}
     @if (correctingPayment) {<app-payment-correction [sale]="correctingPayment.sale" [payment]="correctingPayment.payment" [accounts]="accounts" (closed)="correctingPayment=null" (saved)="paymentCorrected()" />}
     @if (clientForm) {
       <app-customer-editor
@@ -533,6 +536,7 @@ import { SelectComponent } from "./select";
                 >
               </div>
             </div>
+            @if (s.status !== 'annulled') { @if (!s.payments.length) {<button appButton="ghost" (click)="editingSale=s">Editar venta</button>} @else {<small>Venta con cobros · edición conjunta pendiente</small>} }
             <details>
               <summary>Ver productos y cobros</summary>
               <div class="purchase-history-lines">
@@ -624,6 +628,8 @@ export class SalesComponent implements OnInit {
   clients: any[] = [];
   accounts: any[] = [];
   history: any[] = [];
+  editingSale:any=null;
+  async saleEdited(){this.editingSale=null;await this.load();this.saved.emit();}
   correctingPayment:any=null;
   async paymentCorrected(){this.correctingPayment=null;await this.load();this.saved.emit();}
   customer: any = "";
