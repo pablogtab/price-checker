@@ -7,6 +7,7 @@ import {
   correctionTransaction,
   paymentState,
   replacePaymentApplication,
+  cashProjection,
 } from "./sale-corrections";
 async function preview(em: any, id: number) {
   const state = await paymentState(em, id);
@@ -31,26 +32,13 @@ async function preview(em: any, id: number) {
     p.quantity = Number(p.quantity);
     p.after = after.toNumber();
   }
-  const cash = [];
   const deltas = new Map<number, Decimal>();
   for (const p of state.payments)
     deltas.set(
       p.account_id,
       (deltas.get(p.account_id) || new Decimal(0)).minus(p.amount),
     );
-  for (const [account_id, delta] of deltas) {
-    const [a] = await em.query(
-      "SELECT a.name,(a.opening_balance+coalesce(sum(e.amount),0))::text balance FROM cash_accounts a LEFT JOIN cash_entries e ON e.account_id=a.id WHERE a.id=$1 GROUP BY a.id",
-      [account_id],
-    );
-    cash.push({
-      account_id,
-      name: a.name,
-      before: a.balance,
-      delta: delta.toString(),
-      after: new Decimal(a.balance).plus(delta).toString(),
-    });
-  }
+  const cash = await cashProjection(em, deltas);
   const paid = state.payments.reduce(
     (n: Decimal, p: any) => n.plus(p.amount),
     new Decimal(0),

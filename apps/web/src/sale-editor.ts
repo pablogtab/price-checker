@@ -7,6 +7,7 @@ import {
   inject,
   ChangeDetectorRef,
 } from "@angular/core";
+import Decimal from "decimal.js";
 import { FormsModule } from "@angular/forms";
 import { A11yModule } from "@angular/cdk/a11y";
 import { HttpClient } from "@angular/common/http";
@@ -113,16 +114,10 @@ import { ButtonDirective } from "./ui/button";
       @media (max-width: 650px) {
         .fields,
         .line,
-        .discount-toggle {
-          display: flex;
-          gap: 4px;
-        }
-        .discount-toggle button[aria-pressed="true"] {
-          background: var(--surface-subtle, #edf3fa);
-          border-color: var(--primary, #2378cf);
-        }
         .payment-row {
-          grid-template-columns: 1fr;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 16px;
         }
         .editor {
           padding: 16px;
@@ -191,7 +186,7 @@ import { ButtonDirective } from "./ui/button";
                 min="0"
                 step=".01"
                 [(ngModel)]="line.unit_price"
-                (ngModelChange)="changed()"
+                (ngModelChange)="line.priceEdited = true; changed()"
             /></label>
             <div class="components">
               @for (part of line.parts; track part) {
@@ -202,7 +197,7 @@ import { ButtonDirective } from "./ui/button";
                       [label]="'Sabor de ' + part.name"
                       [options]="part.options"
                       [(ngModel)]="part.product_id"
-                      (ngModelChange)="changed()"
+                      (ngModelChange)="flavorChanged(line)"
                   /></label>
                 } @else {
                   @if (
@@ -512,6 +507,36 @@ export class SaleEditorComponent implements OnInit {
       parts,
     });
     this.adding = "";
+    this.changed();
+  }
+  flavorChanged(line: any) {
+    const product = this.products.find((p) => p.id === line.product_id);
+    if (
+      !line.id &&
+      !line.priceEdited &&
+      product?.kit_pricing_mode === "discount"
+    ) {
+      const chosen = line.parts.map((part: any) =>
+        this.products.find((p) => p.id === Number(part.product_id)),
+      );
+      if (chosen.every(Boolean)) {
+        const base = chosen.reduce(
+          (sum: Decimal, p: any, n: number) =>
+            sum.plus(new Decimal(p.selling_price).mul(line.parts[n].quantity)),
+          new Decimal(0),
+        );
+        line.unit_price = base
+          .mul(
+            new Decimal(1).minus(
+              new Decimal(product.kit_discount_percent).div(100),
+            ),
+          )
+          .div(100)
+          .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+          .mul(100)
+          .toString();
+      }
+    }
     this.changed();
   }
   body() {

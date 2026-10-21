@@ -458,30 +458,45 @@ se registra un único ingreso en Caja y sus aplicaciones a las ventas. Si el sal
 cambió mientras revisabas, hay que confirmar la nueva distribución. No se admiten
 anticipos ni cobros superiores a la deuda. Se sugieren Transferencia y la fecha de Argentina.
 
-En **Ventas**, elegí cliente o consumidor final, productos, cantidades y fecha.
-**Nuevo cliente** abre el mismo popup; al crearlo queda seleccionado en la venta.
-Con un cliente seleccionado, **Editar cliente** permite corregir sus datos sin
-perder el borrador de venta. El selector muestra nombre (teléfono / Instagram)
-cuando esos datos están cargados.
-El precio sugerido se puede corregir para esa venta. Para una promo elegí un sabor
-por unidad de sus componentes, agrupados por promo. Por ejemplo, 3 promos x2
-muestran 6 selectores; cada promo admite una combinación distinta. Al aumentar
-la cantidad se conservan los sabores ya elegidos y las nuevas promos quedan por elegir.
-El descuento configurado del kit se calcula con los sabores de cada promo;
-el precio final fijo conserva el precio de la promo. El campo **Descuento de venta (%)**
-aplica un descuento adicional entre 0 y 100 sobre el precio unitario de esa fila,
-redondeado a dos decimales. El subtotal, cobro y ganancia usan el precio descontado.
-Se admiten hasta 100 filas finales por venta (cada promo con sabores cuenta como una). Se muestran el stock actual y el que quedaría por producto/sabor,
-agrupando todas las filas de la venta.
+En **Ventas**, el buscador muestra productos y sabores. Escribí nombre, código o
+código de barras, elegí con ↑/↓ y presioná Enter para agregar una unidad al carrito.
+Repetir una variante aumenta su cantidad; Enter nunca registra la venta.
+Podés corregir cantidades y precios en el carrito. **Nuevo cliente** abre el mismo
+popup de Clientes; **Editar cliente** conserva el carrito y permite corregir sus datos.
+El selector identifica al cliente por nombre (teléfono / Instagram), cuando están cargados.
 
-Por defecto se elige Cobrar ahora, la cuenta Transferencia (si tiene saldo inicial cargado)
-y el total de la venta, que acompaña los cambios de productos y cantidades.
-Podés corregir el importe para un cobro parcial; Cobrar el total restaura el cálculo automático.
-Podés cobrar el total o una parte en una cuenta ARS con saldo inicial cargado, o
-registrar la venta en cuenta corriente. Se necesita un cliente para dejar saldo
-pendiente. Los cobros posteriores se cargan desde la venta o desde la ficha
-en Clientes; suman dinero a la cuenta elegida y reducen la deuda sin volver a
-descontar stock. Los cobros no pueden superar lo pendiente.
+Al agregar una promo se abre la selección de sabores de sus componentes. Cada fila
+representa una combinación: aumentar su cantidad repite esa combinación; agregá otra
+promo para elegir sabores distintos. Las promos con descuento usan los precios de
+los sabores elegidos y redondean al múltiplo de ARS 100 más cercano. Las de precio
+final conservan su precio configurado. Un precio corregido manualmente se conserva.
+Se admiten hasta 100 filas por venta. El stock actual y el resultante se agrupan por variante.
+
+El descuento adicional se aplica **sobre el total de la venta**, en ARS por defecto
+o como porcentaje; no hay descuentos por renglón. **Cobrar** abre una revisión de
+productos, total, cliente, stock y cobro. Por defecto propone Transferencia, si tiene
+saldo inicial cargado, y el importe total. Podés elegir Efectivo, corregir el importe
+para un cobro parcial o registrar en cuenta corriente. Un saldo pendiente requiere
+cliente. Confirmar registra venta, stock y cobro; cancelar vuelve al carrito sin efectos.
+Una venta de importe cero no genera un cobro ficticio.
+
+El borrador se conserva al recargar o cerrar la página. Los precios cargados no cambian
+sin elegir **Actualizar precios**. Registrar la venta o descartar limpia el borrador;
+la próxima venta empieza con consumidor final y fecha de Argentina. Si se perdió
+la respuesta de registro, la app comprueba ese intento antes de permitir otro.
+
+Desde el historial podés **Editar venta**, incluso cobrada, corregir sus cobros o
+**Anular** una carga equivocada. La revisión muestra antes/después de unidades
+consumidas, stock actual, total, deuda y Caja. La edición conserva precios y costos
+históricos de los renglones retenidos; los nuevos usan valores actuales. Si reducís
+el total por debajo de lo cobrado debés corregir también los cobros. Una aplicación
+de un cobro compartido solo afecta esa venta. Anular devuelve sus unidades al stock
+actual y revierte sus cobros/deuda, conservando el registro como anulado.
+
+Los cobros posteriores se registran desde la venta o la ficha en Clientes; suman
+saldo a la cuenta elegida y reducen deuda sin volver a descontar stock. No pueden
+superar lo pendiente. Todas las correcciones se confirman con una revisión vigente;
+un cambio concurrente requiere revisar otra vez. Los reintentos no duplican efectos.
 
 Las ventas permiten stock negativo y avisan antes de registrar y al guardarse.
 Las promos muestran disponibilidad mínima de cero; los saldos negativos de sus

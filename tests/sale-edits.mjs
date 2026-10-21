@@ -49,6 +49,8 @@ test("edit keeps sale identity and historical price, moves debt and applies stoc
   };
   const preview = await req(`sales/${s.id}/edit/preview`, edit);
   assert.equal(preview.after.total, "270");
+  assert.equal(preview.stock[0].consumed_before, 2);
+  assert.equal(preview.stock[0].consumed_after, 3);
   assert.equal(preview.stock[0].before, 30);
   assert.equal(preview.stock[0].after, 29);
   const body = {
