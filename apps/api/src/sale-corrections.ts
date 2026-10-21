@@ -158,20 +158,7 @@ async function preview(em: any, saleId: number, paymentId: number, body: any) {
   const deltas = new Map<number, Decimal>();
   deltas.set(payment.account_id, new Decimal(payment.amount).negated());
   deltas.set(account, (deltas.get(account) || new Decimal(0)).plus(amount));
-  const cash = [];
-  for (const [id, delta] of deltas) {
-    const [a] = await em.query(
-      "SELECT a.name,(a.opening_balance+coalesce(sum(e.amount),0))::text balance FROM cash_accounts a LEFT JOIN cash_entries e ON e.account_id=a.id WHERE a.id=$1 GROUP BY a.id",
-      [id],
-    );
-    cash.push({
-      account_id: id,
-      name: a.name,
-      before: a.balance,
-      delta: delta.toString(),
-      after: new Decimal(a.balance).plus(delta).toString(),
-    });
-  }
+  const cash = await cashProjection(em, deltas);
   return {
     preview_token: correctionHash({ state, destination, cash, after }),
     before,
@@ -231,4 +218,33 @@ export async function correctionHistory(saleId: number) {
     "SELECT id,kind,before_state,after_state,created_at FROM sale_corrections WHERE sale_id=$1 ORDER BY id DESC",
     [saleId],
   );
+}
+
+export interface CashProjection {
+  account_id: number;
+  name: string;
+  before: string;
+  delta: string;
+  after: string;
+}
+/** Project account changes using the caller's transaction and stable ordering. */
+export async function cashProjection(
+  em: Pick<import("typeorm").EntityManager, "query">,
+  deltas: ReadonlyMap<number, Decimal>,
+): Promise<CashProjection[]> {
+  const cash: CashProjection[] = [];
+  for (const [account_id, delta] of [...deltas].sort((a, b) => a[0] - b[0])) {
+    const [account] = await em.query(
+      "SELECT a.name,(a.opening_balance+coalesce(sum(e.amount),0))::text balance FROM cash_accounts a LEFT JOIN cash_entries e ON e.account_id=a.id WHERE a.id=$1 GROUP BY a.id",
+      [account_id],
+    );
+    cash.push({
+      account_id,
+      name: account.name,
+      before: account.balance,
+      delta: delta.toString(),
+      after: new Decimal(account.balance).plus(delta).toString(),
+    });
+  }
+  return cash;
 }

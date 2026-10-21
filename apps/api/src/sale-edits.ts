@@ -15,6 +15,7 @@ import {
   correctionTransaction,
   paymentState,
   replacePaymentApplication,
+  cashProjection,
 } from "./sale-corrections";
 
 export async function saleEditState(em: any, id: number) {
@@ -222,7 +223,15 @@ export async function prepareSaleEdit(
     const after = p.own_stock + delta;
     if (!Number.isSafeInteger(after) || Math.abs(after) > 1e9)
       throw new BadRequestException("Stock fuera de rango");
-    stock.push({ product_id, name: p.name, before: p.own_stock, delta, after });
+    stock.push({
+      product_id,
+      name: p.name,
+      before: p.own_stock,
+      delta,
+      after,
+      consumed_before: beforeNeeded.get(product_id) || 0,
+      consumed_after: afterNeeded.get(product_id) || 0,
+    });
   }
   const debts = [];
   for (const customer_id of new Set(
@@ -440,20 +449,7 @@ async function prepareJointEdit(em: any, id: number, body: any) {
     throw new BadRequestException(
       "Elegí un cliente para dejar saldo pendiente",
     );
-  const cash = [];
-  for (const [account_id, delta] of [...deltas].sort((a, b) => a[0] - b[0])) {
-    const [a] = await em.query(
-      "SELECT a.name,(a.opening_balance+coalesce(sum(e.amount),0))::text balance FROM cash_accounts a LEFT JOIN cash_entries e ON e.account_id=a.id WHERE a.id=$1 GROUP BY a.id",
-      [account_id],
-    );
-    cash.push({
-      account_id,
-      name: a.name,
-      before: a.balance,
-      delta: delta.toString(),
-      after: new Decimal(a.balance).plus(delta).toString(),
-    });
-  }
+  const cash = await cashProjection(em, deltas);
   const oldPaid = originals.reduce(
     (s: Decimal, x: any) => s.plus(x.amount),
     new Decimal(0),
@@ -473,26 +469,7 @@ async function prepareJointEdit(em: any, id: number, body: any) {
     paid: paid.toString(),
     pending: new Decimal(p.preview.after.total).minus(paid).toString(),
   };
-  const stock = p.preview.stock.map((s: any) => ({
-    ...s,
-    consumed_before: p.state.items.reduce(
-      (sum: number, item: any) =>
-        sum +
-        item.components
-          .filter((c: any) => c.product_id === s.product_id)
-          .reduce((n: number, c: any) => n + c.quantity, 0),
-      0,
-    ),
-    consumed_after: p.prepared.reduce(
-      (sum: number, item: any) =>
-        sum +
-        item.parts
-          .filter((c: any) => c.product.id === s.product_id)
-          .reduce((n: number, c: any) => n + c.quantity, 0),
-      0,
-    ),
-  }));
-  const preview = { ...p.preview, before, after, cash, stock };
+  const preview = { ...p.preview, before, after, cash };
   preview.preview_token = correctionHash({
     base: p.preview.preview_token,
     before,
