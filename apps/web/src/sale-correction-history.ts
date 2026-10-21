@@ -16,9 +16,27 @@ import { firstValueFrom } from "rxjs";
       @for (r of rows; track r.id) {
         <p class="purchase-help">
           {{ r.created_at }} ·
-          {{ r.kind.startsWith("payment:") ? "Corrección de cobro" : r.kind }} ·
-          {{ describe(r.before_state) }} → {{ describe(r.after_state) }}
+          {{
+            r.kind.startsWith("payment:")
+              ? "Corrección de cobro"
+              : r.kind === "annul"
+                ? "Anulación de venta"
+                : r.kind
+          }}
+          · {{ describe(r.before_state) }} → {{ describe(r.after_state) }}
         </p>
+        @if (r.kind === "annul") {
+          @for (p of r.before_state.payments; track p.id) {
+            <p class="purchase-help">
+              Cobro revertido: {{ describe(p) }} · origen #{{ p.operation_id }}
+            </p>
+          }
+          @for (c of r.before_state.components; track c.id) {
+            <p class="purchase-help">
+              Devuelto al stock: {{ c.quantity }} × {{ c.product_name }}
+            </p>
+          }
+        }
       } @empty {
         <p class="purchase-help">Sin correcciones registradas.</p>
       }
@@ -31,6 +49,15 @@ export class SaleCorrectionHistoryComponent {
   private http = inject(HttpClient);
   private cdr = inject(ChangeDetectorRef);
   describe(s: any) {
+    if (s.status)
+      return (
+        (s.status === "annulled" ? "Anulada" : "Activa") +
+        " · Total activo: " +
+        Number(s.total).toLocaleString("es-AR", {
+          style: "currency",
+          currency: "ARS",
+        })
+      );
     if (s.amount == null) return JSON.stringify(s);
     return (
       Number(s.amount).toLocaleString("es-AR", {
