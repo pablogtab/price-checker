@@ -135,3 +135,89 @@ for (const mobile of [false, true])
       await browser.close();
     }
   });
+test("historical same-flavor promo exposes each recorded unit for flavor correction", async () => {
+  const tag = Date.now(),
+    group = "Browser split " + tag,
+    c = await api("customers", { name: "Browser split customer " + tag }),
+    a = await api("products", {
+      name: "Browser flavor A " + tag,
+      variant_group: group,
+      selling_price: "100",
+    }),
+    b = await api("products", {
+      name: "Browser flavor B " + tag,
+      variant_group: group,
+      selling_price: "100",
+    });
+  for (const p of [a, b])
+    await api(`products/${p.id}/stock`, { quantity: 10 }, "PUT");
+  const kit = await api("products", {
+    name: "Browser split promo " + tag,
+    kind: "kit",
+    kit_pricing_mode: "final",
+    selling_price: "180",
+    components: [{ variant_group: group, quantity: 2 }],
+  });
+  const s = await api("sales", {
+    request_key: randomUUID(),
+    customer_id: c.id,
+    sold_on: "2026-10-21",
+    items: [
+      {
+        product_id: kit.id,
+        quantity: 1,
+        selections: [
+          { component_product_id: a.id, product_id: a.id, quantity: 2 },
+        ],
+      },
+    ],
+  });
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath:
+      process.env.CHROME_EXECUTABLE ||
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  });
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+    });
+    await page.goto(base + "/sales");
+    await page.getByRole("button", { name: "Historial", exact: true }).click();
+    await page
+      .locator(".sales-history-item")
+      .filter({ hasText: "Venta #" + s.id + " ·" })
+      .getByRole("button", { name: "Editar venta", exact: true })
+      .click();
+    const editor = page.locator("app-sale-editor");
+    assert.equal(await editor.locator(".components app-select").count(), 2);
+    await editor
+      .locator(".components app-select")
+      .nth(1)
+      .getByRole("button")
+      .click();
+    await page
+      .locator(".select-panel")
+      .getByRole("button", { name: b.name, exact: true })
+      .click();
+    await editor
+      .getByRole("button", { name: "Revisar cambios", exact: true })
+      .click();
+    await editor
+      .getByRole("button", { name: "Confirmar cambios", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Editar venta #" + s.id, exact: true })
+      .waitFor({ state: "hidden" });
+    const after = (await api("sales")).find((x) => x.id === s.id);
+    assert.deepEqual(
+      after.items[0].components.map((c) => [c.product_id, c.quantity]).sort(),
+      [
+        [a.id, 1],
+        [b.id, 1],
+      ].sort(),
+    );
+  } finally {
+    await browser.close();
+  }
+});

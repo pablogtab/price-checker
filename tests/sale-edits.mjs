@@ -303,3 +303,180 @@ test("historical known component cost survives archived product and quantity edi
   assert.equal(after.items[0].components[0].unit_cost, "25");
   assert.equal(after.items[0].unit_price, "100");
 });
+test("split original same-flavor x2 into separate flavor slots preserves retained cost and uses current substitute cost", async () => {
+  const tag = Date.now(),
+    group = "Split edit " + tag,
+    c = await req("customers", { name: "Split customer " + tag });
+  const a = await req("products", {
+      name: "Split A " + tag,
+      selling_price: "100",
+      variant_group: group,
+    }),
+    b = await req("products", {
+      name: "Split B " + tag,
+      selling_price: "100",
+      variant_group: group,
+    });
+  for (const p of [a, b])
+    await req(`products/${p.id}/stock`, { quantity: 10 }, "PUT", 200);
+  const { execFileSync } = await import("node:child_process");
+  const db = process.env.TEST_EDIT_DATABASE || "ventas_ticket8_test";
+  assert.match(db, /^[a-z0-9_]+_test$/);
+  const sql = (text) =>
+    execFileSync("docker", [
+      "exec",
+      "price-checker-db-1",
+      "psql",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-U",
+      "price_checker",
+      "-d",
+      db,
+      "-c",
+      text,
+    ]);
+  for (const [p, cost] of [
+    [a, 25],
+    [b, 35],
+  ])
+    sql(
+      `WITH item AS(INSERT INTO supplier_items(provider_id,external_id,name,brand,category,currency,price,source_price,stock,is_pack,has_variants,seen_at) VALUES(1,'split-${p.id}-${tag}','Fixture','Test','Test','ARS',${cost},${cost},10,false,false,now()) RETURNING id) INSERT INTO product_links(product_id,provider_id,individual_item_id) SELECT ${p.id},1,id FROM item;`,
+    );
+  const kit = await req("products", {
+    name: "Split promo " + tag,
+    kind: "kit",
+    selling_price: "180",
+    kit_pricing_mode: "final",
+    components: [{ variant_group: group, quantity: 2 }],
+  });
+  const s = await req("sales", {
+    request_key: randomUUID(),
+    customer_id: c.id,
+    sold_on: "2026-10-21",
+    items: [
+      {
+        product_id: kit.id,
+        quantity: 1,
+        selections: [
+          { component_product_id: a.id, product_id: a.id, quantity: 2 },
+        ],
+      },
+    ],
+  });
+  const old = (await req("sales")).find((x) => x.id === s.id);
+  assert.equal(old.cost_total, "50");
+  sql(
+    `UPDATE supplier_items SET price=50,source_price=50 WHERE external_id='split-${a.id}-${tag}';`,
+  );
+  const original = old.items[0].components[0];
+  const body = {
+    customer_id: c.id,
+    sold_on: "2026-10-21",
+    items: [
+      {
+        id: old.items[0].id,
+        product_id: kit.id,
+        quantity: 1,
+        replacements: [
+          { original_component_id: original.id, product_id: a.id, quantity: 1 },
+          { original_component_id: original.id, product_id: b.id, quantity: 1 },
+        ],
+      },
+    ],
+  };
+  const preview = await req(`sales/${s.id}/edit/preview`, body);
+  assert.equal(preview.after.cost_total, "60");
+  await req(`sales/${s.id}/edits`, {
+    ...body,
+    request_key: randomUUID(),
+    preview_token: preview.preview_token,
+  });
+  const after = (await req("sales")).find((x) => x.id === s.id);
+  assert.equal(
+    after.items[0].components.find((c) => c.product_id === a.id).unit_cost,
+    "25",
+  );
+  assert.equal(
+    after.items[0].components.find((c) => c.product_id === b.id).unit_cost,
+    "35",
+  );
+  const ps = await req("products");
+  assert.equal(ps.find((p) => p.id === a.id).own_stock, 9);
+  assert.equal(ps.find((p) => p.id === b.id).own_stock, 9);
+});
+test("removing a historical line restores only its consumed units and leaves kept item identity", async () => {
+  const c = await req("customers", { name: "Remove customer " + Date.now() }),
+    a = await req("products", {
+      name: "Remove item " + Date.now(),
+      selling_price: "10",
+    }),
+    b = await req("products", {
+      name: "Keep item " + Date.now(),
+      selling_price: "20",
+    });
+  for (const p of [a, b])
+    await req(`products/${p.id}/stock`, { quantity: 10 }, "PUT", 200);
+  const s = await req("sales", {
+    request_key: randomUUID(),
+    customer_id: c.id,
+    sold_on: "2026-10-21",
+    items: [
+      { product_id: a.id, quantity: 2 },
+      { product_id: b.id, quantity: 1 },
+    ],
+  });
+  const old = (await req("sales")).find((x) => x.id === s.id),
+    keep = old.items[1];
+  const body = {
+    customer_id: c.id,
+    sold_on: "2026-10-21",
+    items: [{ id: keep.id, product_id: b.id, quantity: 1 }],
+  };
+  const preview = await req(`sales/${s.id}/edit/preview`, body);
+  await req(`sales/${s.id}/edits`, {
+    ...body,
+    preview_token: preview.preview_token,
+    request_key: randomUUID(),
+  });
+  const after = (await req("sales")).find((x) => x.id === s.id);
+  assert.equal(after.items.length, 1);
+  assert.equal(after.items[0].id, keep.id);
+  const products = await req("products");
+  assert.equal(products.find((p) => p.id === a.id).own_stock, 10);
+  assert.equal(products.find((p) => p.id === b.id).own_stock, 9);
+});
+test("annulled sales remain historical and cannot enter unpaid editor", async () => {
+  const c = await req("customers", { name: "Annul edit " + Date.now() }),
+    p = await req("products", {
+      name: "Annul item " + Date.now(),
+      selling_price: "10",
+    });
+  await req(`products/${p.id}/stock`, { quantity: 10 }, "PUT", 200);
+  const s = await req("sales", {
+    request_key: randomUUID(),
+    customer_id: c.id,
+    sold_on: "2026-10-21",
+    items: [{ product_id: p.id, quantity: 1 }],
+  });
+  const old = (await req("sales")).find((x) => x.id === s.id),
+    preview = await req(`sales/${s.id}/annul/preview`, {});
+  await req(`sales/${s.id}/annul`, {
+    preview_token: preview.preview_token,
+    request_key: randomUUID(),
+  });
+  await req(
+    `sales/${s.id}/edit/preview`,
+    {
+      customer_id: c.id,
+      sold_on: "2026-10-21",
+      items: [{ id: old.items[0].id, product_id: p.id, quantity: 2 }],
+    },
+    "POST",
+    400,
+  );
+  assert.equal(
+    (await req("sales")).find((x) => x.id === s.id).status,
+    "annulled",
+  );
+});

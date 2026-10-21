@@ -82,52 +82,71 @@ export async function prepareSaleEdit(
             ? c.id === integer(r.original_component_id)
             : c.product_id === integer(r.original_product_id),
         );
-        if (matches.length !== 1 || replacementIds.has(matches[0].id))
+        if (matches.length !== 1)
           throw new BadRequestException("Componente histórico inválido");
-        replacementIds.set(matches[0].id, r);
+        replacementIds.set(matches[0].id, [
+          ...(replacementIds.get(matches[0].id) || []),
+          r,
+        ]);
       }
       const parts = [];
       for (const part of old.components) {
-        const replacement = replacementIds.get(part.id);
-        const target = replacement
-          ? integer(replacement.product_id)
-          : part.product_id;
-        let p = products.find((p: any) => p.id === target),
-          cost = part.unit_cost;
-        if (!p) throw new NotFoundException("Componente inexistente");
-        if (target !== part.product_id) {
-          const source = products.find((p: any) => p.id === part.product_id);
-          if (
-            !source?.variant_group ||
-            source.variant_group !== p.variant_group ||
-            p.kind === "kit" ||
-            p.archived
-          )
-            throw new BadRequestException(
-              "El sabor no corresponde a la presentación",
-            );
-          const current = await prepareSaleItems(em, [
-            {
-              product_id: target,
-              quantity: 1,
-              unit_price: null,
-              selections: [],
-            },
-          ]);
-          cost = current.prepared[0].parts[0].cost;
+        const perUnit = new Decimal(part.quantity).div(old.quantity);
+        const replacements = replacementIds.get(part.id) || [
+          { product_id: part.product_id, quantity: perUnit.toNumber() },
+        ];
+        const allocations = replacements.map((r: any) => ({
+          ...r,
+          quantity:
+            r.quantity == null ? perUnit.toNumber() : stockQuantity(r.quantity),
+        }));
+        if (
+          !new Decimal(
+            allocations.reduce((s: number, r: any) => s + r.quantity, 0),
+          ).eq(perUnit)
+        )
+          throw new BadRequestException(
+            "Elegí cada unidad del componente histórico",
+          );
+        for (const replacement of allocations) {
+          const target = integer(replacement.product_id);
+          let p = products.find((p: any) => p.id === target),
+            cost = part.unit_cost;
+          if (!p) throw new NotFoundException("Componente inexistente");
+          if (target !== part.product_id) {
+            const source = products.find((p: any) => p.id === part.product_id);
+            if (
+              old.product_id === part.product_id ||
+              !source?.variant_group ||
+              source.variant_group !== p.variant_group ||
+              p.kind === "kit" ||
+              p.archived
+            )
+              throw new BadRequestException(
+                "El sabor no corresponde a la presentación",
+              );
+            const current = await prepareSaleItems(em, [
+              {
+                product_id: target,
+                quantity: 1,
+                unit_price: null,
+                selections: [],
+              },
+            ]);
+            cost = current.prepared[0].parts[0].cost;
+          }
+          const units = replacement.quantity * quantity;
+          if (!Number.isSafeInteger(units) || units < 1 || units > 1e9)
+            throw new BadRequestException("Cantidad de componentes inválida");
+          parts.push({
+            product:
+              target === part.product_id
+                ? { ...p, name: part.product_name }
+                : p,
+            quantity: units,
+            cost,
+          });
         }
-        const units = new Decimal(part.quantity)
-          .div(old.quantity)
-          .mul(quantity)
-          .toNumber();
-        if (!Number.isSafeInteger(units) || units < 1 || units > 1e9)
-          throw new BadRequestException("Cantidad de componentes inválida");
-        parts.push({
-          product:
-            target === part.product_id ? { ...p, name: part.product_name } : p,
-          quantity: units,
-          cost,
-        });
       }
       const cost = parts.every((p) => p.cost != null)
         ? parts
@@ -327,6 +346,10 @@ export async function applySaleEdit(
       );
     }
   }
+  await em.query(
+    "DELETE FROM sale_components WHERE sale_item_id IN (SELECT id FROM sale_items WHERE sale_id=$1 AND NOT(id=ANY($2::int[])))",
+    [id, keep],
+  );
   await em.query(
     "DELETE FROM sale_items WHERE sale_id=$1 AND NOT(id=ANY($2::int[]))",
     [id, keep],

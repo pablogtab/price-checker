@@ -301,14 +301,20 @@ export class SaleEditorComponent implements OnInit {
     this.lines = this.sale.items.map((i: any) => ({
       ...i,
       name: i.product_name,
-      parts: i.components.map((p: any) => ({
-        original_component_id: p.id,
-        original_product_id: p.product_id,
-        product_id: p.product_id,
-        name: p.product_name,
-        quantity: p.quantity / i.quantity,
-        options: this.options(p.product_id),
-      })),
+      parts: i.components.flatMap((p: any) => {
+        const units = p.quantity / i.quantity;
+        const options =
+          i.product_id === p.product_id ? [] : this.options(p.product_id);
+        const split = options.length > 1 && units <= 1000;
+        return Array.from({ length: split ? units : 1 }, (_, n) => ({
+          original_component_id: p.id,
+          original_product_id: p.product_id,
+          product_id: p.product_id,
+          name: p.product_name + (split ? " · unidad " + (n + 1) : ""),
+          quantity: split ? 1 : units,
+          options: split ? options : [],
+        }));
+      }),
     }));
   }
   changed() {
@@ -362,6 +368,7 @@ export class SaleEditorComponent implements OnInit {
               original_component_id: p.original_component_id,
               original_product_id: p.original_product_id,
               product_id: p.product_id,
+              quantity: p.quantity,
             }))
           : undefined,
         selections: l.id
