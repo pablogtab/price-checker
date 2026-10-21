@@ -1,3 +1,4 @@
+import {previewSaleEdit,editSale} from "./sale-edits";
 import {previewSaleAnnulment,annulSale} from "./sale-annulments";
 import {previewPaymentCorrection,correctPayment,correctionHistory} from "./sale-corrections";
 import "reflect-metadata";
@@ -159,6 +160,8 @@ class AppController {
   @Post("sales") sale(@Body() body: any) {
     return createSale(body);
   }
+  @Post("sales/:id/edit/preview") previewEdit(@Param("id") id:string,@Body() body:any){return previewSaleEdit(integer(id),body);}
+  @Post("sales/:id/edits") editSale(@Param("id") id:string,@Body() body:any){return editSale(integer(id),body);}
   @Post("sales/:id/payments/:payment/preview") previewCorrection(@Param("id") id:string,@Param("payment") payment:string,@Body() body:any){return previewPaymentCorrection(integer(id),integer(payment),body);}
   @Post("sales/:id/payments/:payment/corrections") confirmCorrection(@Param("id") id:string,@Param("payment") payment:string,@Body() body:any){return correctPayment(integer(id),integer(payment),body);}
   @Post("sales/:id/annul/preview") annulPreview(@Param("id") id:string){return previewSaleAnnulment(integer(id));}

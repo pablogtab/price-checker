@@ -58,6 +58,19 @@ export class SaleCorrectionHistoryComponent {
           currency: "ARS",
         })
       );
+    if (s.total != null)
+      return (
+        "Total: " +
+        Number(s.total).toLocaleString("es-AR", {
+          style: "currency",
+          currency: "ARS",
+        }) +
+        " · " +
+        (s.sold_on || "") +
+        " · " +
+        (s.customer_name ||
+          (s.customer_id ? "Cliente #" + s.customer_id : "Consumidor final"))
+      );
     if (s.amount == null) return JSON.stringify(s);
     return (
       Number(s.amount).toLocaleString("es-AR", {

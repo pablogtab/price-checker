@@ -1,3 +1,4 @@
+import {SaleEditorComponent} from "./sale-editor";
 import {SaleAnnulmentComponent} from "./sale-annulment";
 import {SaleCorrectionHistoryComponent} from "./sale-correction-history";
 import {PaymentCorrectionComponent} from "./payment-correction";
@@ -27,6 +28,7 @@ import { SelectComponent } from "./select";
   selector: "app-sales",
   standalone: true,
   imports: [
+    SaleEditorComponent,
     CustomerEditorComponent,
     PaymentCorrectionComponent,
     SaleAnnulmentComponent,
@@ -38,6 +40,7 @@ import { SelectComponent } from "./select";
     ButtonDirective,
   ],
   template: ` <div class="purchase-page">
+    @if (editingSale) {<app-sale-editor [sale]="editingSale" [products]="products" [clients]="clients" (closed)="editingSale=null" (saved)="saleEdited()" />}
     @if (annullingSale) {<app-sale-annulment [sale]="annullingSale" (closed)="annullingSale=null" (saved)="saleAnnulled()" />}
     @if (correctingPayment) {<app-payment-correction [sale]="correctingPayment.sale" [payment]="correctingPayment.payment" [accounts]="accounts" (closed)="correctingPayment=null" (saved)="paymentCorrected()" />}
     @if (clientForm) {
@@ -601,6 +604,7 @@ import { SelectComponent } from "./select";
                 >
               </div>
             </div>
+            @if (s.status !== 'annulled') { @if (!s.payments.length) {<button appButton="ghost" (click)="editingSale=s">Editar venta</button>} @else {<small>Venta con cobros · edición conjunta pendiente</small>} }
             <details>
               <summary>Ver productos y cobros</summary>
               <div class="purchase-history-lines">
@@ -698,6 +702,8 @@ export class SalesComponent implements OnInit, DoCheck {
   clients: any[] = [];
   accounts: any[] = [];
   history: any[] = [];
+  editingSale:any=null;
+  async saleEdited(){this.editingSale=null;await this.load();this.saved.emit();}
   annullingSale:any=null;
   async saleAnnulled(){this.annullingSale=null;this.collecting=null;await this.load();this.saved.emit();}
   correctingPayment:any=null;

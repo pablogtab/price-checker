@@ -244,121 +244,7 @@ export async function createSale(body: any) {
       ? await em.query("SELECT * FROM customers WHERE id=$1", [customer])
       : [];
     if (customer && !client) throw new NotFoundException("Cliente inexistente");
-    const products = await em.query(
-      "SELECT *,selling_price::text FROM products WHERE NOT archived ORDER BY id FOR UPDATE",
-    );
-    const components = await em.query(
-      "SELECT * FROM product_components ORDER BY kit_id,product_id",
-    );
-    const links = await readLinks(em),
-      [settings] = await em.query(
-        "SELECT usd_ars::text FROM settings WHERE id=1",
-      );
-    const prepared: any[] = [],
-      needed = new Map<number, number>();
-    for (const item of items) {
-      const product = products.find((p: any) => p.id === item.product_id);
-      if (!product) throw new NotFoundException("Producto inexistente");
-      const parts = new Map<number, number>();
-      if (product.kind !== "kit") {
-        if (item.selections.length)
-          throw new BadRequestException(
-            "Un producto individual no admite componentes",
-          );
-        parts.set(product.id, 1);
-      } else {
-        const cs = components.filter((c: any) => c.kit_id === product.id);
-        if (!cs.length)
-          throw new BadRequestException("La promo no tiene componentes");
-        if (
-          item.selections.some(
-            (s: any) =>
-              !cs.some(
-                (c: any) =>
-                  c.variant_group && c.product_id === s.component_product_id,
-              ),
-          )
-        )
-          throw new BadRequestException("Componente de sabor inválido");
-        for (const c of cs) {
-          if (!c.variant_group) {
-            parts.set(
-              c.product_id,
-              (parts.get(c.product_id) || 0) + c.quantity,
-            );
-            continue;
-          }
-          const chosen = item.selections.filter(
-            (s: any) => s.component_product_id === c.product_id,
-          );
-          if (
-            chosen.reduce((sum: number, s: any) => sum + s.quantity, 0) !==
-            c.quantity
-          )
-            throw new BadRequestException(
-              "Elegí los sabores y cantidades de cada componente por promo",
-            );
-          for (const s of chosen) {
-            const variant = products.find(
-              (p: any) =>
-                p.id === s.product_id &&
-                p.kind === "product" &&
-                p.variant_group === c.variant_group,
-            );
-            if (!variant || !s.quantity)
-              throw new BadRequestException(
-                "El sabor no corresponde a la presentación",
-              );
-            parts.set(
-              s.product_id,
-              (parts.get(s.product_id) || 0) + s.quantity,
-            );
-          }
-        }
-      }
-      let base = new Decimal(0),
-        cost = new Decimal(0),
-        known = true;
-      const resolved = [...parts].map(([id, q]) => {
-        const p = products.find((p: any) => p.id === id && p.kind !== "kit");
-        if (!p) throw new BadRequestException("Componente inexistente");
-        const offers = links.filter((l: any) => l.product_id === id),
-          link =
-            offers.find(
-              (l: any) => l.provider_id === p.preferred_provider_id,
-            ) || offers[0];
-        const c = calculate(
-          p.selling_price,
-          link ? chooseCost(linkShape(link)) : null,
-          settings.usd_ars,
-        ).costArs;
-        base = base.plus(new Decimal(p.selling_price).mul(q));
-        if (c == null) known = false;
-        else cost = cost.plus(new Decimal(c).mul(q));
-        const quantity = q * item.quantity;
-        if (!Number.isSafeInteger(quantity) || quantity > 1e9)
-          throw new BadRequestException("Cantidad fuera de rango");
-        needed.set(id, (needed.get(id) || 0) + quantity);
-        return { product: p, quantity, cost: c };
-      });
-      const suggested =
-        product.kind === "kit" && product.kit_pricing_mode === "discount"
-          ? kitSellingPrice(
-              [{ quantity: 1, selling_price: base.toString() }],
-              product.kit_discount_percent,
-            ).selling_price
-          : product.selling_price;
-      const unit =
-        item.unit_price ?? new Decimal(suggested).toDecimalPlaces(2).toString();
-      prepared.push({
-        ...item,
-        product,
-        parts: resolved,
-        unit,
-        total: new Decimal(unit).mul(item.quantity).toString(),
-        cost: known ? cost.mul(item.quantity).toString() : null,
-      });
-    }
+    const { products, prepared, needed } = await prepareSaleItems(em, items);
     const priced = priceSale(prepared, discount);
     const total = new Decimal(priced.total);
     if (total.gt("1e15")) throw new BadRequestException("Total fuera de rango");
@@ -481,6 +367,126 @@ export async function salesSummary() {
     paid: paid.total,
     pending: new Decimal(s.total).minus(paid.total).toString(),
   };
+}
+
+export async function prepareSaleItems(em: any, items: any[]) {
+    const products = await em.query(
+      "SELECT *,selling_price::text FROM products WHERE NOT archived ORDER BY id FOR UPDATE",
+    );
+    const components = await em.query(
+      "SELECT * FROM product_components ORDER BY kit_id,product_id",
+    );
+    const links = await readLinks(em),
+      [settings] = await em.query(
+        "SELECT usd_ars::text FROM settings WHERE id=1",
+      );
+    const prepared: any[] = [],
+      needed = new Map<number, number>();
+    for (const item of items) {
+      const product = products.find((p: any) => p.id === item.product_id);
+      if (!product) throw new NotFoundException("Producto inexistente");
+      const parts = new Map<number, number>();
+      if (product.kind !== "kit") {
+        if (item.selections.length)
+          throw new BadRequestException(
+            "Un producto individual no admite componentes",
+          );
+        parts.set(product.id, 1);
+      } else {
+        const cs = components.filter((c: any) => c.kit_id === product.id);
+        if (!cs.length)
+          throw new BadRequestException("La promo no tiene componentes");
+        if (
+          item.selections.some(
+            (s: any) =>
+              !cs.some(
+                (c: any) =>
+                  c.variant_group && c.product_id === s.component_product_id,
+              ),
+          )
+        )
+          throw new BadRequestException("Componente de sabor inválido");
+        for (const c of cs) {
+          if (!c.variant_group) {
+            parts.set(
+              c.product_id,
+              (parts.get(c.product_id) || 0) + c.quantity,
+            );
+            continue;
+          }
+          const chosen = item.selections.filter(
+            (s: any) => s.component_product_id === c.product_id,
+          );
+          if (
+            chosen.reduce((sum: number, s: any) => sum + s.quantity, 0) !==
+            c.quantity
+          )
+            throw new BadRequestException(
+              "Elegí los sabores y cantidades de cada componente por promo",
+            );
+          for (const s of chosen) {
+            const variant = products.find(
+              (p: any) =>
+                p.id === s.product_id &&
+                p.kind === "product" &&
+                p.variant_group === c.variant_group,
+            );
+            if (!variant || !s.quantity)
+              throw new BadRequestException(
+                "El sabor no corresponde a la presentación",
+              );
+            parts.set(
+              s.product_id,
+              (parts.get(s.product_id) || 0) + s.quantity,
+            );
+          }
+        }
+      }
+      let base = new Decimal(0),
+        cost = new Decimal(0),
+        known = true;
+      const resolved = [...parts].map(([id, q]) => {
+        const p = products.find((p: any) => p.id === id && p.kind !== "kit");
+        if (!p) throw new BadRequestException("Componente inexistente");
+        const offers = links.filter((l: any) => l.product_id === id),
+          link =
+            offers.find(
+              (l: any) => l.provider_id === p.preferred_provider_id,
+            ) || offers[0];
+        const c = calculate(
+          p.selling_price,
+          link ? chooseCost(linkShape(link)) : null,
+          settings.usd_ars,
+        ).costArs;
+        base = base.plus(new Decimal(p.selling_price).mul(q));
+        if (c == null) known = false;
+        else cost = cost.plus(new Decimal(c).mul(q));
+        const quantity = q * item.quantity;
+        if (!Number.isSafeInteger(quantity) || quantity > 1e9)
+          throw new BadRequestException("Cantidad fuera de rango");
+        needed.set(id, (needed.get(id) || 0) + quantity);
+        return { product: p, quantity, cost: c };
+      });
+      const suggested =
+        product.kind === "kit" && product.kit_pricing_mode === "discount"
+          ? kitSellingPrice(
+              [{ quantity: 1, selling_price: base.toString() }],
+              product.kit_discount_percent,
+            ).selling_price
+          : product.selling_price;
+      const unit =
+        item.unit_price ?? new Decimal(suggested).toDecimalPlaces(2).toString();
+      prepared.push({
+        ...item,
+        product,
+        parts: resolved,
+        unit,
+        total: new Decimal(unit).mul(item.quantity).toString(),
+        cost: known ? cost.mul(item.quantity).toString() : null,
+      });
+    }
+
+return { products, prepared, needed };
 }
 
 // Share the create-sale lock so an in-flight submission resolves before its status.
