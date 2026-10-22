@@ -2,7 +2,8 @@
 
 Definición acordada con el usuario el 22 de octubre de 2026 mediante
 `grill-with-docs`. Especificación publicada en el issue #11 y en
-[price-lists-spec.md](price-lists-spec.md). Implementación pendiente.
+[price-lists-spec.md](price-lists-spec.md). Implementada y validada localmente en
+la rama `feat/price-lists`, sin despliegue.
 
 ## Objetivo
 
@@ -51,7 +52,10 @@ No enviar mensajes automáticamente.
   los encargos; no sustituir silenciosamente esa decisión.
 - Botón para copiar el texto completo. No se requiere PDF, imagen ni Excel.
 
-## Próxima etapa
+## Entrega
 
-Dividir la especificación en tickets implementables con sus dependencias. No
-implementar ni desplegar como parte de esta definición.
+Tickets #12–#15 implementados en una rama de integración. Validación: 12 pruebas
+de listas (8 REST/PostgreSQL y 4 de navegador real), más 67 regresiones existentes,
+todas aprobadas sin omisiones; compilaciones API/frontend aprobadas. Se revisaron
+capturas de escritorio y móvil y se corrigieron los hallazgos de las revisiones
+independientes de estándares y especificación. Producción permanece intacta.
