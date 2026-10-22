@@ -189,3 +189,72 @@ test("promos share demand, constrain flavors, round eligible prices and require 
     await c.end();
   }
 });
+
+test(
+  "eleven promo flavors with independent supplier alternatives preview and confirm responsively",
+  { timeout: 15000 },
+  async () => {
+    const c = new Client({ connectionString: url });
+    await c.connect();
+    try {
+      const tag = "Responsive " + Date.now();
+      const {
+        rows: [provider],
+      } = await c.query(
+        "INSERT INTO providers(name,last_success_at) VALUES($1,now()) RETURNING id",
+        [tag],
+      );
+      const ids = [];
+      for (let j = 0; j < 11; j++) {
+        const p = await request("products", {
+          name: tag + " Flavor " + j,
+          variant_group: tag + (j < 7 ? " Whey" : " Creatina"),
+          selling_price: "1000",
+        });
+        ids.push(p.id);
+        const { rows: offers } = await c.query(
+          "INSERT INTO supplier_items(provider_id,external_id,name,brand,category,currency,price,source_price,stock,is_pack,has_variants,seen_at) VALUES($1,$2,'One','Brand','Other','ARS',10,10,10,false,false,now()),($1,$3,'Two','Brand','Other','ARS',10,10,10,true,false,now()) RETURNING id",
+          [provider.id, "one" + j, "two" + j],
+        );
+        await c.query(
+          "INSERT INTO product_links(product_id,provider_id,individual_item_id,individual_units,kit_item_id,kit_units) VALUES($1,$2,$3,1,$4,7)",
+          [p.id, provider.id, offers[0].id, offers[1].id],
+        );
+      }
+      const {
+        rows: [kit],
+      } = await c.query(
+        "INSERT INTO products(name,kind,selling_price,kit_pricing_mode,position,price_list_order_allowed) VALUES($1,'kit',1900,'final',999,true) RETURNING id",
+        [tag + " promo"],
+      );
+      await c.query(
+        "UPDATE products SET own_stock=0,price_list_order_allowed=true WHERE id=ANY($1::int[])",
+        [ids],
+      );
+      await c.query(
+        "INSERT INTO product_components(kit_id,product_id,quantity,variant_group) VALUES($1,$2,1,$3),($1,$4,1,$5)",
+        [kit.id, ids[0], tag + " Whey", ids[7], tag + " Creatina"],
+      );
+      const list = await request("price-lists", {
+        title: tag,
+        product_ids: [kit.id],
+      });
+      const start = performance.now();
+      const preview = await request(`price-lists/${list.id}/preview`, {});
+      assert.equal(preview.items[0]?.price, "1900");
+      assert.match(preview.text, /Flavor 0/);
+      assert.match(preview.text, /Flavor 10/);
+      const accepted = await request(`price-lists/${list.id}/confirm`, {
+        preview_id: preview.preview_id,
+        accept_stale: true,
+      });
+      assert.equal(accepted.text, preview.text);
+      assert.ok(
+        performance.now() - start < 2000,
+        "preview + confirmation must avoid enumerating independent flavor alternatives",
+      );
+    } finally {
+      await c.end();
+    }
+  },
+);
