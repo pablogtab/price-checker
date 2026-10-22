@@ -68,3 +68,34 @@ shared searchable selector. Only the review's explicit confirmation saves a sale
 The REST correction suites read sale history using the public `sales?page=N`
 pagination helper. They can locate edited fixtures with older dates even when an
 isolated test database already contains more than 100 sales; no API limit is raised.
+
+## Listas de precios
+
+Las listas usan los mismos límites: frontend/API reales en puertos exclusivos y una
+base descartable cuyo nombre termine en `_test`. Nunca usar el worker ni disparar
+actualizaciones reales del proveedor para estas pruebas. Los fixtures de ofertas se
+preparan únicamente en esa base; los resultados se comprueban por REST y navegador.
+
+Para incluir los límites exactos de antigüedad, iniciar la API compilada con
+`node --import ./tests/helpers/price-list-clock.mjs apps/api/dist/main.js`, además
+de `DATABASE_URL`, `HOST=127.0.0.1` y su `PORT` exclusivo. El preloader rechaza bases
+sin sufijo `_test` y fija el reloj solamente en ese proceso. No existe una ruta de
+producción para cambiar el reloj. Usar la API sin preloader para pruebas manuales.
+
+Configurar `TEST_API_URL` con la API local y `TEST_GROUP_DATABASE_URL` y
+`TEST_ORDER_DATABASE_URL` con la misma base descartable. Añadir
+`TEST_ORDER_FIXED_CLOCK=1` cuando esté activo el preloader. Para navegador, usar
+`E2E_BASE_URL`, `E2E_ALLOW_FIXTURES=1` y `PLAYWRIGHT_MODULE` como arriba.
+
+Ejecutar secuencialmente, sin cambios de fuente/HMR durante los recorridos:
+
+```sh
+node --test --test-concurrency=1 tests/api/price-list*.mjs
+node --test --test-concurrency=1 tests/browser/price-list*.mjs
+```
+
+Las pruebas cubren selecciones persistentes, agrupación de sabores, stock propio y
+del proveedor, precios actuales, confirmación de datos desactualizados, promos con
+cantidades compartidas y copia real al portapapeles con alternativa ante errores.
+Las capturas se inspeccionan para corregir problemas visuales, no se consideran por
+sí solas prueba de que las operaciones funcionen.
