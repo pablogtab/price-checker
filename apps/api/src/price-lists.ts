@@ -1,3 +1,4 @@
+import { evaluatePromo } from "./price-list-promos";
 import { orderAvailability } from "./price-list-orders";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { db } from "./db";
@@ -60,9 +61,17 @@ export async function previewPriceList(id: number) {
       `SELECT p.*,p.selling_price::text,COALESCE(s.brand,'') brand FROM products p LEFT JOIN LATERAL (SELECT COALESCE(i.brand,k.brand) brand FROM product_links l LEFT JOIN supplier_items i ON i.id=l.individual_item_id LEFT JOIN supplier_items k ON k.id=l.kit_item_id WHERE l.product_id=p.id ORDER BY (l.provider_id=p.preferred_provider_id) DESC NULLS LAST,l.id LIMIT 1) s ON true WHERE p.id=ANY($1::int[])`,
       [list.product_ids],
     );
-    const offers = await manager.query(
-      `SELECT l.product_id,s.available,s.stock::text,l.provider_id,p.name provider_name,p.last_success_at,r.status latest_status,r.finished_at latest_at FROM product_links l JOIN providers p ON p.id=l.provider_id JOIN supplier_items s ON (s.id=l.individual_item_id OR s.id=l.kit_item_id) LEFT JOIN LATERAL (SELECT status,finished_at FROM refresh_runs WHERE provider_id=p.id ORDER BY created_at DESC,id DESC LIMIT 1) r ON true WHERE l.product_id=ANY($1::int[])`,
+    const components = await manager.query(
+      "SELECT * FROM product_components WHERE kit_id=ANY($1::int[])",
       [list.product_ids],
+    );
+    const catalog = await manager.query(
+      "SELECT *,selling_price::text FROM products WHERE kind='product'",
+    );
+    const allIds = [...list.product_ids, ...catalog.map((p: any) => p.id)];
+    const offers = await manager.query(
+      `SELECT s.id item_id,CASE WHEN s.id=l.kit_item_id THEN l.kit_units ELSE l.individual_units END units,l.product_id,s.available,s.stock::text,l.provider_id,p.name provider_name,p.last_success_at,r.status latest_status,r.finished_at latest_at FROM product_links l JOIN providers p ON p.id=l.provider_id JOIN supplier_items s ON (s.id=l.individual_item_id OR s.id=l.kit_item_id) LEFT JOIN LATERAL (SELECT status,finished_at FROM refresh_runs WHERE provider_id=p.id ORDER BY created_at DESC,id DESC LIMIT 1) r ON true WHERE l.product_id=ANY($1::int[])`,
+      [allIds],
     );
     const [settings] = await manager.query(
       "SELECT price_list_order_days FROM settings WHERE id=1",
@@ -70,7 +79,10 @@ export async function previewPriceList(id: number) {
     const now = new Date();
     const providers = new Map();
     for (const product of products) {
-      const result = orderAvailability(product, offers, now);
+      const result =
+        product.kind === "kit"
+          ? evaluatePromo(product, components, catalog, offers, now)
+          : orderAvailability(product, offers, now);
       Object.assign(product, result);
       for (const provider of result.providers)
         providers.set(provider.id, provider);

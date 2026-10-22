@@ -20,6 +20,7 @@ export function formatPriceList(title: string, items: any[], now = new Date()) {
         brand,
         price,
         kit: item.kind === "kit",
+        details: item.promo_details,
         available: [],
         order: [],
       });
@@ -56,7 +57,10 @@ export function formatPriceList(title: string, items: any[], now = new Date()) {
           : "";
       return (
         `*${g.name} — $ ${money}*\n` +
-        [stock("available", "Disponible"), stock("order", "Por encargo")]
+        (g.kit
+          ? [g.details]
+          : [stock("available", "Disponible"), stock("order", "Por encargo")]
+        )
           .filter(Boolean)
           .join("\n")
       );
