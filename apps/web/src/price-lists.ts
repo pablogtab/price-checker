@@ -138,6 +138,7 @@ import { ButtonDirective } from "./ui/button";
             <button
               appButton="primary"
               [disabled]="
+                busy ||
                 !preview.items.length ||
                 (preview.requires_confirmation && !confirmed)
               "
@@ -295,6 +296,7 @@ export class PriceListsComponent implements OnInit {
     this.invalidate();
   }
   async save() {
+    this.invalidate();
     this.busy = true;
     this.error = "";
     try {
@@ -316,6 +318,7 @@ export class PriceListsComponent implements OnInit {
     }
   }
   async generate() {
+    this.invalidate();
     if (!(await this.save())) return;
     this.busy = true;
     try {
@@ -341,14 +344,36 @@ export class PriceListsComponent implements OnInit {
     }).format(new Date(value));
   }
   async copy() {
-    if (this.preview.requires_confirmation && !this.confirmed) return;
+    if (
+      this.busy ||
+      !this.preview ||
+      (this.preview.requires_confirmation && !this.confirmed)
+    )
+      return;
+    const preview = this.preview;
+    this.busy = true;
     try {
-      await navigator.clipboard.writeText(this.preview.text);
-      this.copyStatus = "Texto copiado";
-    } catch {
-      this.copyStatus =
-        "No se pudo copiar. Seleccioná el texto y copialo manualmente.";
+      const accepted = await this.request(
+        "POST",
+        `price-lists/${this.selected.id}/confirm`,
+        { preview_id: preview.preview_id, accept_stale: this.confirmed },
+      );
+      if (this.preview !== preview) return;
+      try {
+        await navigator.clipboard.writeText(accepted.text);
+        this.copyStatus = "Texto copiado";
+      } catch {
+        this.copyStatus =
+          "No se pudo copiar. Seleccioná el texto y copialo manualmente.";
+      }
+    } catch (e: any) {
+      this.invalidate();
+      this.error =
+        e.error?.message ||
+        "No pudimos confirmar la vista previa. Generala nuevamente.";
+    } finally {
+      this.busy = false;
+      this.cdr.detectChanges();
     }
-    this.cdr.detectChanges();
   }
 }

@@ -1,5 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { db } from "./db";
+export let orderPolicyRevision = 0;
 export async function orderPolicy() {
   const [settings] = await db.query(
     "SELECT price_list_order_days days FROM settings WHERE id=1",
@@ -37,6 +38,7 @@ export async function saveOrderPolicy(body: any) {
       [ids],
     );
   });
+  orderPolicyRevision++;
   return orderPolicy();
 }
 /** Any current linked offer can support an order; costing selection is irrelevant. */

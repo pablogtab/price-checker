@@ -160,6 +160,22 @@ test("promos share demand, constrain flavors, round eligible prices and require 
     await c.query("UPDATE supplier_items SET stock=1 WHERE id=$1", [offer.id]);
     v = await preview();
     assert.ok(v.omissions.find((x) => x.product_id === kit.id));
+    // A can use its alternative T, leaving shared S for B.
+    const {
+      rows: [alternative],
+    } = await c.query(
+      "INSERT INTO supplier_items(provider_id,external_id,name,brand,category,currency,price,source_price,stock,is_pack,has_variants,seen_at) VALUES($1,'alternative','Alternative','Brand','Other','ARS',10,10,1,false,false,now()) RETURNING id",
+      [provider.id],
+    );
+    await c.query(
+      "UPDATE product_links SET individual_item_id=$2,individual_units=1 WHERE product_id=$1",
+      [a.id, alternative.id],
+    );
+    v = await preview();
+    assert.equal(
+      v.items.find((x) => x.product_id === kit.id)?.availability,
+      "order",
+    );
     await c.query(
       "DELETE FROM product_components WHERE kit_id=$1 AND product_id=$2",
       [kit.id, b.id],

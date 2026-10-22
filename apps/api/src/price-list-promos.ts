@@ -1,7 +1,7 @@
 import Decimal from "decimal.js";
 import { kitSellingPrice } from "./bundles";
 import { orderAvailability } from "./price-list-orders";
-import { cleanText } from "./price-list-format";
+import { cleanText, flavorLabel } from "./price-list-format";
 
 /** Bounded minimum-cost flow: group demand shares product capacity across all rows.
  * Bellman-Ford residual paths support negative costs for the maximum-price pass.
@@ -113,7 +113,7 @@ function flow(
 }
 /** Only shared offers with different pack conversions need bounded allocation of
  * physical offer copies. Ordinary flavor choices remain a polynomial flow. */
-function allocate(
+function allocateSelected(
   groups: any[],
   products: any[],
   capacities: number[],
@@ -178,6 +178,41 @@ function allocate(
   visit(0, supply.choices, capacities);
   return best;
 }
+function allocate(
+  groups: any[],
+  products: any[],
+  capacities: number[],
+  sign = 1,
+  supply?: { own: number[]; choices: Map<number, any[]> },
+): Decimal | null {
+  if (!supply) return allocateSelected(groups, products, capacities, sign);
+  const entries = [...supply.choices];
+  let best: Decimal | null = null;
+  const visit = (at: number, choices: Map<number, any>) => {
+    if (at === entries.length) {
+      const caps = capacities.map((cap, j) =>
+        Math.min(cap, supply.own[j] + (choices.get(j)?.capacity || 0)),
+      );
+      const value = allocateSelected(groups, products, caps, sign, {
+        own: supply.own,
+        choices,
+      });
+      if (
+        value !== null &&
+        (best === null || value.mul(sign).lt(best.mul(sign)))
+      )
+        best = value;
+      return;
+    }
+    const [j, options] = entries[at];
+    for (const option of options) {
+      choices.set(j, option);
+      visit(at + 1, choices);
+    }
+  };
+  visit(0, new Map());
+  return best;
+}
 export function evaluatePromo(
   promo: any,
   rows: any[],
@@ -226,23 +261,24 @@ export function evaluatePromo(
         state: orderAvailability({ ...p, own_stock: 0 }, [o], now),
       }))
       .filter((o) => o.capacity > 0);
-    // A single alternative supplies each variant; use its actual capacity, never sum duplicate offers.
-    options.sort(
-      (a, b) =>
-        b.capacity - a.capacity ||
-        Number(!!a.state.providers[0]?.warning) -
-          Number(!!b.state.providers[0]?.warning),
+    if (!options.length) return own[j];
+    supplyProviders.set(
+      j,
+      options.flatMap((o) => o.state.providers),
     );
-    const choice = options[0];
-    if (!choice) return own[j];
-    supplyProviders.set(j, choice.state.providers);
-    choices.set(j, {
-      item_id: choice.offer.item_id,
-      capacity: choice.capacity,
-      units: Number(choice.offer.units),
-      stock: Number(choice.offer.stock),
-    });
-    return Math.min(demand, own[j] + choice.capacity);
+    choices.set(
+      j,
+      options.map((choice) => ({
+        item_id: choice.offer.item_id,
+        capacity: choice.capacity,
+        units: Number(choice.offer.units),
+        stock: Number(choice.offer.stock),
+      })),
+    );
+    return Math.min(
+      demand,
+      own[j] + Math.max(...options.map((o) => o.capacity)),
+    );
   });
   const supply = { own, choices };
   const low = allocate(groups, candidates, total, 1, supply),
@@ -322,12 +358,7 @@ export function evaluatePromo(
               );
             })
             .map(({ p, j }) => {
-              const full = cleanText(p.name),
-                prefix = cleanText(g.variant_group);
-              const name =
-                prefix && full.startsWith(prefix)
-                  ? full.slice(prefix.length).replace(/^[ ·—:\-]+/, "") || full
-                  : full;
+              const name = flavorLabel(p.name, g.variant_group);
               const maximum = groups
                 .filter((row) =>
                   row.variant_group
@@ -346,28 +377,28 @@ export function evaluatePromo(
       )
       .join("\n");
   const shared = new Map<number, number[]>();
-  for (const [j, c] of choices) {
-    if (!shared.has(c.item_id)) shared.set(c.item_id, []);
-    shared.get(c.item_id)!.push(j);
-  }
-  const sharedRules = [...shared.values()]
-    .filter((ids) => ids.length > 1)
-    .map((ids) => {
+  for (const [j, options] of choices)
+    for (const c of options) {
+      if (!shared.has(c.item_id)) shared.set(c.item_id, []);
+      shared.get(c.item_id)!.push(j);
+    }
+  const sharedRules = [...shared.entries()]
+    .filter(([, ids]) => ids.length > 1)
+    .map(([itemId, ids]) => {
+      const choice = (j: number) =>
+        choices.get(j).find((c: any) => c.item_id === itemId);
       const count = Math.min(
-        Math.floor(choices.get(ids[0]).stock),
+        Math.floor(choice(ids[0]).stock),
         ids.reduce(
           (n, j) =>
-            n +
-            Math.ceil(Math.max(0, total[j] - own[j]) / choices.get(j).units),
+            n + Math.ceil(Math.max(0, total[j] - own[j]) / choice(j).units),
           0,
         ),
       );
       return (
         `Encargo compartido: hasta ${count} packs para esta promo. Cada pack aporta ` +
         ids
-          .map(
-            (j) => `${choices.get(j).units} × ${cleanText(candidates[j].name)}`,
-          )
+          .map((j) => `${choice(j).units} × ${cleanText(candidates[j].name)}`)
           .join(" o ") +
         ", sin combinar ambos aportes del mismo pack. Primero se usan las unidades disponibles indicadas arriba."
       );
