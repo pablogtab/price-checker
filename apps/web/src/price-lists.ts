@@ -57,17 +57,45 @@ import { ButtonDirective } from "./ui/button";
               [(ngModel)]="query"
             />
             <div class="list-options">
-              @for (p of filtered; track p.id) {
-                <label class="list-product"
-                  ><input
-                    type="checkbox"
-                    [checked]="selected.product_ids.includes(p.id)"
-                    (change)="toggle(p.id)"
-                  /><span
-                    ><strong>{{ p.name }}</strong
-                    ><small>{{ p.code || "Sin código" }}</small></span
-                  ></label
-                >
+              @for (group of presentationGroups; track group.key) {
+                <section class="presentation-group">
+                  @if (group.presentation) {
+                    <label class="presentation-heading">
+                      <input
+                        type="checkbox"
+                        [checked]="groupSelected(group)"
+                        [indeterminate]="groupPartial(group)"
+                        (change)="toggleGroup(group)"
+                      />
+                      <span
+                        ><strong>{{ group.presentation }}</strong
+                        ><small
+                          >Seleccionar todos los sabores actuales</small
+                        ></span
+                      >
+                    </label>
+                  }
+                  @for (p of group.products; track p.id) {
+                    <label class="list-product"
+                      ><input
+                        type="checkbox"
+                        [checked]="selected.product_ids.includes(p.id)"
+                        (change)="toggle(p.id)"
+                      /><span
+                        ><strong>{{ p.name }}</strong
+                        ><small
+                          >{{ p.code || "Sin código" }}
+                          @if (
+                            group.presentation &&
+                            !selected.product_ids.includes(p.id)
+                          ) {
+                            · No seleccionado
+                          }
+                        </small></span
+                      ></label
+                    >
+                  }
+                </section>
               } @empty {
                 <p>No se encontraron productos individuales.</p>
               }
@@ -189,6 +217,49 @@ export class PriceListsComponent implements OnInit {
         p.kind !== "kit" &&
         [p.name, p.code, p.barcode].join(" ").toLocaleLowerCase().includes(q),
     );
+  }
+  get presentationGroups(): any[] {
+    const groups = new Map<string, any>();
+    // Build complete presentations first: a search never changes what selecting
+    // a presentation means or silently limits the selected flavor set.
+    for (const p of this.products.filter((p) => p.kind !== "kit")) {
+      const key = p.variant_group
+        ? "group:" + p.variant_group
+        : "product:" + p.id;
+      if (!groups.has(key))
+        groups.set(key, { key, presentation: p.variant_group, products: [] });
+      groups.get(key).products.push(p);
+    }
+    const visible = new Set(this.filtered.map((p) => p.id));
+    return [...groups.values()]
+      .filter((g) => g.products.some((p: any) => visible.has(p.id)))
+      .sort((a, b) =>
+        (a.presentation || a.products[0].name).localeCompare(
+          b.presentation || b.products[0].name,
+          "es",
+        ),
+      );
+  }
+  groupSelected(group: any) {
+    return group.products.every((p: any) =>
+      this.selected.product_ids.includes(p.id),
+    );
+  }
+  groupPartial(group: any) {
+    return (
+      !this.groupSelected(group) &&
+      group.products.some((p: any) => this.selected.product_ids.includes(p.id))
+    );
+  }
+  toggleGroup(group: any) {
+    const ids = new Set<number>(this.selected.product_ids);
+    const remove = this.groupSelected(group);
+    for (const p of group.products) {
+      if (remove) ids.delete(p.id);
+      else ids.add(p.id);
+    }
+    this.selected.product_ids = [...ids];
+    this.invalidate();
   }
   toggle(id: number) {
     this.selected.product_ids = this.selected.product_ids.includes(id)
