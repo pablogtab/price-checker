@@ -241,17 +241,15 @@ export class PriceListsComponent implements OnInit {
   }
   get filtered() {
     const q = this.query.toLocaleLowerCase();
-    return this.products.filter(
-      (p) =>
-        p.kind !== "kit" &&
-        [p.name, p.code, p.barcode].join(" ").toLocaleLowerCase().includes(q),
+    return this.products.filter((p) =>
+      [p.name, p.code, p.barcode].join(" ").toLocaleLowerCase().includes(q),
     );
   }
   get presentationGroups(): any[] {
     const groups = new Map<string, any>();
     // Build complete presentations first: a search never changes what selecting
     // a presentation means or silently limits the selected flavor set.
-    for (const p of this.products.filter((p) => p.kind !== "kit")) {
+    for (const p of this.products) {
       const key = p.variant_group
         ? "group:" + p.variant_group
         : "product:" + p.id;
