@@ -1,3 +1,4 @@
+import { orderAvailability } from "./price-list-orders";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { db } from "./db";
 import { renderPriceList } from "./price-list-render";
@@ -59,12 +60,45 @@ export async function previewPriceList(id: number) {
       `SELECT p.*,p.selling_price::text,COALESCE(s.brand,'') brand FROM products p LEFT JOIN LATERAL (SELECT COALESCE(i.brand,k.brand) brand FROM product_links l LEFT JOIN supplier_items i ON i.id=l.individual_item_id LEFT JOIN supplier_items k ON k.id=l.kit_item_id WHERE l.product_id=p.id ORDER BY (l.provider_id=p.preferred_provider_id) DESC NULLS LAST,l.id LIMIT 1) s ON true WHERE p.id=ANY($1::int[])`,
       [list.product_ids],
     );
-    return renderPriceList(
+    const offers = await manager.query(
+      `SELECT l.product_id,s.available,s.stock::text,l.provider_id,p.name provider_name,p.last_success_at,r.status latest_status,r.finished_at latest_at FROM product_links l JOIN providers p ON p.id=l.provider_id JOIN supplier_items s ON (s.id=l.individual_item_id OR s.id=l.kit_item_id) LEFT JOIN LATERAL (SELECT status,finished_at FROM refresh_runs WHERE provider_id=p.id ORDER BY created_at DESC,id DESC LIMIT 1) r ON true WHERE l.product_id=ANY($1::int[])`,
+      [list.product_ids],
+    );
+    const [settings] = await manager.query(
+      "SELECT price_list_order_days FROM settings WHERE id=1",
+    );
+    const now = new Date();
+    const providers = new Map();
+    for (const product of products) {
+      const result = orderAvailability(product, offers, now);
+      Object.assign(product, result);
+      for (const provider of result.providers)
+        providers.set(provider.id, provider);
+    }
+    const result = renderPriceList(
       list.title,
       list.product_ids.map(
         (id: number) =>
           products.find((p: any) => p.id === id) || { id, missing: true },
       ),
     );
+    const used = new Set(
+      result.items
+        .filter((p: any) => p.availability === "order")
+        .map((p: any) => p.product_id),
+    );
+    result.providers = [
+      ...new Map(
+        products
+          .filter((p: any) => used.has(p.id))
+          .flatMap((p: any) =>
+            p.providers.map((provider: any) => [provider.id, provider]),
+          ),
+      ).values(),
+    ] as never[];
+    result.requires_confirmation = result.providers.some((p: any) => p.warning);
+    if (result.items.some((p: any) => p.availability === "order"))
+      result.text += `\n\n📦 Encargos: entrega estimada de ${settings?.price_list_order_days ?? 7} días. Sujeto a disponibilidad del proveedor.`;
+    return result;
   });
 }

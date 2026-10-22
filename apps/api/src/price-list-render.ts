@@ -21,9 +21,11 @@ export function renderPriceList(
           : !new Decimal(p.selling_price || 0).isFinite() ||
               !new Decimal(p.selling_price || 0).gt(0)
             ? "Sin precio de venta positivo"
-            : !(p.own_stock > 0)
-              ? "Sin stock propio"
-              : null;
+            : p.omission_reason
+              ? p.omission_reason
+              : !(p.own_stock > 0) && p.availability !== "order"
+                ? "Sin stock propio"
+                : null;
     if (reason) {
       omissions.push({ product_id: p.id, name: p.name, reason });
       continue;
@@ -32,7 +34,8 @@ export function renderPriceList(
       product_id: p.id,
       name: cleanText(p.name),
       price: new Decimal(p.selling_price).toString(),
-      availability: "available",
+      availability: p.availability || "available",
+      variant_group: p.variant_group,
       brand: cleanText(p.brand),
     });
   }
@@ -49,7 +52,10 @@ export function renderPriceList(
       `*${p.name} — $ ${new Decimal(p.price)
         .toFixed(2)
         .replace(".", ",")
-        .replace(/\B(?=(\d{3})+(?!\d))/g, ".")}*\nDisponible`,
+        .replace(
+          /\B(?=(\d{3})+(?!\d))/g,
+          ".",
+        )}*\n${p.availability === "order" ? "Por encargo" : "Disponible"}`,
   );
   return {
     text: items.length
