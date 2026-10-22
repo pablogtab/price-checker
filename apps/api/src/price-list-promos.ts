@@ -273,6 +273,7 @@ export function evaluatePromo(
         capacity: choice.capacity,
         units: Number(choice.offer.units),
         stock: Number(choice.offer.stock),
+        warning: !!choice.state.providers[0]?.warning,
       })),
     );
     return Math.min(
@@ -280,6 +281,36 @@ export function evaluatePromo(
       own[j] + Math.max(...options.map((o) => o.capacity)),
     );
   });
+  // Independent offers cannot compete with another flavor. Keep only their
+  // dominant capacity (capped at promo demand); branch only on shared resources.
+  const owners = new Map<number, Set<number>>();
+  for (const [j, options] of choices)
+    for (const option of options) {
+      if (!owners.has(option.item_id)) owners.set(option.item_id, new Set());
+      owners.get(option.item_id)!.add(j);
+    }
+  for (const [j, options] of choices) {
+    if (own[j] >= demand) {
+      choices.delete(j);
+      continue;
+    }
+    const independent = options
+      .filter((o: any) => owners.get(o.item_id)!.size === 1)
+      .sort(
+        (a: any, b: any) =>
+          Math.min(demand - own[j], b.capacity) -
+            Math.min(demand - own[j], a.capacity) ||
+          Number(a.warning) - Number(b.warning),
+      );
+    const dominant = independent[0];
+    const shared = options.filter((o: any) => owners.get(o.item_id)!.size > 1);
+    choices.set(
+      j,
+      dominant && dominant.capacity >= demand - own[j]
+        ? [dominant]
+        : [...shared, ...(dominant ? [dominant] : [])],
+    );
+  }
   const supply = { own, choices };
   const low = allocate(groups, candidates, total, 1, supply),
     high = allocate(groups, candidates, total, -1, supply);
