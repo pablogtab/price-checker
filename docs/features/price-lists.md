@@ -1,0 +1,57 @@
+# Listas de precios para WhatsApp
+
+Definición acordada con el usuario el 22 de octubre de 2026 mediante
+`grill-with-docs`. Especificación publicada en el issue #11 y en
+[price-lists-spec.md](price-lists-spec.md). Implementación pendiente.
+
+## Objetivo
+
+Generar texto para copiar y pegar en WhatsApp, destinado a clientes. Mostrar
+precios de venta y disponibilidad, nunca costos, márgenes ni cantidades de stock.
+No enviar mensajes automáticamente.
+
+## Listas y selección
+
+- Varias listas guardadas, cada una con nombre/título editable y selección propia.
+- Marcar productos y promos del catálogo propio. Al seleccionar una presentación,
+  incluir todos sus sabores actuales, permitiendo desmarcarlos.
+- Los sabores nuevos requieren revisión y selección explícita.
+- Usar los precios de venta actuales de Mis productos, en ARS.
+- El permiso de ofrecer por encargo se configura por producto y es común a las
+  listas. El plazo de encargo también es común, editable e inicialmente de 7 días.
+
+## Disponibilidad
+
+- Stock propio positivo: disponible, aunque el proveedor no tenga stock.
+- Stock propio cero, negativo o sin cargar: sin disponibilidad propia.
+- Para ofrecer sin stock propio, exigir permiso de encargo y stock positivo
+  informado en alguna oferta vinculada y vigente del proveedor.
+- Puede servir la oferta individual aunque no haya stock del pack, o viceversa;
+  la disponibilidad para encargo es independiente de la base del costo.
+- Omitir encargos con stock del proveedor cero o desconocido.
+- Evaluar con el último catálogo actualizado: no constituye reserva del proveedor.
+- Promos disponibles cuando puedan armarse con stock propio. Para encargo, exigir
+  permiso en la promo y poder conseguir los componentes faltantes según las reglas
+  anteriores; detallar los sabores elegibles.
+- Excluir promos que no tengan un único precio de venta.
+
+## Texto y vista previa
+
+- Título editable, fecha de generación y precios finales en ARS.
+- Agrupar por marca y nombre, agrupando sabores por presentación; separar sabores
+  con distintos precios. Productos sin marca al final del bloque de productos.
+- Promos al final, con sus sabores y disponibilidad según componentes.
+- Distinguir Disponible y Por encargo. Incluir el plazo estimado y la aclaración
+  «Sujeto a disponibilidad del proveedor» cuando haya encargos.
+- Omitir productos archivados o sin precio de venta positivo.
+- Antes de copiar, mostrar el texto y un resumen de omisiones con sus motivos,
+  incluyendo falta de stock, precio variable de promo o precio no válido.
+- Mostrar fecha de actualización del proveedor. Si la última actualización falló
+  o los datos tienen más de 24 horas, advertir y pedir confirmación para incluir
+  los encargos; no sustituir silenciosamente esa decisión.
+- Botón para copiar el texto completo. No se requiere PDF, imagen ni Excel.
+
+## Próxima etapa
+
+Dividir la especificación en tickets implementables con sus dependencias. No
+implementar ni desplegar como parte de esta definición.
