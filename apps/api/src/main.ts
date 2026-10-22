@@ -1,5 +1,5 @@
 import {orderPolicy, saveOrderPolicy} from "./price-list-orders";
-import {priceLists,priceList,savePriceList,previewPriceList} from "./price-lists";
+import {priceLists,priceList,savePriceList,previewPriceList,confirmPriceList} from "./price-lists";
 import {previewSaleEdit,editSale,previewJointSaleEdit,jointEditSale} from "./sale-edits";
 import {previewSaleAnnulment,annulSale} from "./sale-annulments";
 import {previewPaymentCorrection,correctPayment,correctionHistory} from "./sale-corrections";
@@ -210,6 +210,7 @@ class AppController {
   @Get("price-lists/:id") list(@Param("id") id:string){return priceList(integer(id));}
   @Post("price-lists") addList(@Body() body:any){return savePriceList(null,body);}
   @Put("price-lists/:id") updateList(@Param("id") id:string,@Body() body:any){return savePriceList(integer(id),body);}
+  @Post("price-lists/:id/confirm") confirmList(@Param("id") id:string,@Body() body:any){return confirmPriceList(integer(id),body);}
   @Post("price-lists/:id/preview") previewList(@Param("id") id:string){return previewPriceList(integer(id));}
   @Get("products") products() {
     return this.service.products();

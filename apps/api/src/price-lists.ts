@@ -1,6 +1,11 @@
+import { createHash, randomUUID } from "node:crypto";
 import { evaluatePromo } from "./price-list-promos";
-import { orderAvailability } from "./price-list-orders";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { orderAvailability, orderPolicyRevision } from "./price-list-orders";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 import { db } from "./db";
 import { renderPriceList } from "./price-list-render";
 export async function priceLists() {
@@ -25,6 +30,7 @@ export async function savePriceList(id: number | null, body: any) {
   )
     throw new BadRequestException("Selección inválida");
   const ids = [...new Set(body.product_ids)];
+  if (id) previews.delete(id);
   return db.transaction(async (manager) => {
     if (ids.length) {
       const rows = await manager.query(
@@ -50,7 +56,7 @@ export async function savePriceList(id: number | null, body: any) {
     return result;
   });
 }
-export async function previewPriceList(id: number) {
+async function buildPreview(id: number) {
   return db.transaction("REPEATABLE READ", async (manager) => {
     const [list] = await manager.query(
       "SELECT * FROM price_lists WHERE id=$1",
@@ -111,6 +117,69 @@ export async function previewPriceList(id: number) {
     result.requires_confirmation = result.providers.some((p: any) => p.warning);
     if (result.items.some((p: any) => p.availability === "order"))
       result.text += `\n\n📦 Encargos: entrega estimada de ${settings?.price_list_order_days ?? 7} días. Sujeto a disponibilidad del proveedor.`;
-    return result;
+    return {
+      ...result,
+      fingerprint: createHash("sha256")
+        .update(
+          JSON.stringify([
+            orderPolicyRevision,
+            list,
+            products,
+            components,
+            catalog,
+            offers,
+            settings,
+          ]),
+        )
+        .digest("hex"),
+    };
   });
+}
+
+// Ephemeral, bounded preview acceptance; restart requires regenerating, never business writes.
+const previews = new Map<
+  number,
+  {
+    id: string;
+    fingerprint: string;
+    text: string;
+    requires_confirmation: boolean;
+    expires: number;
+  }
+>();
+export async function previewPriceList(id: number) {
+  previews.delete(id);
+  const { fingerprint, ...result } = await buildPreview(id);
+  while (previews.size >= 1000) previews.delete(previews.keys().next().value!);
+  const preview_id = randomUUID();
+  previews.set(id, {
+    id: preview_id,
+    fingerprint,
+    text: result.text,
+    requires_confirmation: result.requires_confirmation,
+    expires: Date.now() + 30 * 60 * 1000,
+  });
+  return { ...result, preview_id };
+}
+export async function confirmPriceList(id: number, body: any) {
+  const preview = previews.get(id);
+  if (
+    !preview ||
+    preview.id !== body.preview_id ||
+    preview.expires < Date.now()
+  )
+    throw new ConflictException("La vista previa cambió. Generala nuevamente.");
+  if (preview.requires_confirmation && body.accept_stale !== true)
+    throw new BadRequestException(
+      "Confirmá la inclusión de encargos desactualizados.",
+    );
+  const current = await buildPreview(id);
+  if (
+    previews.get(id) !== preview ||
+    current.fingerprint !== preview.fingerprint
+  )
+    throw new ConflictException(
+      "Los datos cambiaron. Generá y revisá otra vista previa.",
+    );
+  return { preview_id: preview.id, text: preview.text };
 }

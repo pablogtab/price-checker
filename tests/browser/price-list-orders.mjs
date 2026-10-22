@@ -44,6 +44,38 @@ test("order confirmation is specific to current preview; shared policy is editab
         .isEnabled(),
       true,
     );
+    let release;
+    const held = new Promise((resolve) => (release = resolve));
+    await page.route("**/api/price-lists/*/preview", async (route) => {
+      await held;
+      await route.fulfill({
+        status: 500,
+        body: "{}",
+        contentType: "application/json",
+      });
+    });
+    await page
+      .getByRole("button", { name: "Vista previa", exact: true })
+      .click();
+    await page.waitForTimeout(100);
+    assert.equal(
+      await page.locator(".list-preview").count(),
+      0,
+      "regeneration immediately removes old accepted text",
+    );
+    release();
+    await page.getByRole("alert").waitFor();
+    assert.equal(
+      await page.locator(".list-preview").count(),
+      0,
+      "failed regeneration cannot reuse acceptance",
+    );
+    await page.unroute("**/api/price-lists/*/preview");
+    await page
+      .getByRole("button", { name: "Vista previa", exact: true })
+      .click();
+    await page.locator(".list-preview").waitFor();
+    await confirm.check();
     await page.screenshot({
       path: "/tmp/gevafit-price-lists/orders14-desktop.png",
     });

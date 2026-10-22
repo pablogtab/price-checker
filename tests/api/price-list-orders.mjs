@@ -77,6 +77,46 @@ test("shared order policy and supplier alternatives control export; stale data r
     preview = await request(`price-lists/${list.id}/preview`, {});
     assert.equal(preview.requires_confirmation, true);
     assert.equal(preview.providers[0].warning, true);
+    const confirm = async (snapshot, accepted, status = 201) => {
+      const response = await fetch(
+        base + `/api/price-lists/${list.id}/confirm`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            preview_id: snapshot.preview_id,
+            accept_stale: accepted,
+          }),
+        },
+      );
+      assert.equal(response.status, status, await response.clone().text());
+      return response.json();
+    };
+    await confirm(preview, false, 400);
+    assert.equal((await confirm(preview, true)).text, preview.text);
+    const prior = preview;
+    preview = await request(`price-lists/${list.id}/preview`, {});
+    await confirm(prior, true, 409);
+    await request(
+      `price-lists/${list.id}`,
+      { title: "Edited", product_ids: [p.id] },
+      "PUT",
+    );
+    await confirm(preview, true, 409);
+    preview = await request(`price-lists/${list.id}/preview`, {});
+    const currentPolicy = await request("price-list-order-policy");
+    await request(
+      "price-list-order-policy",
+      {
+        days: 10,
+        allowed_product_ids: currentPolicy.products
+          .filter((x) => x.allowed)
+          .map((x) => x.id),
+      },
+      "PUT",
+    );
+    await confirm(preview, true, 409);
+
     await c.query(
       "UPDATE providers SET last_success_at=now()-interval '1 hour' WHERE id=$1",
       [provider.id],

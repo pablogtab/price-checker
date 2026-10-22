@@ -5,6 +5,14 @@ export const cleanText = (value: any) =>
     .replace(/\s+/g, " ")
     .trim();
 
+export function flavorLabel(value: any, presentation: any) {
+  const full = cleanText(value),
+    prefix = cleanText(presentation);
+  return prefix && full.startsWith(prefix)
+    ? full.slice(prefix.length).replace(/^[ ·—:\-]+/, "") || full
+    : full;
+}
+
 const compare = (a: string, b: string) =>
   a.localeCompare(b, "es") || (a < b ? -1 : a > b ? 1 : 0);
 export function formatPriceList(title: string, items: any[], now = new Date()) {
@@ -25,13 +33,7 @@ export function formatPriceList(title: string, items: any[], now = new Date()) {
         order: [],
       });
     const group = groups.get(key);
-    const flavor = item.variant_group
-      ? cleanText(item.name).startsWith(name)
-        ? cleanText(item.name)
-            .slice(name.length)
-            .replace(/^[ ·—:\-]+/, "") || cleanText(item.name)
-        : cleanText(item.name)
-      : "";
+    const flavor = item.variant_group ? flavorLabel(item.name, name) : "";
     group[item.availability === "order" ? "order" : "available"].push(flavor);
   }
   const lines = [...groups.values()]
