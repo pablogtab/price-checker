@@ -151,4 +151,51 @@ textarea {
     padding: 16px;
   }
 }
-.list-editor{align-self:start}.lists-index{max-height:560px;overflow:auto}@media(max-width:760px){.lists-index{max-height:none}.lists-index button{flex:0 0 160px}.lists-index strong{white-space:normal}}
+.list-editor {
+  align-self: start;
+}
+.lists-index {
+  max-height: 560px;
+  overflow: auto;
+}
+@media (max-width: 760px) {
+  .lists-index {
+    max-height: none;
+  }
+  .lists-index button {
+    flex: 0 0 160px;
+  }
+  .lists-index strong {
+    white-space: normal;
+  }
+}
+.presentation-group {
+  border-bottom: 1px solid #e1e0da;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+.presentation-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px;
+  background: #fafaf8;
+  cursor: pointer;
+}
+.presentation-heading input {
+  width: 18px;
+  height: 18px;
+  accent-color: #1b5daf;
+  flex-shrink: 0;
+}
+.presentation-heading span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.presentation-heading strong {
+  overflow-wrap: anywhere;
+}
+.presentation-group:has(.presentation-heading) .list-product {
+  padding-left: 16px;
+}

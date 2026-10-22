@@ -1,9 +1,5 @@
 import Decimal from "decimal.js";
-export const cleanText = (value: any) =>
-  String(value ?? "")
-    .replace(/[\r\n\t*_~`]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+import { cleanText, formatPriceList } from "./price-list-format";
 export function renderPriceList(
   title: string,
   products: any[],
@@ -35,32 +31,13 @@ export function renderPriceList(
       name: cleanText(p.name),
       price: new Decimal(p.selling_price).toString(),
       availability: p.availability || "available",
-      variant_group: p.variant_group,
+      variant_group: cleanText(p.variant_group),
       brand: cleanText(p.brand),
     });
   }
-  items.sort(
-    (a, b) =>
-      (!a.brand ? 1 : !b.brand ? -1 : a.brand.localeCompare(b.brand, "es")) ||
-      a.name.localeCompare(b.name, "es"),
-  );
-  const date = new Intl.DateTimeFormat("es-AR", {
-    timeZone: "America/Argentina/Buenos_Aires",
-  }).format(now);
-  const lines = items.map(
-    (p) =>
-      `*${p.name} — $ ${new Decimal(p.price)
-        .toFixed(2)
-        .replace(".", ",")
-        .replace(
-          /\B(?=(\d{3})+(?!\d))/g,
-          ".",
-        )}*\n${p.availability === "order" ? "Por encargo" : "Disponible"}`,
-  );
+
   return {
-    text: items.length
-      ? `*${cleanText(title)}*\n${date}\n\n${lines.join("\n\n")}`
-      : "",
+    text: formatPriceList(title, items, now),
     items,
     omissions,
     generated_at: now.toISOString(),
