@@ -25,12 +25,13 @@ import {
   SaleCorrections1760097600021,
   SaleAnnulments1760097600022,
 } from "./migration";
+import {PriceLists1760097600023} from "./price-list-migration";
 export const db = new DataSource({
   type: "postgres",
   url:
     process.env.DATABASE_URL ||
     "postgres://price_checker:local_price_checker@127.0.0.1:5442/price_checker",
-  migrations: [
+  migrations: [PriceLists1760097600023,
     Initial1760097600000,
     RefreshProgress1760097600001,
     OwnKits1760097600002,

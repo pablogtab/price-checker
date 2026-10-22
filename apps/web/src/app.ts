@@ -1,3 +1,4 @@
+import {PriceListsComponent} from "./price-lists";
 import { CustomersComponent } from "./customers";
 import { ProductImageComponent } from "./ui/product-image";
 import { ShellComponent } from "./ui/shell";
@@ -33,7 +34,7 @@ Decimal.set({ precision: 40 });
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [
+  imports: [PriceListsComponent,
     PriceAnalysisComponent,
     InstallComponent,
     CommonModule,
@@ -326,6 +327,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const v = location.pathname === "/sales/new" ? "new-sale" : location.pathname.startsWith("/customers/") ? "customers" : location.pathname.slice(1);
     return [
       "dashboard",
+      "price-lists",
       "products",
       "catalog",
       "settings",

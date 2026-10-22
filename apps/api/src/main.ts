@@ -1,3 +1,4 @@
+import {priceLists,priceList,savePriceList,previewPriceList} from "./price-lists";
 import {previewSaleEdit,editSale,previewJointSaleEdit,jointEditSale} from "./sale-edits";
 import {previewSaleAnnulment,annulSale} from "./sale-annulments";
 import {previewPaymentCorrection,correctPayment,correctionHistory} from "./sale-corrections";
@@ -202,6 +203,11 @@ class AppController {
   @Post("purchases") receivePurchase(@Body() body: any) {
     return receivePurchase(body);
   }
+  @Get("price-lists") lists(){return priceLists();}
+  @Get("price-lists/:id") list(@Param("id") id:string){return priceList(integer(id));}
+  @Post("price-lists") addList(@Body() body:any){return savePriceList(null,body);}
+  @Put("price-lists/:id") updateList(@Param("id") id:string,@Body() body:any){return savePriceList(integer(id),body);}
+  @Post("price-lists/:id/preview") previewList(@Param("id") id:string){return previewPriceList(integer(id));}
   @Get("products") products() {
     return this.service.products();
   }
