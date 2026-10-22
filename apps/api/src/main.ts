@@ -1,3 +1,4 @@
+import {orderPolicy, saveOrderPolicy} from "./price-list-orders";
 import {priceLists,priceList,savePriceList,previewPriceList} from "./price-lists";
 import {previewSaleEdit,editSale,previewJointSaleEdit,jointEditSale} from "./sale-edits";
 import {previewSaleAnnulment,annulSale} from "./sale-annulments";
@@ -203,6 +204,8 @@ class AppController {
   @Post("purchases") receivePurchase(@Body() body: any) {
     return receivePurchase(body);
   }
+  @Get("price-list-order-policy") orderPolicy(){return orderPolicy();}
+  @Put("price-list-order-policy") updateOrderPolicy(@Body() body:any){return saveOrderPolicy(body);}
   @Get("price-lists") lists(){return priceLists();}
   @Get("price-lists/:id") list(@Param("id") id:string){return priceList(integer(id));}
   @Post("price-lists") addList(@Body() body:any){return savePriceList(null,body);}

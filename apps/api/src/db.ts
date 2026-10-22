@@ -25,13 +25,16 @@ import {
   SaleCorrections1760097600021,
   SaleAnnulments1760097600022,
 } from "./migration";
-import {PriceLists1760097600023} from "./price-list-migration";
+import { PriceLists1760097600023 } from "./price-list-migration";
+import { PriceListOrders1760097600024 } from "./price-list-order-migration";
 export const db = new DataSource({
   type: "postgres",
   url:
     process.env.DATABASE_URL ||
     "postgres://price_checker:local_price_checker@127.0.0.1:5442/price_checker",
-  migrations: [PriceLists1760097600023,
+  migrations: [
+    PriceListOrders1760097600024,
+    PriceLists1760097600023,
     Initial1760097600000,
     RefreshProgress1760097600001,
     OwnKits1760097600002,
@@ -53,8 +56,8 @@ export const db = new DataSource({
     MinimumStock1760097600018,
     CustomerCollections1760097600019,
     SaleDiscount1760097600020,
-  SaleCorrections1760097600021,
-  SaleAnnulments1760097600022,
+    SaleCorrections1760097600021,
+    SaleAnnulments1760097600022,
   ],
   synchronize: false,
 });

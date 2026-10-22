@@ -1,3 +1,4 @@
+import { PriceListOrdersComponent } from "./price-list-orders";
 import { Component, inject, OnInit, ChangeDetectorRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -7,7 +8,12 @@ import { ButtonDirective } from "./ui/button";
 @Component({
   selector: "app-price-lists",
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonDirective],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ButtonDirective,
+    PriceListOrdersComponent,
+  ],
   styleUrl: "./price-lists.css",
   template: `
     <div class="lists-heading">
@@ -17,6 +23,7 @@ import { ButtonDirective } from "./ui/button";
       </div>
       <button appButton="primary" (click)="create()">+ Nueva lista</button>
     </div>
+    <app-price-list-orders (changed)="invalidate()" />
     @if (error) {
       <div role="alert" class="list-error">
         {{ error }} <button (click)="load()">Reintentar</button>
@@ -130,12 +137,32 @@ import { ButtonDirective } from "./ui/button";
             </div>
             <button
               appButton="primary"
-              [disabled]="!preview.items.length"
+              [disabled]="
+                !preview.items.length ||
+                (preview.requires_confirmation && !confirmed)
+              "
               (click)="copy()"
             >
               Copiar texto
             </button>
           </div>
+          @for (provider of preview.providers; track provider.id) {
+            <p>
+              {{ provider.name }} · Última actualización:
+              {{ supplierDate(provider.last_success_at) }}
+              @if (provider.warning) {
+                <strong
+                  >Datos desactualizados o última actualización fallida</strong
+                >
+              }
+            </p>
+          }
+          @if (preview.requires_confirmation) {
+            <label
+              ><input type="checkbox" [(ngModel)]="confirmed" />Confirmo incluir
+              encargos con datos desactualizados en esta vista previa</label
+            >
+          }
           <textarea
             aria-label="Texto para WhatsApp"
             readonly
@@ -169,6 +196,7 @@ export class PriceListsComponent implements OnInit {
   selected: any = null;
   query = "";
   preview: any = null;
+  confirmed = false;
   error = "";
   message = "";
   copyStatus = "";
@@ -207,6 +235,7 @@ export class PriceListsComponent implements OnInit {
   }
   invalidate() {
     this.preview = null;
+    this.confirmed = false;
     this.message = "";
     this.copyStatus = "";
   }
@@ -298,6 +327,7 @@ export class PriceListsComponent implements OnInit {
         {},
       );
       this.copyStatus = "";
+      this.confirmed = false;
     } catch {
       this.error = "No pudimos generar la vista previa. Intentá nuevamente.";
     } finally {
@@ -305,7 +335,15 @@ export class PriceListsComponent implements OnInit {
       this.cdr.detectChanges();
     }
   }
+  supplierDate(value: string) {
+    return new Intl.DateTimeFormat("es-AR", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value));
+  }
   async copy() {
+    if (this.preview.requires_confirmation && !this.confirmed) return;
     try {
       await navigator.clipboard.writeText(this.preview.text);
       this.copyStatus = "Texto copiado";
