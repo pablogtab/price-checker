@@ -79,9 +79,8 @@ test("selected promo is editable and its constraints appear in desktop/mobile pr
     );
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1000 });
-      await page.screenshot({
+      await page.locator(".list-preview").screenshot({
         path: `/tmp/gevafit-price-lists/promos15-${width}.png`,
-        fullPage: true,
       });
       assert.equal(
         await page.evaluate(
