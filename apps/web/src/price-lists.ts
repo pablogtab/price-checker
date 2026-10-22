@@ -149,7 +149,7 @@ import { ButtonDirective } from "./ui/button";
           @for (provider of preview.providers; track provider.id) {
             <p>
               {{ provider.name }} · Última actualización:
-              {{ provider.last_success_at | date: "short" }}
+              {{ supplierDate(provider.last_success_at) }}
               @if (provider.warning) {
                 <strong
                   >Datos desactualizados o última actualización fallida</strong
@@ -334,6 +334,13 @@ export class PriceListsComponent implements OnInit {
       this.busy = false;
       this.cdr.detectChanges();
     }
+  }
+  supplierDate(value: string) {
+    return new Intl.DateTimeFormat("es-AR", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value));
   }
   async copy() {
     if (this.preview.requires_confirmation && !this.confirmed) return;

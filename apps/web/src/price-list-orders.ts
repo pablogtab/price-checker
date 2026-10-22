@@ -65,6 +65,16 @@ import { ButtonDirective } from "./ui/button";
       .order-settings {
         margin: 1rem 0;
       }
+      .order-settings:has(.order-products) {
+        padding: 1rem;
+        border: 1px solid var(--border, #ddd);
+        border-radius: 12px;
+        background: var(--surface, #fff);
+      }
+      .order-settings > input {
+        width: 100%;
+        box-sizing: border-box;
+      }
       .order-settings > label {
         display: flex;
         align-items: center;
