@@ -600,3 +600,26 @@ separada de la base de integración general porque ambas suites eliminan sus dat
 ```sh
 TEST_CUSTOMER_DATABASE_URL=postgres://price_checker:local_price_checker@127.0.0.1:5442/customer_management_test npm test
 ```
+
+## Listas de precios para WhatsApp
+
+**Listas de precios** (`/price-lists`) permite guardar varias selecciones del catálogo
+propio y generar un texto para copiar, con precios actuales en ARS. Seleccionar una
+presentación incluye sus sabores actuales; los sabores nuevos requieren selección
+explícita. La vista previa agrupa por presentación y precio, y explica por separado
+los productos omitidos. Copiar no envía mensajes ni registra operaciones de negocio.
+
+**Configurar encargos** comparte el permiso de cada producto/promo y el plazo de
+entrega entre todas las listas. El stock propio positivo se publica como Disponible.
+Sin stock propio, un encargo requiere permiso y stock positivo conocido en una oferta
+vinculada vigente. El plazo es estimado y no reserva unidades del proveedor. Si los
+datos superan 24 horas o la última actualización falló, la vista previa advierte y
+requiere confirmación antes de copiar los encargos. Cambiar la lista o regenerarla
+invalida esa confirmación. Los costos, márgenes y cantidades exactas de stock nunca
+forman parte del mensaje.
+
+La definición y las pruebas acordadas están en
+[la especificación](docs/features/price-lists-spec.md) y en
+[GitHub #11](https://github.com/pablogtab/price-checker/issues/11).
+Las pruebas REST y de navegador usan API/frontend reales con bases descartables
+terminadas en `_test`; nunca deben apuntar a producción ni a la base habitual local.

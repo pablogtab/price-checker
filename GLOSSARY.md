@@ -4,6 +4,25 @@ Gestión de productos, ventas y cobros del negocio.
 
 ## Language
 
+**Lista de precios**:
+Una selección guardada y con nombre de productos y promos ofrecidos a clientes,
+con sus precios de venta actuales. Pueden coexistir varias listas y se comparten
+como texto por WhatsApp, sin costos ni márgenes.
+
+**Disponible**:
+Un producto o sabor que se puede entregar con stock propio positivo. En una promo,
+la disponibilidad depende de poder reunir sus componentes con stock propio.
+
+**Por encargo**:
+Un producto o promo habilitado para ofrecer sin stock propio suficiente, con un
+plazo estimado de entrega. Los componentes faltantes deben tener stock positivo
+informado en alguna oferta vinculada y vigente del proveedor; el stock desconocido
+no alcanza para ofrecerlos por encargo.
+
+**Plazo de encargo**:
+La estimación de tiempo de entrega comunicada para los encargos, común a todas
+las listas de precios. No es una reserva de stock ni una fecha garantizada.
+
 **Variante**:
 Una presentación concreta de un producto con un sabor determinado. Dos sabores
 distintos son variantes distintas, aunque compartan nombre y presentación.
