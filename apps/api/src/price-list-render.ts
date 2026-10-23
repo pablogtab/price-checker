@@ -41,7 +41,7 @@ export function renderPriceList(
     items,
     omissions,
     generated_at: now.toISOString(),
-    requires_confirmation: false,
+    has_warnings: false,
     providers: [],
   };
 }

@@ -42,14 +42,16 @@ No enviar mensajes automáticamente.
 - Agrupar por marca y nombre, agrupando sabores por presentación; separar sabores
   con distintos precios. Productos sin marca al final del bloque de productos.
 - Promos al final, con sus sabores y disponibilidad según componentes.
-- Distinguir Disponible y Por encargo. Incluir el plazo estimado y la aclaración
-  «Sujeto a disponibilidad del proveedor» cuando haya encargos.
+- Distinguir disponibilidad y encargos. Mostrar sabores sin repetir el nombre
+  del producto; omitir «Disponible» para una única variante disponible solo si ese grupo no
+  incluye sabores por encargo. Incluir
+  solamente el plazo estimado cuando haya encargos.
 - Omitir productos archivados o sin precio de venta positivo.
 - Antes de copiar, mostrar el texto y un resumen de omisiones con sus motivos,
   incluyendo falta de stock, precio variable de promo o precio no válido.
 - Mostrar fecha de actualización del proveedor. Si la última actualización falló
-  o los datos tienen más de 24 horas, advertir y pedir confirmación para incluir
-  los encargos; no sustituir silenciosamente esa decisión.
+  o los datos tienen más de 24 horas, mostrar un toast de advertencia sin
+  bloquear la copia ni exigir una casilla de confirmación.
 - Botón para copiar el texto completo. No se requiere PDF, imagen ni Excel.
 
 ## Entrega
@@ -59,3 +61,21 @@ de listas (8 REST/PostgreSQL y 4 de navegador real), más 67 regresiones existen
 todas aprobadas sin omisiones; compilaciones API/frontend aprobadas. Se revisaron
 capturas de escritorio y móvil y se corrigieron los hallazgos de las revisiones
 independientes de estándares y especificación. Producción permanece intacta.
+
+## Ajustes de experiencia del 22 de octubre de 2026
+
+La política compartida de encargos se edita junto a la selección de productos:
+permiso por presentación o sabor, con guardado automático y plazo compacto.
+Los sabores comienzan colapsados y hay filtros combinables de marca, stock y tipo.
+No se repite el catálogo en un panel separado. El mensaje omite los avisos genéricos
+sobre límites compartidos de promos y disponibilidad del proveedor; se conservan
+las restricciones concretas de combinaciones. La antigüedad del proveedor genera
+solo un toast; el servidor sigue verificando que el texto copiado corresponde
+a una vista previa vigente.
+
+El texto de promos usa etiquetas breves de componentes (Proteína/Creatina o
+Sabores si hay uno solo). Los sabores por encargo se mencionan como opciones
+adicionales, sin repetir los disponibles. Si se necesita encargar más unidades
+de un sabor que ya tiene stock, se indica por separado. Se mantienen los límites
+concretos por sabor y packs compartidos; dos presentaciones del mismo tipo
+conservan sus nombres para evitar confundirlas.

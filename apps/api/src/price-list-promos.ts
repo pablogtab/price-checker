@@ -354,59 +354,128 @@ export function evaluatePromo(
       providers.push(...(supplyProviders.get(j) || []));
     }
   });
-  const describe = (caps: number[]) =>
-    groups
-      .map(
-        (g, i) =>
-          `${g.quantity} × ${cleanText(g.variant_group || catalog.find((p) => p.id === g.product_id)?.name || "Componente")}: ` +
-          candidates
-            .map((p, j) => ({ p, j }))
-            .filter(({ p, j }) => {
-              if (
-                caps[j] < 1 ||
-                !(g.variant_group
-                  ? p.variant_group === g.variant_group
-                  : p.id === g.product_id)
-              )
-                return false;
-              const reduced = groups.map((x, k) => ({
-                ...x,
-                quantity: x.quantity - (k === i ? 1 : 0),
-              }));
-              reduced.push({
-                product_id: p.id,
-                quantity: 1,
-                variant_group: null,
-              });
-              return (
-                allocate(
-                  reduced,
-                  candidates,
-                  caps,
-                  1,
-                  caps === own ? undefined : supply,
-                ) !== null
-              );
-            })
-            .map(({ p, j }) => {
-              const name = flavorLabel(p.name, g.variant_group);
-              const maximum = groups
-                .filter((row) =>
-                  row.variant_group
-                    ? p.variant_group === row.variant_group
-                    : p.id === row.product_id,
-                )
-                .reduce((sum, row) => sum + row.quantity, 0);
-              return (
-                name +
-                (caps[j] < maximum
-                  ? ` (máximo ${caps[j]} en toda la promo)`
-                  : "")
-              );
-            })
-            .join("; "),
-      )
-      .join("\n");
+  // Keep feasibility checks intact; format each eligible flavor once per component.
+  const eligibleFlavors = (g: any, i: number, caps: number[]) =>
+    candidates
+      .map((p, j) => ({ p, j }))
+      .filter(({ p, j }) => {
+        if (
+          caps[j] < 1 ||
+          !(g.variant_group
+            ? p.variant_group === g.variant_group
+            : p.id === g.product_id)
+        )
+          return false;
+        const reduced = groups.map((x, k) => ({
+          ...x,
+          quantity: x.quantity - (k === i ? 1 : 0),
+        }));
+        reduced.push({ product_id: p.id, quantity: 1, variant_group: null });
+        return (
+          allocate(
+            reduced,
+            candidates,
+            caps,
+            1,
+            caps === own ? undefined : supply,
+          ) !== null
+        );
+      })
+      .map(({ p, j }) => {
+        const maximum = groups
+          .filter((row) =>
+            row.variant_group
+              ? p.variant_group === row.variant_group
+              : p.id === row.product_id,
+          )
+          .reduce((sum, row) => sum + row.quantity, 0);
+        const presentation = cleanText(g.variant_group || p.name);
+        const name =
+          cleanText(p.name) === presentation
+            ? ""
+            : flavorLabel(p.name, presentation);
+        return {
+          j,
+          maximum,
+          text:
+            name +
+            (caps[j] < maximum ? ` (máximo ${caps[j]} en toda la promo)` : ""),
+        };
+      });
+  const componentNames = groups.map((g) =>
+    cleanText(
+      g.variant_group ||
+        catalog.find((p) => p.id === g.product_id)?.name ||
+        "Componente",
+    ),
+  );
+  const shortNames = componentNames.map((name) =>
+    /creatina/i.test(name)
+      ? "Creatina"
+      : /whey|prote[ií]na|protein/i.test(name)
+        ? "Proteína"
+        : name,
+  );
+  const label = (i: number) =>
+    groups.length === 1
+      ? "Sabores"
+      : shortNames.filter((name) => name === shortNames[i]).length === 1
+        ? shortNames[i]
+        : componentNames[i];
+  const joinFlavors = (flavors: { text: string }[]) =>
+    [...new Set(flavors.map((f) => f.text).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "es"))
+      .join(", ");
+  const ownFlavors = groups.map((g, i) =>
+    available ? eligibleFlavors(g, i, own) : [],
+  );
+  const totalFlavors = groups.map((g, i) =>
+    order ? eligibleFlavors(g, i, total) : [],
+  );
+  const availableLines = available
+    ? ownFlavors
+        .map((flavors, i) => {
+          const names = joinFlavors(flavors);
+          return names
+            ? `${label(i)}: ${names}`
+            : groups.length > 1
+              ? componentNames[i]
+              : "";
+        })
+        .filter(Boolean)
+    : [];
+  const orderLines: string[] = [];
+  if (order && !available) {
+    orderLines.push("Por encargo");
+    totalFlavors.forEach((flavors, i) => {
+      const names = joinFlavors(flavors);
+      if (names) orderLines.push(`${label(i)}: ${names}`);
+      else if (groups.length > 1) orderLines.push(componentNames[i]);
+    });
+  } else if (order) {
+    const changedComponents = totalFlavors.filter((flavors, i) => {
+      const current = new Set(ownFlavors[i].map((f) => f.j));
+      return flavors.some(
+        (f) =>
+          !current.has(f.j) || (own[f.j] < f.maximum && total[f.j] > own[f.j]),
+      );
+    }).length;
+    totalFlavors.forEach((flavors, i) => {
+      const current = new Set(ownFlavors[i].map((f) => f.j));
+      const extra = joinFlavors(flavors.filter((f) => !current.has(f.j)));
+      const restock = joinFlavors(
+        flavors.filter(
+          (f) =>
+            current.has(f.j) && own[f.j] < f.maximum && total[f.j] > own[f.j],
+        ),
+      );
+      const suffix =
+        changedComponents > 1 ? ` (${label(i).toLocaleLowerCase("es")})` : "";
+      if (extra) orderLines.push(`También con ${extra}${suffix} por encargo.`);
+      if (restock)
+        orderLines.push(`Más unidades de ${restock}${suffix} por encargo.`);
+    });
+  }
   const shared = new Map<number, number[]>();
   for (const [j, options] of choices)
     for (const c of options) {
@@ -435,13 +504,9 @@ export function evaluatePromo(
       );
     });
   const constraints = [
-    available ? "Disponible — " + describe(own) : "",
-    order
-      ? "Por encargo — " +
-        describe(total) +
-        (sharedRules.length ? "\n" + sharedRules.join("\n") : "") +
-        "\nRequiere al menos un componente por encargo."
-      : "",
+    ...availableLines,
+    ...orderLines,
+    ...(order ? sharedRules : []),
   ]
     .filter(Boolean)
     .join("\n");
@@ -450,8 +515,6 @@ export function evaluatePromo(
     availability: order ? "order" : "available",
     own_stock: 1,
     providers: order ? providers : [],
-    promo_details:
-      constraints +
-      "\nLos límites por sabor se comparten entre todos los componentes de una promo.",
+    promo_details: constraints,
   };
 }

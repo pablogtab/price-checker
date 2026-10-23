@@ -54,7 +54,7 @@ test("lists persist selections and copy exact preview with manual fallback on mo
     const text = await page
       .getByRole("textbox", { name: "Texto para WhatsApp" })
       .inputValue();
-    assert.match(text, /Disponible/);
+    assert.doesNotMatch(text, /^Disponible(?=:|$)/m);
     await page.getByRole("button", { name: "Copiar texto" }).click();
     await page.getByText("Texto copiado", { exact: true }).waitFor();
     assert.equal(

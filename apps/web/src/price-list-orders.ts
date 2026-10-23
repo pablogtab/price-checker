@@ -9,94 +9,75 @@ import {
 import { FormsModule } from "@angular/forms";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
-import { ButtonDirective } from "./ui/button";
 @Component({
   selector: "app-price-list-orders",
   standalone: true,
-  imports: [FormsModule, ButtonDirective],
-  template: ` <section class="order-settings">
-    <button
-      appButton="secondary"
-      (click)="expanded = !expanded"
-      [attr.aria-expanded]="expanded"
-    >
-      Configurar encargos
-    </button>
-    @if (expanded) {
-      <h3>Encargos · configuración compartida</h3>
-      <p>
-        Se aplica a todas las listas. Solo ofrecemos encargos con stock positivo
-        conocido en el proveedor.
-      </p>
-      <label
-        >Entrega estimada (días)<input
-          type="number"
-          min="1"
-          max="365"
-          [(ngModel)]="days"
-          (ngModelChange)="changed.emit()"
-      /></label>
+  imports: [FormsModule],
+  template: `<section class="order-bar">
+    <label
+      >Entrega estimada
       <input
-        aria-label="Buscar permisos de encargo"
-        placeholder="Buscar producto o promo…"
-        [(ngModel)]="query"
+        type="number"
+        min="1"
+        max="365"
+        aria-label="Entrega estimada (días)"
+        [(ngModel)]="days"
+        [disabled]="!ready || busy"
+        (ngModelChange)="changed.emit()"
+        (blur)="save()"
+        (keydown.enter)="$event.preventDefault(); save()"
       />
-      <div class="order-products">
-        @for (p of filtered; track p.id) {
-          <label
-            ><input
-              type="checkbox"
-              [(ngModel)]="p.allowed"
-              (ngModelChange)="changed.emit()"
-            />{{ p.name }}</label
-          >
+      días</label
+    >
+    <small>Encargos compartidos entre todas las listas</small>
+    @if (busy) {
+      <span role="status">Guardando…</span>
+    }
+    @if (message) {
+      <span role="alert"
+        >{{ message }}
+        @if (!ready) {
+          <button type="button" (click)="load()">Reintentar</button>
         }
-      </div>
-      <button appButton="primary" [disabled]="busy" (click)="save()">
-        Guardar configuración de encargos
-      </button>
-      @if (message) {
-        <p role="status">{{ message }}</p>
-      }
+      </span>
     }
   </section>`,
   styles: [
     `
-      .order-settings {
-        margin: 1rem 0;
-      }
-      .order-settings:has(.order-products) {
-        padding: 1rem;
-        border: 1px solid var(--border, #ddd);
-        border-radius: 12px;
-        background: var(--surface, #fff);
-      }
-      .order-settings > input {
-        width: 100%;
-        box-sizing: border-box;
-      }
-      .order-settings > label {
+      .order-bar {
         display: flex;
         align-items: center;
-        gap: 1rem;
-        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 16px 0;
+        padding: 12px 16px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
       }
-      .order-settings > label input {
-        width: 6rem;
-      }
-      .order-products {
-        max-height: 16rem;
-        overflow: auto;
-        margin: 1rem 0;
-      }
-      .order-products label {
+      label {
         display: flex;
-        gap: 0.6rem;
-        padding: 0.6rem;
+        align-items: center;
+        gap: 8px;
       }
-      .order-products input {
-        width: 1rem;
-        flex-shrink: 0;
+      input {
+        width: 68px;
+        height: 36px;
+        padding: 6px;
+        box-sizing: border-box;
+      }
+      small {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      [role="alert"] {
+        color: #a6472f;
+        font-size: 12px;
+      }
+      @media (max-width: 760px) {
+        .order-bar {
+          align-items: flex-start;
+        }
       }
     `,
   ],
@@ -107,45 +88,80 @@ export class PriceListOrdersComponent implements OnInit {
   cdr = inject(ChangeDetectorRef);
   days = 7;
   products: any[] = [];
-  query = "";
-  expanded = false;
   busy = false;
+  ready = false;
   message = "";
-  async ngOnInit() {
+  private persisted: any = null;
+  ngOnInit() {
+    void this.load();
+  }
+  async load() {
     try {
       const p: any = await firstValueFrom(
         this.http.get("/api/price-list-order-policy"),
       );
-      this.days = p.days;
-      this.products = p.products;
+      this.apply(p);
+      this.ready = true;
+      this.message = "";
+      this.changed.emit();
     } catch {
-      this.message = "No se pudieron cargar los permisos.";
+      this.message = "No se pudieron cargar los encargos.";
     }
-    this.cdr.detectChanges();
+    this.cdr.markForCheck();
   }
-  get filtered() {
-    return this.products.filter((p) =>
-      p.name.toLowerCase().includes(this.query.toLowerCase()),
+  private apply(p: any) {
+    this.days = p.days;
+    this.products = p.products.map((x: any) => ({ ...x }));
+    this.persisted = structuredClone(p);
+  }
+  allowed(id: number) {
+    return this.products.some((p) => p.id === id && p.allowed);
+  }
+  allAllowed(ids: number[]) {
+    return ids.length > 0 && ids.every((id) => this.allowed(id));
+  }
+  toggleProducts(ids: number[]) {
+    if (!this.ready || this.busy) return;
+    const allowed = !this.allAllowed(ids);
+    this.products = this.products.map((p) =>
+      ids.includes(p.id) ? { ...p, allowed } : p,
     );
+    this.changed.emit();
+    this.cdr.markForCheck();
+    void this.save();
   }
   async save() {
+    if (!this.ready || this.busy) return;
+    const ids = this.products.filter((p) => p.allowed).map((p) => p.id);
+    if (
+      this.days === this.persisted.days &&
+      JSON.stringify(ids) ===
+        JSON.stringify(
+          this.persisted.products
+            .filter((p: any) => p.allowed)
+            .map((p: any) => p.id),
+        )
+    )
+      return;
     this.busy = true;
+    this.message = "";
+    this.changed.emit();
+    this.cdr.markForCheck();
     try {
-      await firstValueFrom(
+      const result = await firstValueFrom(
         this.http.put("/api/price-list-order-policy", {
           days: this.days,
-          allowed_product_ids: this.products
-            .filter((p) => p.allowed)
-            .map((p) => p.id),
+          allowed_product_ids: ids,
         }),
       );
-      this.changed.emit();
-      this.message = "Configuración guardada en todas las listas";
+      this.apply(result);
     } catch {
-      this.message = "No se pudo guardar. Revisá el plazo e intentá de nuevo.";
+      this.apply(this.persisted);
+      this.message = "No se guardó el cambio. Intentá nuevamente.";
     } finally {
       this.busy = false;
-      this.cdr.detectChanges();
+      this.changed.emit();
+      this.cdr.markForCheck();
     }
   }
 }

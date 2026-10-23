@@ -70,6 +70,8 @@ test("promos share demand, constrain flavors, round eligible prices and require 
     let v = await preview();
     assert.equal(v.items.find((x) => x.product_id === kit.id)?.price, "2000");
     assert.match(v.text, /máximo 1 en toda la promo/);
+    assert.ok(!v.text.includes("Los límites por sabor"));
+    assert.ok(!v.text.includes("Requiere al menos un componente"));
     assert.ok(
       v.text.indexOf("Promo flow") > v.text.indexOf("*" + group + " —"),
     );
@@ -99,7 +101,7 @@ test("promos share demand, constrain flavors, round eligible prices and require 
     const {
       rows: [provider],
     } = await c.query(
-      "INSERT INTO providers(name,last_success_at) VALUES($1,now()-interval '25 hours') RETURNING id",
+      `INSERT INTO providers(name,last_success_at) VALUES($1,${process.env.TEST_ORDER_FIXED_CLOCK ? "'2026-10-22T12:00:00Z'::timestamptz" : "now()"}-interval '25 hours') RETURNING id`,
       [group],
     );
     const {
@@ -127,7 +129,7 @@ test("promos share demand, constrain flavors, round eligible prices and require 
       v.items.find((x) => x.product_id === kit.id)?.availability,
       "order",
     );
-    assert.equal(v.requires_confirmation, true);
+    assert.equal(v.has_warnings, true);
     assert.match(v.text, /Por encargo/);
     await c.query("UPDATE product_links SET kit_units=1 WHERE product_id=$1", [
       a.id,

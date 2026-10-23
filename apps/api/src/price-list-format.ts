@@ -33,7 +33,10 @@ export function formatPriceList(title: string, items: any[], now = new Date()) {
         order: [],
       });
     const group = groups.get(key);
-    const flavor = item.variant_group ? flavorLabel(item.name, name) : "";
+    const flavor =
+      item.variant_group && cleanText(item.name) !== name
+        ? flavorLabel(item.name, name)
+        : "";
     group[item.availability === "order" ? "order" : "available"].push(flavor);
   }
   const lines = [...groups.values()]
@@ -50,22 +53,23 @@ export function formatPriceList(title: string, items: any[], now = new Date()) {
         .toFixed(2)
         .replace(".", ",")
         .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-      const stock = (key: string, label: string) =>
-        g[key].length
-          ? label +
-            (g[key].some(Boolean)
-              ? ": " + [...new Set<string>(g[key])].sort(compare).join(", ")
-              : "")
-          : "";
-      return (
-        `*${g.name} — $ ${money}*\n` +
-        (g.kit
+      const stock = (key: string, label: string) => {
+        if (!g[key].length) return "";
+        const flavors = [...new Set<string>(g[key])]
+          .filter(Boolean)
+          .sort(compare);
+        if (key === "available" && flavors.length <= 1 && !g.order.length)
+          return flavors[0] || "";
+        return label + (flavors.length ? ": " + flavors.join(", ") : "");
+      };
+      const details = (
+        g.kit
           ? [g.details]
           : [stock("available", "Disponible"), stock("order", "Por encargo")]
-        )
-          .filter(Boolean)
-          .join("\n")
-      );
+      )
+        .filter(Boolean)
+        .join("\n");
+      return `*${g.name} — $ ${money}*` + (details ? "\n" + details : "");
     });
   const date = new Intl.DateTimeFormat("es-AR", {
     timeZone: "America/Argentina/Buenos_Aires",

@@ -17,6 +17,36 @@ test("presentation selection persists explicit variants and newly added flavors 
     await page.goto(base + "/price-lists");
     await page.getByRole("button", { name: "+ Nueva lista" }).click();
     await page
+      .getByRole("button", { name: "Marca: Todas las marcas", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Marca", exact: true })
+      .getByLabel("Sin marca", { exact: true })
+      .check();
+    await page
+      .getByRole("dialog", { name: "Marca", exact: true })
+      .getByRole("button", { name: "Listo", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Tipo: Productos y promos", exact: true })
+      .click();
+    await page
+      .getByRole("dialog", { name: "Tipo", exact: true })
+      .getByLabel("Promos", { exact: true })
+      .check();
+    await page
+      .getByRole("dialog", { name: "Tipo", exact: true })
+      .getByRole("button", { name: "Listo", exact: true })
+      .click();
+    await page
+      .getByRole("textbox", { name: "Buscar productos" })
+      .fill("Whey 2 lb");
+    await page.getByText("No se encontraron productos individuales.").waitFor();
+    await page
+      .getByRole("button", { name: "Limpiar filtros", exact: true })
+      .click();
+
+    await page
       .getByText("Título del mensaje")
       .locator("input")
       .fill("Sabores " + Date.now());
@@ -28,6 +58,24 @@ test("presentation selection persists explicit variants and newly added flavors 
       .filter({ hasText: "Whey 2 lb" })
       .first();
     await group.locator(".presentation-heading input").check();
+    assert.equal(await group.locator(".list-product").count(), 0);
+    await group.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: "/tmp/gevafit-price-lists/collapsed-desktop.png",
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await group.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: "/tmp/gevafit-price-lists/collapsed-mobile.png",
+    });
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    await group.getByRole("button", { name: /Ver sabores/ }).click();
     const count = await group.locator(".list-product input").count();
     assert.ok(count >= 3);
     assert.equal(
@@ -61,6 +109,7 @@ test("presentation selection persists explicit variants and newly added flavors 
     await page
       .getByRole("textbox", { name: "Buscar productos" })
       .fill("Whey 2 lb");
+    await group.getByRole("button", { name: /Ver sabores/ }).click();
     assert.equal(
       await group.locator(".list-product input:checked").count(),
       count - 1,
@@ -83,6 +132,7 @@ test("presentation selection persists explicit variants and newly added flavors 
     await page
       .getByRole("textbox", { name: "Buscar productos" })
       .fill("Whey 2 lb");
+    await group.getByRole("button", { name: /Ver sabores/ }).click();
     assert.equal(
       await group
         .locator(".list-product")

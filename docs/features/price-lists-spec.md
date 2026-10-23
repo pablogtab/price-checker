@@ -46,9 +46,9 @@ No se envían mensajes automáticamente.
 25. Como responsable, quiero omitir productos archivados o sin precio positivo para evitar mensajes incorrectos.
 26. Como responsable, quiero ver motivos de omisión para entender y corregir lo que falta en la lista.
 27. Como responsable, quiero ver cuándo se actualizó el proveedor para evaluar la vigencia de los encargos.
-28. Como responsable, quiero confirmar explícitamente encargos basados en datos desactualizados o una actualización fallida para decidir si compartirlos.
+28. Como responsable, quiero recibir un aviso breve si los encargos se basan en datos desactualizados o una actualización fallida, sin bloquear la copia.
 29. Como cliente, quiero un título, fecha, productos ordenados por marca/nombre y promos al final para encontrar lo que busco.
-30. Como cliente, quiero ver el plazo estimado y la aclaración de disponibilidad del proveedor para no confundirlos con una reserva garantizada.
+30. Como cliente, quiero ver el plazo estimado de entrega de los encargos.
 31. Como responsable, quiero copiar exactamente el texto de la vista previa para pegarlo en WhatsApp.
 32. Como responsable, quiero un error claro y una alternativa de selección manual si el portapapeles falla para poder compartir igualmente.
 33. Como responsable, quiero usar la pantalla en computadora y móvil sin controles nativos discordantes ni desbordes.
@@ -81,21 +81,21 @@ No se envían mensajes automáticamente.
 - Omitir productos archivados, faltantes o sin precio de venta finito y positivo. Los productos sin vínculo pueden publicarse como disponibles si tienen stock propio y precio válido.
 - Calcular dinero con precisión decimal y devolver importes de API como cadenas. Formatear importes ARS para Argentina con dos decimales. No convertir el costo USD del proveedor en precio de venta ni modificar precios.
 
-### Vigencia y confirmación
+### Vigencia y copia
 
 - Por proveedor relevante, mostrar última actualización exitosa y resultado del intento posterior más reciente. Datos de más de 24 horas o un último intento fallido/con sesión vencida requieren advertencia; un intento en curso no equivale por sí solo a fallo.
-- Si no hay catálogo exitoso para justificar una oferta, no habilitar el encargo mediante confirmación. Confirmar antigüedad tampoco permite ignorar stock cero/desconocido u ofertas no vigentes.
-- Antes de copiar un texto que incluye encargos con advertencia, exigir confirmación explícita vinculada a esa vista previa. Cancelar no copia. Editar la lista o regenerar sus datos invalida la confirmación anterior.
-- La copia corresponde exactamente a la vista previa confirmada y muestra su momento de generación; si se regenera, no actualizar el texto silenciosamente durante la copia.
+- Si no hay catálogo exitoso para justificar una oferta, no habilitar el encargo. La advertencia de antigüedad no permite ignorar stock cero/desconocido u ofertas no vigentes.
+- Si la vista previa incluye encargos con advertencia, mostrar un toast temporal sin exigir confirmación ni bloquear la copia. Editar la lista o regenerar sus datos invalida la vista previa anterior.
+- La copia corresponde exactamente a la vista previa vigente y muestra su momento de generación; si se regenera, no actualizar el texto silenciosamente durante la copia.
 
 ### Interfaces y experiencia
 
-- Añadir un módulo de listas con operaciones REST para consultar, crear y actualizar listas/selecciones; consultar y actualizar la política global de encargos; generar vista previa y confirmar la inclusión de encargos advertidos. Validar IDs, título y plazo; responder errores de forma consistente con la API actual. La implementación concretará nombres y rutas sin romper interfaces existentes.
-- La vista previa devuelve texto apto para clientes, omisiones con motivos, estado de proveedores y necesidad de confirmación. Separar esos diagnósticos internos del texto copiable. Nunca incluir credenciales ni sesiones del proveedor.
+- Añadir un módulo de listas con operaciones REST para consultar, crear y actualizar listas/selecciones; consultar y actualizar la política global de encargos; generar vista previa y validar la copia de la vista previa vigente. Validar IDs, título y plazo; responder errores de forma consistente con la API actual. La implementación concretará nombres y rutas sin romper interfaces existentes.
+- La vista previa devuelve texto apto para clientes, omisiones con motivos, estado de proveedores y presencia de advertencias. Separar esos diagnósticos internos del texto copiable. Nunca incluir credenciales ni sesiones del proveedor.
 - Pantalla accesible desde el menú, con listado de listas y editor de selección buscable por nombre/código/sabor, selección por presentación y por variante. Mostrar claramente qué está seleccionado y qué permiso de encargo es compartido por todas las listas.
 - Reutilizar componentes visuales del proyecto y convenciones de Gym. Sin selectores nativos; buscador solo en listas largas. Carga, errores, lista vacía y selección sin elementos exportables deben ser explícitos. No permitir copiar un mensaje vacío como si hubiera productos.
 - Texto: título editable, fecha de generación de Argentina, agrupación por marca/nombre/presentación/precio, sabores por disponibilidad y promos al final. Sin marca: al final del bloque de productos. Tomar marca de los vínculos del catálogo siguiendo la oferta seleccionada/preferida existente; no inferirla del nombre ni crear una marca si falta.
-- Si hay encargos, incluir plazo estimado y «Sujeto a disponibilidad del proveedor». Omitir esa aclaración si no se publican encargos. Escapar contenido de catálogo que pueda romper la agrupación o el formato del mensaje.
+- Si hay encargos, incluir solamente el plazo estimado. Omitir esa aclaración si no se publican encargos. Escapar contenido de catálogo que pueda romper la agrupación o el formato del mensaje.
 - Botón Copiar texto con confirmación visible de éxito solo cuando el portapapeles acepta el contenido. Si falla, conservar texto seleccionable e indicar cómo copiarlo manualmente. No abrir conversaciones ni enviar WhatsApp.
 
 ## Testing Decisions
@@ -109,7 +109,7 @@ Enfoque confirmado por el usuario: navegador real en escritorio/móvil más API 
 - Promos: componentes repetidos, cantidades mayores a uno, sabores distintos con stock desigual, mezcla de stock propio/encargo, permisos de promo/componentes, unidades de pack, combinaciones inviables y precio fijo frente a descuento con uno o varios precios resultantes. No reutilizar la misma unidad propia dos veces.
 - Comparar el texto completo esperado en ejemplos representativos: marcas, ausencia de marca, precios distintos por sabor, ARS, fecha Argentina, promos al final, aclaración solo si hay encargos y omisiones explicadas. Asegurar ausencia de costos, márgenes, cantidades y datos internos.
 - Vigencia: menos de 24 horas, exactamente 24 horas y más de 24 horas; fallo o sesión vencida posterior a éxito, intento en curso, varios proveedores. Confirmar/cancelar y comprobar invalidación al regenerar o editar. Controlar el tiempo desde el arnés de prueba, sin esperar un día ni cambiar el reloj del servidor.
-- Navegador: creación y edición de listas, búsqueda, selección de presentación y desmarcado de sabor, política compartida, vista previa/omisiones, advertencia/confirmación y portapapeles real. Probar fallo del portapapeles, vacíos, carga y errores recuperables.
+- Navegador: creación y edición de listas, búsqueda, selección de presentación y desmarcado de sabor, política compartida, vista previa/omisiones, toast de advertencia no bloqueante y portapapeles real. Probar fallo del portapapeles, vacíos, carga y errores recuperables.
 - Capturar y revisar escritorio y móvil: legibilidad del mensaje, grupos de sabores, controles, foco/teclado y ausencia de desbordes; iterar sobre los problemas encontrados.
 - Verificar que generar/confirmar/copiar no modifica stock, precios, ventas, cobros ni dispara una consulta al proveedor. Ejecutar compilaciones frontend/API y regresiones pertinentes de productos/promos.
 

@@ -40,7 +40,7 @@ test("independent persistent lists preview current selling prices and omit unava
   const other = await req("price-lists", { title: "Otra", product_ids: [] });
   const preview = await req(`price-lists/${list.id}/preview`, {});
   assert.match(preview.text, /\$\s?23\.500,00/);
-  assert.match(preview.text, /Disponible/);
+  assert.doesNotMatch(preview.text, /^Disponible(?=:|$)/m);
   assert.equal(preview.items[0].price, "23500");
   assert.equal(preview.omissions[0].product_id, no.id);
   assert.ok(!preview.text.includes("Sin stock"));

@@ -1,5 +1,12 @@
+import { FilterSelectComponent, FilterOption } from "./filter-select";
 import { PriceListOrdersComponent } from "./price-list-orders";
-import { Component, inject, OnInit, ChangeDetectorRef } from "@angular/core";
+import {
+  Component,
+  inject,
+  OnInit,
+  OnDestroy,
+  ChangeDetectorRef,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { HttpClient } from "@angular/common/http";
@@ -13,6 +20,7 @@ import { ButtonDirective } from "./ui/button";
     FormsModule,
     ButtonDirective,
     PriceListOrdersComponent,
+    FilterSelectComponent,
   ],
   styleUrl: "./price-lists.css",
   template: `
@@ -23,7 +31,19 @@ import { ButtonDirective } from "./ui/button";
       </div>
       <button appButton="primary" (click)="create()">+ Nueva lista</button>
     </div>
-    <app-price-list-orders (changed)="invalidate()" />
+    <app-price-list-orders #orders (changed)="invalidate()" />
+    @if (warningToast) {
+      <div class="toast list-warning-toast" role="status">
+        ⚠ {{ warningToast }}
+        <button
+          type="button"
+          aria-label="Cerrar advertencia"
+          (click)="warningToast = null; cdr.markForCheck()"
+        >
+          ×
+        </button>
+      </div>
+    }
     @if (error) {
       <div role="alert" class="list-error">
         {{ error }} <button (click)="load()">Reintentar</button>
@@ -62,45 +82,114 @@ import { ButtonDirective } from "./ui/button";
               aria-label="Buscar productos"
               placeholder="Buscar nombre, código o sabor…"
               [(ngModel)]="query"
+              (ngModelChange)="cdr.markForCheck()"
             />
+            <div class="list-filters">
+              <app-filter-select
+                label="Marca"
+                placeholder="Todas las marcas"
+                [options]="brandOptions"
+                [(value)]="brands"
+                (valueChange)="cdr.markForCheck()"
+              />
+              <app-filter-select
+                label="Stock propio"
+                placeholder="Todo el stock"
+                [options]="stockOptions"
+                [(value)]="stocks"
+                (valueChange)="cdr.markForCheck()"
+              />
+              <app-filter-select
+                label="Tipo"
+                placeholder="Productos y promos"
+                [options]="typeOptions"
+                [(value)]="types"
+                (valueChange)="cdr.markForCheck()"
+              />
+              <button appButton="ghost" (click)="clearFilters()">
+                Limpiar filtros
+              </button>
+            </div>
             <div class="list-options">
               @for (group of presentationGroups; track group.key) {
                 <section class="presentation-group">
                   @if (group.presentation) {
-                    <label class="presentation-heading">
-                      <input
-                        type="checkbox"
-                        [checked]="groupSelected(group)"
-                        [indeterminate]="groupPartial(group)"
-                        (change)="toggleGroup(group)"
-                      />
-                      <span
-                        ><strong>{{ group.presentation }}</strong
-                        ><small
-                          >Seleccionar todos los sabores actuales</small
-                        ></span
+                    <div class="presentation-summary">
+                      <label class="presentation-heading">
+                        <input
+                          type="checkbox"
+                          [checked]="groupSelected(group)"
+                          [indeterminate]="groupPartial(group)"
+                          (change)="toggleGroup(group)"
+                        />
+                        <span
+                          ><strong>{{ group.presentation }}</strong
+                          ><small
+                            >Seleccionar todos los sabores actuales</small
+                          ></span
+                        >
+                      </label>
+                      <button
+                        type="button"
+                        class="order-toggle"
+                        [class.enabled]="orders.allAllowed(groupIds(group))"
+                        [attr.aria-pressed]="orders.allAllowed(groupIds(group))"
+                        [attr.aria-label]="'Por encargo: ' + group.presentation"
+                        [disabled]="!orders.ready || orders.busy"
+                        (click)="orders.toggleProducts(groupIds(group))"
                       >
-                    </label>
+                        {{
+                          orders.allAllowed(groupIds(group)) ? "✓ " : "+ "
+                        }}Por encargo
+                      </button>
+                      <button
+                        class="flavor-toggle"
+                        type="button"
+                        [attr.aria-expanded]="expandedGroups.has(group.key)"
+                        (click)="toggleExpanded(group.key)"
+                      >
+                        {{
+                          expandedGroups.has(group.key)
+                            ? "Ocultar sabores"
+                            : "Ver sabores"
+                        }}
+                        ({{ group.visibleProducts.length }})
+                      </button>
+                    </div>
                   }
-                  @for (p of group.products; track p.id) {
-                    <label class="list-product"
-                      ><input
-                        type="checkbox"
-                        [checked]="selected.product_ids.includes(p.id)"
-                        (change)="toggle(p.id)"
-                      /><span
-                        ><strong>{{ p.name }}</strong
-                        ><small
-                          >{{ p.code || "Sin código" }}
-                          @if (
-                            group.presentation &&
-                            !selected.product_ids.includes(p.id)
-                          ) {
-                            · No seleccionado
-                          }
-                        </small></span
-                      ></label
-                    >
+                  @if (!group.presentation || expandedGroups.has(group.key)) {
+                    @for (p of group.visibleProducts; track p.id) {
+                      <div class="list-product-row">
+                        <label class="list-product"
+                          ><input
+                            type="checkbox"
+                            [checked]="selected.product_ids.includes(p.id)"
+                            (change)="toggle(p.id)"
+                          /><span
+                            ><strong>{{ p.name }}</strong
+                            ><small
+                              >{{ p.code || "Sin código" }}
+                              @if (
+                                group.presentation &&
+                                !selected.product_ids.includes(p.id)
+                              ) {
+                                · No seleccionado
+                              }
+                            </small></span
+                          ></label
+                        ><button
+                          type="button"
+                          class="order-toggle"
+                          [class.enabled]="orders.allowed(p.id)"
+                          [attr.aria-pressed]="orders.allowed(p.id)"
+                          [attr.aria-label]="'Por encargo: ' + p.name"
+                          [disabled]="!orders.ready || orders.busy"
+                          (click)="orders.toggleProducts([p.id])"
+                        >
+                          {{ orders.allowed(p.id) ? "✓ " : "+ " }}Por encargo
+                        </button>
+                      </div>
+                    }
                   }
                 </section>
               } @empty {
@@ -137,11 +226,7 @@ import { ButtonDirective } from "./ui/button";
             </div>
             <button
               appButton="primary"
-              [disabled]="
-                busy ||
-                !preview.items.length ||
-                (preview.requires_confirmation && !confirmed)
-              "
+              [disabled]="busy || !preview.items.length"
               (click)="copy()"
             >
               Copiar texto
@@ -151,18 +236,7 @@ import { ButtonDirective } from "./ui/button";
             <p>
               {{ provider.name }} · Última actualización:
               {{ supplierDate(provider.last_success_at) }}
-              @if (provider.warning) {
-                <strong
-                  >Datos desactualizados o última actualización fallida</strong
-                >
-              }
             </p>
-          }
-          @if (preview.requires_confirmation) {
-            <label
-              ><input type="checkbox" [(ngModel)]="confirmed" />Confirmo incluir
-              encargos con datos desactualizados en esta vista previa</label
-            >
           }
           <textarea
             aria-label="Texto para WhatsApp"
@@ -189,7 +263,7 @@ import { ButtonDirective } from "./ui/button";
     }
   `,
 })
-export class PriceListsComponent implements OnInit {
+export class PriceListsComponent implements OnInit, OnDestroy {
   http = inject(HttpClient);
   cdr = inject(ChangeDetectorRef);
   lists: any[] = [];
@@ -197,12 +271,63 @@ export class PriceListsComponent implements OnInit {
   selected: any = null;
   query = "";
   preview: any = null;
-  confirmed = false;
+  warningToast: string | null = null;
+  private warningTimer: ReturnType<typeof setTimeout> | undefined;
+  ngOnDestroy() {
+    clearTimeout(this.warningTimer);
+  }
+  private warnStale() {
+    clearTimeout(this.warningTimer);
+    this.warningToast =
+      "Los datos del proveedor están desactualizados. Revisá disponibilidad y precios.";
+    this.warningTimer = setTimeout(() => {
+      this.warningToast = null;
+      this.cdr.markForCheck();
+    }, 6000);
+    this.cdr.markForCheck();
+  }
+  groupIds(group: any): number[] {
+    return group.products.map((p: any) => p.id);
+  }
+
   error = "";
   message = "";
   copyStatus = "";
   loading = true;
   busy = false;
+  expandedGroups = new Set<string>();
+  brands: string[] = [];
+  stocks: string[] = [];
+  types: string[] = [];
+  stockOptions: FilterOption[] = [
+    { value: "positive", label: "Con stock propio" },
+    { value: "empty", label: "Sin stock propio" },
+  ];
+  typeOptions: FilterOption[] = [
+    { value: "product", label: "Productos" },
+    { value: "kit", label: "Promos" },
+  ];
+  productBrand(p: any): string {
+    return p.selected?.individual?.brand || p.selected?.kit?.brand || "";
+  }
+  get brandOptions(): FilterOption[] {
+    return [...new Set<string>(this.products.map((p) => this.productBrand(p)))]
+      .sort((a, b) => a.localeCompare(b, "es"))
+      .map((b) => ({ value: b || "__unbranded", label: b || "Sin marca" }));
+  }
+  toggleExpanded(key: string) {
+    if (this.expandedGroups.has(key)) this.expandedGroups.delete(key);
+    else this.expandedGroups.add(key);
+    this.cdr.markForCheck();
+  }
+  clearFilters() {
+    this.query = "";
+    this.brands = [];
+    this.stocks = [];
+    this.types = [];
+    this.cdr.markForCheck();
+  }
+
   ngOnInit() {
     void this.load();
   }
@@ -227,23 +352,35 @@ export class PriceListsComponent implements OnInit {
     }
   }
   create() {
+    this.expandedGroups.clear();
     this.selected = { title: "Nueva lista", product_ids: [] };
     this.invalidate();
   }
   open(list: any) {
+    this.expandedGroups.clear();
     this.selected = { ...list, product_ids: [...list.product_ids] };
     this.invalidate();
   }
   invalidate() {
     this.preview = null;
-    this.confirmed = false;
+
     this.message = "";
     this.copyStatus = "";
+    this.cdr.markForCheck();
   }
   get filtered() {
     const q = this.query.toLocaleLowerCase();
-    return this.products.filter((p) =>
-      [p.name, p.code, p.barcode].join(" ").toLocaleLowerCase().includes(q),
+    return this.products.filter(
+      (p) =>
+        [p.name, p.code, p.barcode, p.variant_group]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(q) &&
+        (!this.brands.length ||
+          this.brands.includes(this.productBrand(p) || "__unbranded")) &&
+        (!this.stocks.length ||
+          this.stocks.includes(p.own_stock > 0 ? "positive" : "empty")) &&
+        (!this.types.length || this.types.includes(p.kind)),
     );
   }
   get presentationGroups(): any[] {
@@ -260,6 +397,10 @@ export class PriceListsComponent implements OnInit {
     }
     const visible = new Set(this.filtered.map((p) => p.id));
     return [...groups.values()]
+      .map((g) => ({
+        ...g,
+        visibleProducts: g.products.filter((p: any) => visible.has(p.id)),
+      }))
       .filter((g) => g.products.some((p: any) => visible.has(p.id)))
       .sort((a, b) =>
         (a.presentation || a.products[0].name).localeCompare(
@@ -328,7 +469,7 @@ export class PriceListsComponent implements OnInit {
         {},
       );
       this.copyStatus = "";
-      this.confirmed = false;
+      if (this.preview.has_warnings) this.warnStale();
     } catch {
       this.error = "No pudimos generar la vista previa. Intentá nuevamente.";
     } finally {
@@ -344,19 +485,14 @@ export class PriceListsComponent implements OnInit {
     }).format(new Date(value));
   }
   async copy() {
-    if (
-      this.busy ||
-      !this.preview ||
-      (this.preview.requires_confirmation && !this.confirmed)
-    )
-      return;
+    if (this.busy || !this.preview) return;
     const preview = this.preview;
     this.busy = true;
     try {
       const accepted = await this.request(
         "POST",
         `price-lists/${this.selected.id}/confirm`,
-        { preview_id: preview.preview_id, accept_stale: this.confirmed },
+        { preview_id: preview.preview_id },
       );
       if (this.preview !== preview) return;
       try {

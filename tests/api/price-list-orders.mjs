@@ -26,7 +26,7 @@ async function request(path, body, method = "POST") {
   assert.ok(r.ok, await r.clone().text());
   return r.json();
 }
-test("shared order policy and supplier alternatives control export; stale data requires preview-specific confirmation", async () => {
+test("shared order policy and supplier alternatives control export; stale data warns without blocking copy", async () => {
   const p = await request("products", {
     name: "Encargo Chocolate",
     selling_price: "23500",
@@ -69,13 +69,13 @@ test("shared order policy and supplier alternatives control export; stale data r
     let preview = await request(`price-lists/${list.id}/preview`, {});
     assert.equal(preview.items[0]?.availability, "order");
     assert.match(preview.text, /9 días/);
-    assert.equal(preview.requires_confirmation, false);
+    assert.equal(preview.has_warnings, false);
     await c.query(
-      "UPDATE providers SET last_success_at=now()-interval '25 hours' WHERE id=$1",
+      `UPDATE providers SET last_success_at=${process.env.TEST_ORDER_FIXED_CLOCK ? "'2026-10-22T12:00:00Z'::timestamptz" : "now()"}-interval '25 hours' WHERE id=$1`,
       [provider.id],
     );
     preview = await request(`price-lists/${list.id}/preview`, {});
-    assert.equal(preview.requires_confirmation, true);
+    assert.equal(preview.has_warnings, true);
     assert.equal(preview.providers[0].warning, true);
     const confirm = async (snapshot, accepted, status = 201) => {
       const response = await fetch(
@@ -92,8 +92,8 @@ test("shared order policy and supplier alternatives control export; stale data r
       assert.equal(response.status, status, await response.clone().text());
       return response.json();
     };
-    await confirm(preview, false, 400);
-    assert.equal((await confirm(preview, true)).text, preview.text);
+    assert.equal((await confirm(preview, false)).text, preview.text);
+    assert.doesNotMatch(preview.text, /Sujeto a disponibilidad del proveedor/);
     const prior = preview;
     preview = await request(`price-lists/${list.id}/preview`, {});
     await confirm(prior, true, 409);
@@ -126,13 +126,13 @@ test("shared order policy and supplier alternatives control export; stale data r
       [provider.id],
     );
     preview = await request(`price-lists/${list.id}/preview`, {});
-    assert.equal(preview.requires_confirmation, true);
+    assert.equal(preview.has_warnings, true);
     await c.query(
       "INSERT INTO refresh_runs(provider_id,status,trigger) VALUES($1,'running','manual')",
       [provider.id],
     );
     preview = await request(`price-lists/${list.id}/preview`, {});
-    assert.equal(preview.requires_confirmation, false);
+    assert.equal(preview.has_warnings, false);
     await c.query("UPDATE supplier_items SET available=false WHERE id=$1", [
       offer.id,
     ]);
@@ -148,7 +148,7 @@ test("shared order policy and supplier alternatives control export; stale data r
     await request(`products/${p.id}/stock`, { quantity: 1 }, "PUT");
     preview = await request(`price-lists/${list.id}/preview`, {});
     assert.equal(preview.items[0].availability, "available");
-    assert.equal(preview.requires_confirmation, false);
+    assert.equal(preview.has_warnings, false);
   } finally {
     await c.end();
   }
@@ -190,7 +190,7 @@ test(
           p.provider_id,
         ]);
         const v = await request(`price-lists/${list.id}/preview`, {});
-        assert.equal(v.requires_confirmation, expected, stamp);
+        assert.equal(v.has_warnings, expected, stamp);
       }
     } finally {
       await c.end();

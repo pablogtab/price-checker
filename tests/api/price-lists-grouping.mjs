@@ -47,10 +47,7 @@ test("selected flavors group by exact presentation and price without selecting n
     preview.text,
     /Whey 2 lb — \$ 1\.000,00\*\nDisponible: Banana, Chocolate/,
   );
-  assert.match(
-    preview.text,
-    /Whey 2 lb — \$ 1\.200,00\*\nDisponible: Vainilla/,
-  );
+  assert.match(preview.text, /Whey 2 lb — \$ 1\.200,00\*\nVainilla/);
   assert.match(preview.text, /Whey 3 kg — \$ 1\.000,00/);
   const added = await req("products", {
     name: "Whey 2 lb · Frutilla",
@@ -109,7 +106,7 @@ test("preferred linked brand orders groups before unbranded with stable exact sa
     }).format(new Date(preview.generated_at));
     assert.equal(
       preview.text,
-      `*Lista clientes*\n${date}\n\n*BBB Linked — $ 500,00*\nDisponible\n\n*AAA Linked — $ 500,00*\nDisponible\n\n*ZZZ Unknown — $ 500,00*\nDisponible`,
+      `*Lista clientes*\n${date}\n\n*BBB Linked — $ 500,00*\n\n*AAA Linked — $ 500,00*\n\n*ZZZ Unknown — $ 500,00*`,
     );
     await req(
       `price-lists/${list.id}`,
@@ -123,4 +120,29 @@ test("preferred linked brand orders groups before unbranded with stable exact sa
   } finally {
     await db.end();
   }
+});
+
+test("single variants omit redundant availability labels and repeated product names", async () => {
+  const ids = [];
+  for (const [name, group] of [
+    [
+      "STAR Citrato De Magnesio 500mg X 60 Capsulas",
+      "STAR Citrato De Magnesio 500mg X 60 Capsulas",
+    ],
+    ["Collagen FRUTOS ROJOS", null],
+    ["Creatina 300 GR · NEUTRA", "Creatina 300 GR"],
+  ]) {
+    const p = await req("products", {
+      name,
+      variant_group: group,
+      selling_price: "13500",
+    });
+    await req(`products/${p.id}/stock`, { quantity: 1 }, "PUT");
+    ids.push(p.id);
+  }
+  const list = await req("price-lists", { title: "Simple", product_ids: ids });
+  const preview = await req(`price-lists/${list.id}/preview`, {});
+  assert.ok(!preview.text.includes("Disponible"));
+  assert.equal(preview.text.split("STAR Citrato De Magnesio").length - 1, 1);
+  assert.match(preview.text, /Creatina 300 GR — \$ 13\.500,00\*\nNEUTRA/);
 });

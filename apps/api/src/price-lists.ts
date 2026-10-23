@@ -114,9 +114,9 @@ async function buildPreview(id: number) {
           ),
       ).values(),
     ] as never[];
-    result.requires_confirmation = result.providers.some((p: any) => p.warning);
+    result.has_warnings = result.providers.some((p: any) => p.warning);
     if (result.items.some((p: any) => p.availability === "order"))
-      result.text += `\n\n📦 Encargos: entrega estimada de ${settings?.price_list_order_days ?? 7} días. Sujeto a disponibilidad del proveedor.`;
+      result.text += `\n\n📦 Encargos: entrega estimada de ${settings?.price_list_order_days ?? 7} días.`;
     return {
       ...result,
       fingerprint: createHash("sha256")
@@ -143,7 +143,7 @@ const previews = new Map<
     id: string;
     fingerprint: string;
     text: string;
-    requires_confirmation: boolean;
+    has_warnings: boolean;
     expires: number;
   }
 >();
@@ -156,7 +156,7 @@ export async function previewPriceList(id: number) {
     id: preview_id,
     fingerprint,
     text: result.text,
-    requires_confirmation: result.requires_confirmation,
+    has_warnings: result.has_warnings,
     expires: Date.now() + 30 * 60 * 1000,
   });
   return { ...result, preview_id };
@@ -169,10 +169,6 @@ export async function confirmPriceList(id: number, body: any) {
     preview.expires < Date.now()
   )
     throw new ConflictException("La vista previa cambió. Generala nuevamente.");
-  if (preview.requires_confirmation && body.accept_stale !== true)
-    throw new BadRequestException(
-      "Confirmá la inclusión de encargos desactualizados.",
-    );
   const current = await buildPreview(id);
   if (
     previews.get(id) !== preview ||
