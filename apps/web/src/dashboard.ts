@@ -167,13 +167,16 @@ export class DashboardComponent implements OnChanges, OnDestroy {
     }).format(value);
   }
   private draw(days: DailySales[]) {
-    const values = days.flatMap((day) =>
-      day.profit === null
-        ? [Number(day.sales)]
-        : [Number(day.sales), Number(day.profit)],
-    );
-    const min = Math.min(0, ...values);
-    const max = Math.max(1, ...values);
+    let min = 0;
+    let max = 1;
+    for (const day of days) {
+      min = Math.min(min, Number(day.sales));
+      max = Math.max(max, Number(day.sales));
+      if (day.profit !== null) {
+        min = Math.min(min, Number(day.profit));
+        max = Math.max(max, Number(day.profit));
+      }
+    }
     const y = (value: number) => 240 - ((value - min) / (max - min)) * 210;
     this.points = days.map((day, i) => ({
       day,
