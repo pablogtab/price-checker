@@ -227,6 +227,12 @@ tbody th {
   }
 }
 @media (max-width: 600px) {
+  svg {
+    min-width: 540px;
+  }
+  .axis-label {
+    font-size: 18px;
+  }
   .performance-heading {
     align-items: stretch;
     flex-direction: column;
