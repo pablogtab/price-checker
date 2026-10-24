@@ -223,6 +223,14 @@ textarea:not(:focus-visible) {
   background: var(--accent-soft);
   border-color: #c9ddf6;
 }
+.business-summary h2 {
+  font-size: 16px;
+  margin: 0 0 5px;
+}
+.business-summary > p {
+  font-size: 12px;
+  margin: 0 0 14px;
+}
 .sync-banner {
   padding: 12px 16px;
   background: var(--surface);

@@ -1,0 +1,182 @@
+<section class="performance" aria-label="Progreso de ventas">
+  <div class="performance-heading">
+    <div>
+      <h2>Así va tu negocio</h2>
+      <p>Ventas y ganancia bruta a lo largo del tiempo</p>
+    </div>
+    <label class="period-control"
+      >Período
+      <select
+        [(ngModel)]="period"
+        (ngModelChange)="choosePeriod()"
+        aria-label="Período del dashboard"
+      >
+        <option value="last30">Últimos 30 días</option>
+        <option value="month">Este mes</option>
+        <option value="custom">Rango personalizado</option>
+      </select>
+    </label>
+  </div>
+  @if (period === 'custom') {
+  <form class="custom-range" (ngSubmit)="load()">
+    <label
+      >Desde<input
+        type="date"
+        name="start"
+        [(ngModel)]="start"
+        [max]="end"
+        required
+    /></label>
+    <label
+      >Hasta<input
+        type="date"
+        name="end"
+        [(ngModel)]="end"
+        [min]="start"
+        required
+    /></label>
+    <button appButton type="submit" [disabled]="loading">Aplicar rango</button>
+  </form>
+  } @if (loading) {
+  <p class="report-status" role="status">Cargando progreso…</p>
+  } @else if (error) {
+  <div class="report-error" role="alert">
+    {{error}} <button appButton (click)="load()">Reintentar</button>
+  </div>
+  } @else if (report; as r) {
+  <p class="period-caption">
+    {{date(r.period.start)}} – {{date(r.period.end)}}
+    <span
+      >vs. {{date(r.previous_period.start)}} –
+      {{date(r.previous_period.end)}}</span
+    >
+  </p>
+  <div class="performance-cards">
+    <article>
+      <span>Ventas</span><strong>{{money(r.current.sales)}}</strong
+      ><small [class]="direction(r.changes.sales)"
+        >{{change(r.changes.sales)}} <span>vs. período anterior</span></small
+      >
+    </article>
+    <article class="profit-card">
+      <span>Ganancia bruta de ventas</span
+      ><strong>{{money(r.current.profit)}}</strong
+      ><small [class]="direction(r.changes.profit)"
+        >{{change(r.changes.profit)}} <span>vs. período anterior</span></small
+      >
+    </article>
+    <article>
+      <span>Ventas registradas</span><strong>{{r.current.count}}</strong
+      ><small [class]="direction(r.changes.count)"
+        >{{change(r.changes.count)}} <span>vs. período anterior</span></small
+      >
+    </article>
+    <article>
+      <span>Margen bruto de ventas</span
+      ><strong>{{percent(r.current.margin)}}</strong
+      ><small [class]="direction(r.changes.margin)"
+        >{{change(r.changes.margin, true)}}
+        <span>vs. período anterior</span></small
+      >
+    </article>
+  </div>
+  <section class="trend-panel" aria-labelledby="trend-heading">
+    <div class="trend-heading">
+      <h3 id="trend-heading">Evolución diaria</h3>
+      <div class="chart-legend">
+        <span class="sales-key">Ventas</span
+        ><span class="profit-key">Ganancia bruta</span>
+      </div>
+    </div>
+    <p class="chart-note">
+      Importes en ARS · Ganancia antes de gastos e impuestos
+    </p>
+    <div class="chart-scroll">
+      <svg
+        viewBox="0 0 810 285"
+        role="img"
+        aria-labelledby="trend-title trend-description"
+      >
+        <title id="trend-title">Ventas y ganancia bruta por día</title>
+        <desc id="trend-description">
+          {{date(r.period.start)}} al {{date(r.period.end)}}. Consultá los
+          importes exactos en el detalle diario debajo del gráfico.
+        </desc>
+        @for (tick of ticks; track tick.y) {
+        <line
+          x1="80"
+          x2="780"
+          [attr.y1]="tick.y"
+          [attr.y2]="tick.y"
+          class="grid-line"
+        />
+        <text x="68" [attr.y]="tick.y + 4" text-anchor="end" class="axis-label">
+          {{axis(tick.value)}}
+        </text>
+        }
+        <path [attr.d]="salesPath" class="sales-line" />
+        <path [attr.d]="profitPath" class="profit-line" />
+        @for (point of points; track point.day.date) {
+        <circle
+          [attr.cx]="point.x"
+          [attr.cy]="point.salesY"
+          r="3"
+          class="sales-dot"
+        >
+          <title>
+            {{date(point.day.date)}} · Ventas: {{money(point.day.sales)}}
+          </title>
+        </circle>
+        @if(point.profitY !== null) {
+        <circle
+          [attr.cx]="point.x"
+          [attr.cy]="point.profitY"
+          r="3"
+          class="profit-dot"
+        >
+          <title>
+            {{date(point.day.date)}} · Ganancia bruta:
+            {{money(point.day.profit)}}
+          </title>
+        </circle>
+        } } @for (label of labels; track label.date) {
+        <text
+          [attr.x]="label.x"
+          y="271"
+          text-anchor="middle"
+          class="axis-label"
+        >
+          {{shortDate(label.date)}}
+        </text>
+        }
+      </svg>
+    </div>
+    <details class="daily-detail">
+      <summary>Ver detalle diario</summary>
+      <div class="daily-scroll">
+        <table>
+          <caption>
+            Ventas y ganancia bruta por fecha, en ARS
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Fecha</th>
+              <th scope="col">Ventas</th>
+              <th scope="col">Ganancia bruta</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (day of r.daily; track day.date) {
+            <tr>
+              <th scope="row">{{date(day.date)}}</th>
+              <td>{{money(day.sales)}}</td>
+              <td>{{money(day.profit)}}</td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+  }
+</section>

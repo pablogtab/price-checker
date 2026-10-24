@@ -1,3 +1,4 @@
+import { DashboardComponent } from "./dashboard";
 import {PriceListsComponent} from "./price-lists";
 import { CustomersComponent } from "./customers";
 import { ProductImageComponent } from "./ui/product-image";
@@ -34,7 +35,7 @@ Decimal.set({ precision: 40 });
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [PriceListsComponent,
+  imports: [DashboardComponent, PriceListsComponent,
     PriceAnalysisComponent,
     InstallComponent,
     CommonModule,
