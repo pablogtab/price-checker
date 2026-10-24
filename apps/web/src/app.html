@@ -45,87 +45,26 @@
         >}
         <span>{{p.detail}}</span>
       </div>
-      } @if(view==='dashboard' && latestPriceAnalysis; as analysis){
-      <price-analysis [run]="analysis" />
       } @if(notice){
       <div class="toast" role="status">✓ {{notice}}</div>
       } @if(loading){
       <div class="loading">Cargando…</div>
       } @else { @if(view==='dashboard'){ @let metrics = stockMetrics;
-      <section class="stats" aria-label="Resumen de stock y compras">
-        <article><span>Stock bajo mínimo</span><strong>{{metrics.low}}</strong><small>Productos que alcanzaron su mínimo configurado</small></article>
-        <article>
-          <span>Stock a costo (ARS)</span
-          ><strong>{{amount(metrics.cost)}}</strong
-          ><small>Costo de reposición actual</small>
-        </article>
-        <article>
-          <span>Stock a precio de venta</span
-          ><strong>{{amount(metrics.retail)}}</strong
-          ><small>Valor de tus unidades disponibles</small>
-        </article>
-        <article class="stat-accent">
-          <span>Ganancia potencial</span
-          ><strong>{{amount(metrics.profit)}}</strong
-          ><small>Venta menos costo del stock con costo conocido</small>
-        </article>
-        <article>
-          <span>Unidades en stock</span><strong>{{metrics.quantity}}</strong
-          ><small
-            >{{metrics.units}} productos / sabores · sin duplicar promos</small
-          >
-        </article>
-        <article>
-          <span>Sin stock</span><strong>{{metrics.out}}</strong
-          ><small
-            >{{metrics.missingStock}} productos sin recuento cargado</small
-          >
-        </article>
-        <article>
-          <span>Compras recibidas</span><strong>{{purchaseStats.total}}</strong
-          ><small>{{purchaseStats.recent}} en los últimos 30 días</small>
-        </article>
-        <article>
-          <span>Compras · últimos 30 días</span>@for(t of
-          purchaseStats.totals;track
-          t.currency){<strong>{{amount(t.recent_total,t.currency)}}</strong>}@if(!purchaseStats.totals.length){<strong>—</strong>}<small
-            >Importes registrados, separados por moneda</small
-          >
-        </article>
-        <article>
-          <span>Vendido · últimos 30 días</span
-          ><strong>{{amount(salesStats.recent_total)}}</strong
-          ><small>{{salesStats.count}} ventas registradas en total</small>
-        </article>
-        <article>
-          <span>Por cobrar a clientes</span
-          ><strong>{{amount(salesStats.pending)}}</strong
-          ><small>Saldo pendiente de todas las ventas</small>
-        </article>
-        <article>
-          <span>Cobrado</span><strong>{{amount(salesStats.paid)}}</strong
-          ><small>Cobros de ventas registrados en caja</small>
-        </article>
-        <article>
-          <span>Ganancia de ventas</span
-          ><strong>{{amount(salesStats.profit)}}</strong
-          ><small
-            >Costo guardado al vender · {{salesStats.missing_cost}} ventas sin
-            costo completo</small
-          >
-        </article>
+      <app-dashboard [refreshToken]="salesStats" />
+      <section class="business-summary" aria-labelledby="business-summary-heading">
+        <h2 id="business-summary-heading">Estado actual del negocio</h2>
+        <p class="subtle">Stock y saldos actuales, independientes del período seleccionado</p>
+        <div class="stats">
+          <article><span>Stock actual a costo</span><strong>{{amount(metrics.cost)}}</strong><small>Costo de reposición actual · ARS</small></article>
+          <article><span>Unidades disponibles</span><strong>{{metrics.quantity}}</strong><small>{{metrics.units}} productos / sabores · {{metrics.low}} bajo mínimo</small></article>
+          <article><span>Por cobrar a clientes</span><strong>{{amount(salesStats.pending)}}</strong><small>Saldo actual de todas las ventas</small></article>
+          <article><span>Cobros acumulados</span><strong>{{amount(salesStats.paid)}}</strong><small>Histórico de cobros de ventas activas</small></article>
+        </div>
+        @if(metrics.negative){<p class="stock-warning">{{metrics.negative}} productos con stock negativo. Revisá su stock real.</p>}
+        @if(metrics.missingStock){<p class="rate-note">{{metrics.missingStock}} productos sin recuento de stock cargado.</p>}
       </section>
-      @if(metrics.negative){
-      <p class="stock-warning">
-        {{metrics.negative}} productos con stock negativo. Revisá su stock real.
-      </p>
-      } @if(metrics.missingStock||metrics.missingCost){
-      <p class="rate-note">
-        Valoración parcial: {{metrics.missingStock}} productos sin stock cargado
-        y {{metrics.missingCost}} con stock pero sin costo en ARS. Las promos
-        usan el stock de sus componentes.
-      </p>
-      } }
+      @if(latestPriceAnalysis; as analysis){<price-analysis [run]="analysis" />}
+      }
       @if(view!=='price-lists'&&view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='new-sale'&&view!=='customers'){
       <section class="sync-banner">
         <span class="sync-symbol"><pc-icon name="refresh"/></span>
@@ -145,12 +84,13 @@
           Diariamente · 11:00 <small>Hora de Argentina</small>
         </div>
       </section>
-      @if(!settings.usd_ars){
+      @if(view!=='dashboard'&&!settings.usd_ars){
       <div class="rate-note">
         Los costos en USD necesitan tu tipo de cambio para calcular márgenes.
         <button (click)="navigate('settings')">Configurar USD → ARS ↗</button>
       </div>
       }
+      @if(view!=='dashboard'){
       <section class="catalog-panel">
         <div class="panel-title">
           <h2>
@@ -637,6 +577,7 @@
           }
         </footer>
       </section>
+      }
       } @else if(view==='price-lists') {<app-price-lists />
       } @else if(view==='sales'||view==='new-sale') {
       <app-sales [products]="products" [mode]="view==='new-sale'?'cart':'history'" (saved)="load()" />
