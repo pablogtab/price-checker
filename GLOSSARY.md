@@ -61,3 +61,14 @@ Corrección que deja sin efecto una venta registrada, devuelve sus unidades al s
 actual y revierte su deuda y cobros, conservando constancia de la venta anulada.
 Las aplicaciones de cobro correspondientes a otras ventas permanecen intactas.
 _Avoid_: Borrado de venta
+
+**Ganancia bruta de ventas**:
+El importe de las ventas registradas menos el costo de sus productos al momento
+de vender, independientemente de si ya se cobraron. No descuenta gastos del
+negocio ni impuestos.
+_Avoid_: Ganancia neta, Ganancia potencial del stock
+
+**Margen bruto de ventas**:
+La ganancia bruta expresada como porcentaje del importe de las mismas ventas.
+Solo considera ventas con costo completo conocido, tanto para la ganancia como
+para el importe vendido.
