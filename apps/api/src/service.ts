@@ -40,7 +40,7 @@ export class AppService {
     return { ok: true };
   }
   async settings() {
-    const [s] = await db.query("SELECT usd_ars::text FROM settings WHERE id=1");
+    const [s] = await db.query("SELECT usd_ars::text,supplier_quote_markup_percent::text FROM settings WHERE id=1");
     return s;
   }
   async saveSettings(body: any) {
@@ -48,7 +48,13 @@ export class AppService {
       body.usd_ars == null || body.usd_ars === ""
         ? null
         : money(body.usd_ars, true);
-    await db.query("UPDATE settings SET usd_ars=$1 WHERE id=1", [rate]);
+    let markup: string | null = null;
+    if(body.supplier_quote_markup_percent !== undefined) {
+      if(body.supplier_quote_markup_percent === null || body.supplier_quote_markup_percent === "") throw new BadRequestException("Ingresá el recargo de cotización");
+      markup = money(body.supplier_quote_markup_percent);
+      if(new Decimal(markup).gt(10000) || new Decimal(markup).decimalPlaces() > 2) throw new BadRequestException("El recargo debe estar entre 0 y 10000%, con hasta dos decimales");
+    }
+    await db.query("UPDATE settings SET usd_ars=CASE WHEN $1::boolean THEN $2::numeric ELSE usd_ars END,supplier_quote_markup_percent=coalesce($3::numeric,supplier_quote_markup_percent) WHERE id=1", [Object.hasOwn(body,"usd_ars"),rate,markup]);
     return this.settings();
   }
   async facets() {

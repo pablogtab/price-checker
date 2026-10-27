@@ -91,6 +91,7 @@
       </div>
       }
       @if(view!=='dashboard'){
+      @if(view==='catalog'){<app-catalog-quote [state]="quoteState" [usdArs]="settings.usd_ars" />}
       <section class="catalog-panel">
         <div class="panel-title">
           <h2>
@@ -178,6 +179,7 @@
           <table>
             <thead>
               <tr>
+                <th class="quote-select"><input type="checkbox" aria-label="Seleccionar esta página para cotizar" [checked]="quotePageSelected" [disabled]="!catalog.items.length" (change)="toggleQuotePage()" /><span>Cotizar</span></th>
                 <th [attr.aria-sort]="sortAria('name')">
                   <button class="column-sort" (click)="sortColumn('name')">
                     Producto{{sortArrow('name')}}
@@ -204,7 +206,8 @@
             </thead>
             <tbody>
               @for(item of catalog.items;track item.id){
-              <tr>
+              <tr [class.quote-selected]="isQuoteSelected(item.id)">
+                <td class="quote-select"><input type="checkbox" [attr.aria-label]="'Cotizar ' + item.name" [checked]="isQuoteSelected(item.id)" (change)="toggleQuote(item)" /></td>
                 <td class="product-cell">
                   @if(item.image_path){<pc-product-image class="product-photo" [image]="item.image_path" [alt]="item.name"/>} <strong>{{item.name}}</strong
                   ><small
@@ -248,7 +251,7 @@
               </tr>
               @if(quickItem?.id===item.id){
               <tr class="quick-create-row">
-                <td colspan="6">
+                <td colspan="7">
                   <form (ngSubmit)="quickCreate()" class="quick-create">
                     <span
                       ><strong>{{item.name}}</strong
@@ -621,6 +624,16 @@
             ><button appButton="primary" type="submit" [disabled]="busy">
               Guardar cotización
             </button>
+          </form>
+        </section>
+        <section class="settings-card">
+          <h2>Cotizaciones del proveedor</h2>
+          <p>Recargo predeterminado sobre el precio del proveedor para cotizar productos por encargo. Podés cambiarlo en cada cotización.</p>
+          <form (ngSubmit)="saveQuoteMarkup()">
+            <label for="quote-markup">Recargo predeterminado (%)</label>
+            <input id="quote-markup" name="quote-markup" type="number" min="0" max="10000" step="0.01" required [(ngModel)]="quoteDefaultMarkup" />
+            <small>Inicial: 10%. Los precios sugeridos se redondean a $100. No modifica los precios de tus productos.</small>
+            <button appButton="primary" type="submit" [disabled]="busy">Guardar recargo</button>
           </form>
         </section>
         <section class="settings-card">

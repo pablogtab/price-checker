@@ -1,4 +1,5 @@
 import { DashboardComponent } from "./dashboard";
+import { CatalogQuoteComponent, CatalogQuoteState, SupplierQuoteItem } from "./catalog-quote";
 import {PriceListsComponent} from "./price-lists";
 import { CustomersComponent } from "./customers";
 import { ProductImageComponent } from "./ui/product-image";
@@ -35,7 +36,7 @@ Decimal.set({ precision: 40 });
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [DashboardComponent, PriceListsComponent,
+  imports: [DashboardComponent, PriceListsComponent, CatalogQuoteComponent,
     PriceAnalysisComponent,
     InstallComponent,
     CommonModule,
@@ -63,6 +64,23 @@ export class AppComponent implements OnInit, OnDestroy {
   view = "dashboard";
   products: any[] = [];
   catalog: any = { items: [], total: 0 };
+  quoteState: CatalogQuoteState = { items: [], markup: "10", prices: {} };
+  quoteDefaultMarkup = "10";
+  isQuoteSelected(id: number) { return this.quoteState.items.some(item => item.id === id); }
+  toggleQuote(item: SupplierQuoteItem) {
+    if(this.isQuoteSelected(item.id)) {
+      this.quoteState.items = this.quoteState.items.filter(selected => selected.id !== item.id);
+      delete this.quoteState.prices[item.id];
+    } else {
+      if(!this.quoteState.items.length) this.quoteState.markup = this.settings.supplier_quote_markup_percent ?? "10";
+      this.quoteState.items = [...this.quoteState.items, {...item}];
+    }
+  }
+  get quotePageSelected() { return this.catalog.items.length > 0 && this.catalog.items.every((item: SupplierQuoteItem) => this.isQuoteSelected(item.id)); }
+  toggleQuotePage() {
+    const remove = this.quotePageSelected;
+    for(const item of this.catalog.items) if(this.isQuoteSelected(item.id) === remove) this.toggleQuote(item);
+  }
   facets: any = { providers: [], brands: [], categories: [] };
   runs: any[] = [];
   settings: any = { usd_ars: null };
@@ -381,6 +399,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.facets = f;
       this.runs = r;
       this.settings = s;
+      this.quoteDefaultMarkup = s.supplier_quote_markup_percent ?? "10";
       this.purchaseStats = buys;
       this.salesStats = sales;
       this.rate = s.usd_ars || "";
@@ -1313,5 +1332,15 @@ export class AppComponent implements OnInit, OnDestroy {
       this.busy = false;
       this.cdr.markForCheck();
     }
+  }
+  async saveQuoteMarkup() {
+    this.busy = true;
+    try {
+      this.settings = await this.api("PUT", "settings", { supplier_quote_markup_percent: this.quoteDefaultMarkup });
+      this.quoteDefaultMarkup = this.settings.supplier_quote_markup_percent;
+      if(!this.quoteState.items.length) this.quoteState.markup = this.quoteDefaultMarkup;
+      this.toast("Recargo predeterminado guardado.");
+    } catch(e) { this.fail(e); }
+    finally { this.busy = false; this.cdr.markForCheck(); }
   }
 }

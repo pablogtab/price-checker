@@ -1,3 +1,7 @@
+.quote-select { width:64px; text-align:center; }
+.quote-select input[type="checkbox"] { width:18px; height:18px; min-height:0; padding:0; accent-color:var(--accent); cursor:pointer; }
+.quote-select span { display:block; font-size:10px; margin-top:4px; }
+tr.quote-selected { background:var(--accent-soft); }
 /* Shared visual language adapted from gym/web/src/styles.css.
    Keep business screen grids; controls, density and surfaces use Gym tokens. */
 :root {

@@ -27,12 +27,14 @@ import {
 } from "./migration";
 import { PriceLists1760097600023 } from "./price-list-migration";
 import { PriceListOrders1760097600024 } from "./price-list-order-migration";
+import { SupplierQuoteMarkup1760097600025 } from "./supplier-quote-migration";
 export const db = new DataSource({
   type: "postgres",
   url:
     process.env.DATABASE_URL ||
     "postgres://price_checker:local_price_checker@127.0.0.1:5442/price_checker",
   migrations: [
+    SupplierQuoteMarkup1760097600025,
     PriceListOrders1760097600024,
     PriceLists1760097600023,
     Initial1760097600000,
