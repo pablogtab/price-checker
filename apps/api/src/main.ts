@@ -1,4 +1,4 @@
-import {storefrontDraft,saveStorefrontDraft,publishStorefront,storefrontCatalog,storefrontPresentation,storefrontPromo,storefrontOrderPermission,storefrontImage} from "./storefront";
+import {storefrontCategories,storefrontDraft,saveStorefrontDraft,publishStorefront,storefrontCatalog,storefrontPresentation,storefrontPromo,storefrontOrderPermission,storefrontImage} from "./storefront";
 import {listMedia,uploadMedia,mediaFile,existingMedia,importMedia,getMediaAsset} from "./media";
 import {presentations,resolvePresentationPrice} from "./presentation-pricing";
 import {orderPolicy, saveOrderPolicy} from "./price-list-orders";
@@ -110,8 +110,9 @@ class AppController {
   @Put("storefront/order-permission/:id") orderPermission(@Param("id") id:string,@Body() body:any){return storefrontOrderPermission(integer(id),body);}
   @Get("storefront/draft") @Header("Cache-Control","no-store") draft(){return storefrontDraft();}
   @Put("storefront/draft") saveDraft(@Body() body:any){return saveStorefrontDraft(body);}
-  @Get("storefront/preview") @Header("Cache-Control","no-store") previewStorefront(){return storefrontCatalog({pageSize:48},true);}
+  @Get("storefront/preview") @Header("Cache-Control","no-store") previewStorefront(@Query() query:any){return storefrontCatalog(query,true);}
   @Post("storefront/publish") publishStore(@Body() body:any){return publishStorefront(body);}
+  @Get("public/storefront/categories") @Header("Cache-Control","no-store") publicCategories(@Query() query:any){return storefrontCategories(query);}
   @Get("public/storefront/catalog") @Header("Cache-Control","no-store") publicCatalog(@Query() query:any){return storefrontCatalog(query);}
   @Get("public/storefront/presentations/:id") @Header("Cache-Control","no-store") publicPresentation(@Param("id") id:string){return storefrontPresentation(integer(id));}
   @Get("public/storefront/promos/:id") @Header("Cache-Control","no-store") publicPromo(@Param("id") id:string){return storefrontPromo(integer(id));}

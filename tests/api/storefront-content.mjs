@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 const base = process.env.TEST_API_URL;
 const testDatabase = process.env.TEST_STOREFRONT_DATABASE_URL;
-if (!testDatabase || !new URL(testDatabase).pathname.endsWith("_test") || !["127.0.0.1","localhost"].includes(new URL(testDatabase).hostname)) throw Error("Disposable local database required before fixtures");
+if (
+  !testDatabase ||
+  !new URL(testDatabase).pathname.endsWith("_test") ||
+  !["127.0.0.1", "localhost"].includes(new URL(testDatabase).hostname)
+)
+  throw Error("Disposable local database required before fixtures");
 if (!base || !["127.0.0.1", "localhost"].includes(new URL(base).hostname))
   throw Error("Local API required");
 async function req(path, body, method = "POST", status) {
@@ -65,6 +70,8 @@ test("owner saves a draft and publishes only selected flavors with live common p
   assert.deepEqual(
     Object.keys(item).sort(),
     [
+      "categoryIds",
+      "brand",
       "currency",
       "description",
       "id",

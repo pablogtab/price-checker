@@ -19,6 +19,16 @@ registerLocaleData(esAR);
   template: `<geva-storefront-view
     [items]="items"
     [total]="total"
+    [contextQuery]="contextQuery"
+    [categories]="categories"
+    [brands]="brands"
+    [q]="query.q || ''"
+    [category]="query.category || ''"
+    [brand]="query.brand || ''"
+    [order]="query.order || 'manual'"
+    [page]="page"
+    [pageSize]="pageSize"
+    (filterChange)="filter($event)"
     [detail]="detail"
     [loading]="loading"
     [error]="error"
@@ -28,6 +38,25 @@ registerLocaleData(esAR);
   />`,
 })
 class PublicStorefront implements OnInit {
+  get contextQuery() {
+    return location.search;
+  }
+  private requestId = 0;
+  categories: { id: string; name: string }[] = [];
+  brands: { id: string; name: string }[] = [];
+  query: Record<string, string> = {};
+  page = 1;
+  pageSize = 24;
+  filter(change: Record<string, string | number>) {
+    const params = new URLSearchParams(location.search);
+    for (const [key, value] of Object.entries(change)) {
+      if (value) params.set(key, String(value));
+      else params.delete(key);
+    }
+    if (change.page === 1) params.delete("revision");
+    history.pushState(null, "", "/?" + params);
+    void this.load();
+  }
   items: StorefrontProduct[] = [];
   detail: StorefrontProduct | null = null;
   loading = true;
@@ -41,6 +70,10 @@ class PublicStorefront implements OnInit {
     void this.load();
   }
   async load() {
+    const requestId = ++this.requestId;
+    this.query = Object.fromEntries(new URLSearchParams(location.search));
+    this.page = Number(this.query.page) || 1;
+    this.pageSize = Number(this.query.pageSize) || 24;
     this.loading = true;
     this.error = "";
     this.detail = null;
@@ -55,6 +88,14 @@ class PublicStorefront implements OnInit {
             ? (promo ? "promos/" : "presentations/") + id
             : "catalog" + location.search),
       );
+      if (r.status === 409 && !id) {
+        const params = new URLSearchParams(location.search);
+        params.delete("revision");
+        params.set("page", "1");
+        history.replaceState(null, "", "/?" + params);
+        await this.load();
+        return;
+      }
       if (!r.ok)
         throw Error(
           id
@@ -62,15 +103,25 @@ class PublicStorefront implements OnInit {
             : "No se pudo cargar el catálogo.",
         );
       const data = await r.json();
+      if (requestId !== this.requestId) return;
       if (id) this.detail = data;
       else {
         this.items = data.items;
         this.total = data.total;
+        this.categories = data.categories;
+        this.brands = data.brands;
+        this.page = data.page;
+        this.pageSize = data.pageSize;
+        const params = new URLSearchParams(location.search);
+        params.set("revision", String(data.revision));
+        history.replaceState(null, "", "/?" + params);
       }
     } catch (e) {
+      if (requestId !== this.requestId) return;
       this.error =
         e instanceof Error ? e.message : "No se pudo cargar el catálogo.";
     } finally {
+      if (requestId !== this.requestId) return;
       this.loading = false;
       this.cdr.markForCheck();
     }

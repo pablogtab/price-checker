@@ -1,6 +1,10 @@
 import { Component, Input, Output, EventEmitter } from "@angular/core";
+import { FormsModule } from "@angular/forms";
+import { SelectComponent, SelectOption } from "./select";
 import { CurrencyPipe } from "@angular/common";
 export interface StorefrontProduct {
+  brand?: { id: string; name: string } | null;
+  categoryIds?: string[];
   id: number | string;
   kind?: "promo";
   components?: {
@@ -19,7 +23,7 @@ export interface StorefrontProduct {
 @Component({
   selector: "geva-storefront-view",
   standalone: true,
-  imports: [CurrencyPipe],
+  imports: [CurrencyPipe, FormsModule, SelectComponent],
   template: ` <header>
       <a
         href="/"
@@ -44,7 +48,10 @@ export interface StorefrontProduct {
           </div>
           <div class="detail-info">
             <p class="eyebrow">
-              {{ detail.kind === "promo" ? "Promo" : "Producto" }}
+              {{
+                detail.brand?.name ||
+                  (detail.kind === "promo" ? "Promo" : "Producto")
+              }}
             </p>
             <h1>{{ detail.title }}</h1>
             <p class="price">
@@ -112,6 +119,48 @@ export interface StorefrontProduct {
           </div>
           <span>{{ total }} {{ total === 1 ? "producto" : "productos" }}</span>
         </div>
+        <form
+          class="search"
+          (submit)="$event.preventDefault(); update({ q: search })"
+        >
+          <input
+            aria-label="Buscar productos"
+            placeholder="Buscar productos o sabores"
+            [(ngModel)]="search"
+            name="search"
+          /><button type="submit">Buscar</button>
+        </form>
+        <nav class="categories" aria-label="Categorías">
+          <button
+            [class.selected]="!category"
+            [attr.aria-pressed]="!category"
+            (click)="update({ category: '' })"
+          >
+            Todos
+          </button>
+          @for (c of categories; track c.id) {
+            <button
+              [class.selected]="category === c.id"
+              [attr.aria-pressed]="category === c.id"
+              (click)="update({ category: c.id })"
+            >
+              {{ c.name }}
+            </button>
+          }
+        </nav>
+        <div class="filters">
+          <app-select
+            label="Marca"
+            [options]="brandOptions"
+            [ngModel]="brand"
+            (ngModelChange)="update({ brand: $event })"
+          /><app-select
+            label="Orden"
+            [options]="orderOptions"
+            [ngModel]="order"
+            (ngModelChange)="update({ order: $event })"
+          />
+        </div>
         @if (loading) {
           <p class="state" role="status">Cargando productos…</p>
         } @else if (error) {
@@ -120,16 +169,22 @@ export interface StorefrontProduct {
             <button (click)="retry.emit()">Volver a intentar</button>
           </div>
         } @else if (!items.length) {
-          <p class="state">Todavía no hay productos publicados.</p>
+          <p class="state">
+            {{
+              q || category || brand
+                ? "No encontramos productos con estos filtros."
+                : "Todavía no hay productos publicados."
+            }}
+          </p>
         } @else {
           <div class="grid">
             @for (item of items; track item.id) {
               <a
                 class="card"
                 [href]="
-                  item.kind === 'promo'
+                  (item.kind === 'promo'
                     ? '/promos/' + $any(item.id).slice(6)
-                    : '/products/' + item.id
+                    : '/products/' + item.id) + contextQuery
                 "
                 (click)="$event.preventDefault(); open.emit(item)"
                 ><div class="photo">
@@ -146,7 +201,8 @@ export interface StorefrontProduct {
                 <div class="card-info">
                   <h2>{{ item.title }}</h2>
                   <p>
-                    {{ item.variants.length }}
+                    {{ item.brand?.name ? item.brand?.name + " · " : ""
+                    }}{{ item.variants.length }}
                     {{ item.variants.length === 1 ? "opción" : "opciones" }}
                   </p>
                   <strong>{{
@@ -159,12 +215,59 @@ export interface StorefrontProduct {
             }
           </div>
         }
+        @if (total > pageSize) {
+          <nav class="pagination" aria-label="Páginas del catálogo">
+            <button
+              [disabled]="page <= 1 || loading"
+              (click)="update({ page: page - 1 }, false)"
+            >
+              Anterior</button
+            ><span>Página {{ page }} de {{ pages }}</span
+            ><button
+              [disabled]="page >= pages || loading"
+              (click)="update({ page: page + 1 }, false)"
+            >
+              Siguiente
+            </button>
+          </nav>
+        }
       }
     </main>
     <footer>GEVAFIT · Córdoba capital</footer>`,
   styleUrl: "./storefront-view.css",
 })
 export class StorefrontViewComponent {
+  @Input() contextQuery = "";
+  @Input() categories: { id: string; name: string }[] = [];
+  @Input() brands: { id: string; name: string }[] = [];
+  @Input() q = "";
+  @Input() category = "";
+  @Input() brand = "";
+  @Input() order = "manual";
+  @Input() page = 1;
+  @Input() pageSize = 24;
+  @Output() filterChange = new EventEmitter<Record<string, string | number>>();
+  search = "";
+  ngOnChanges() {
+    this.search = this.q;
+  }
+  get pages() {
+    return Math.ceil(this.total / this.pageSize);
+  }
+  get brandOptions(): SelectOption[] {
+    return [
+      { value: "", label: "Todas las marcas" },
+      ...this.brands.map((b) => ({ value: b.id, label: b.name })),
+    ];
+  }
+  orderOptions: SelectOption[] = [
+    { value: "manual", label: "Orden de la tienda" },
+    { value: "price-asc", label: "Menor precio" },
+    { value: "price-desc", label: "Mayor precio" },
+  ];
+  update(change: Record<string, string | number>, reset = true) {
+    this.filterChange.emit({ ...change, ...(reset ? { page: 1 } : {}) });
+  }
   @Input() items: StorefrontProduct[] = [];
   @Input() detail: StorefrontProduct | null = null;
   @Input() total = 0;

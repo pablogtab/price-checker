@@ -1,1 +1,136 @@
-html,body{margin:0;min-height:100%;background:#f7f8f4}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,textarea{font:inherit}
+@import "@angular/cdk/overlay-prebuilt.css";
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #f7f8f4;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+/* Public selector skin. The public bundle does not import management styles. */
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid #d9e0d4;
+  border-radius: 8px;
+  background: #fff;
+  color: #17362b;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+.select-trigger > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.select-trigger:focus-visible,
+.select-trigger[aria-expanded="true"] {
+  outline: 2px solid #85b857;
+  outline-offset: 2px;
+}
+.select-chevron {
+  flex-shrink: 0;
+  color: #6e7b67;
+}
+.select-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-height: min(420px, calc(100dvh - 24px));
+  padding: 8px;
+  border: 1px solid #d9e0d4;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 36px #23392d24;
+  color: #17362b;
+}
+.select-options {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+.select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: #fff;
+  border-radius: 7px;
+  padding: 12px;
+  text-align: left;
+  color: #17362b;
+  cursor: pointer;
+}
+.select-option-name {
+  font-size: 13px;
+  line-height: 1.45;
+}
+.select-option:hover,
+.select-option.select-active {
+  background: #f0f5ed;
+}
+.select-option.select-selected {
+  background: #e6f0e0;
+}
+.select-option:focus-visible {
+  outline: 2px solid #4c8264;
+  outline-offset: -2px;
+}
+.select-search {
+  position: relative;
+}
+.select-search > span {
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  color: #6e7b67;
+}
+.select-search input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 42px;
+  padding: 10px 10px 10px 36px;
+  border: 1px solid #d9e0d4;
+  border-radius: 7px;
+  background: #f7f9f4;
+}
+.select-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #d9e0d4;
+  padding: 10px 2px 0;
+  margin-top: 8px;
+}
+.select-footer small {
+  flex: 1;
+  font-size: 12px;
+}
+.select-footer button {
+  border: 0;
+  background: transparent;
+  color: #17362b;
+  padding: 5px;
+  cursor: pointer;
+}
+.select-empty {
+  padding: 12px;
+  color: #6e7b67;
+}

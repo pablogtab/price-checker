@@ -1,4 +1,5 @@
 import {StorefrontEligibility1760097600032} from "./storefront-eligibility-migration";
+import {StorefrontDiscovery1760097600029} from "./storefront-discovery-migration";
 import {StorefrontContent1760097600028} from "./storefront-migration";
 import {PresentationPricing1760097600026} from "./presentation-pricing-migration";
 import "reflect-metadata";
@@ -39,6 +40,7 @@ export const db = new DataSource({
     "postgres://price_checker:local_price_checker@127.0.0.1:5442/price_checker",
   migrations: [
     StorefrontEligibility1760097600032,
+    StorefrontDiscovery1760097600029,
     StorefrontContent1760097600028,
     MediaLibrary1760097600027,
     PresentationPricing1760097600026,
