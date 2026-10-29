@@ -26,7 +26,8 @@ export function analyzePrices(previous: any[], snapshot: any) {
       continue;
     }
     summary.compared++;
-    if (!new Decimal(before.stock).eq(p.stock)) summary.stock_changed++;
+    if (before.stock == null || !new Decimal(before.stock).eq(p.stock))
+      summary.stock_changed++;
     const currencyChanged = before.currency !== p.price.currency;
     const oldPrice = new Decimal(before.price),
       newPrice = new Decimal(p.price.amount);
@@ -58,7 +59,7 @@ export function analyzePrices(previous: any[], snapshot: any) {
           ? delta.div(oldPrice).mul(100).toString()
           : null,
       direction,
-      old_stock: String(before.stock),
+      old_stock: before.stock == null ? null : String(before.stock),
       new_stock: p.stock,
     });
   }

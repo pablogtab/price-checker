@@ -356,3 +356,5 @@ footer {
     padding: 40px 14px;
   }
 }
+
+.detail-info fieldset + fieldset {margin-top:20px;}

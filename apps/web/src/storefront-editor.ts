@@ -6,7 +6,10 @@ import { SelectComponent, SelectOption } from "./select";
 import { StorefrontViewComponent, StorefrontProduct } from "./storefront-view";
 registerLocaleData(esAR);
 interface Entry {
-  presentationId: number;
+  kind?: "promo";
+  promoId?: number;
+  promoComponents?: { componentId: number; variantIds: number[] }[];
+  presentationId?: number;
   title: string;
   description: string;
   imageKey: string | null;
@@ -58,12 +61,10 @@ interface Entry {
             (ngModelChange)="choose($event)"
           />
           <div class="entries">
-            @for (entry of entries; track entry.presentationId) {
+            @for (entry of entries; track entryId(entry)) {
               <button
-                [class.active]="
-                  editing?.presentationId === entry.presentationId
-                "
-                (click)="choose(entry.presentationId)"
+                [class.active]="editing && entryId(editing) === entryId(entry)"
+                (click)="choose(entryId(entry))"
               >
                 {{ entry.title }}
               </button>
@@ -88,31 +89,100 @@ interface Entry {
                 maxlength="10000"
               ></textarea>
             </label>
-            <fieldset>
-              <legend>Sabores publicados</legend>
+            @if (editing.kind === "promo") {
+              <label class="flavor"
+                ><input
+                  type="checkbox"
+                  aria-label="Permitir ofrecer la promo sin stock propio"
+                  [checked]="editingPromo?.price_list_order_allowed"
+                  (change)="
+                    permission(editingPromo, $any($event.target).checked)
+                  "
+                />Permitir ofrecer la promo sin stock propio</label
+              >
               <p class="hint">
-                Elegí expresamente los sabores. Las nuevas variantes no se
-                agregan solas.
+                Permiso compartido con las listas. Los componentes sin stock
+                también necesitan permiso y una oferta vigente con stock
+                positivo conocido.
               </p>
-              @for (product of variants; track product.id) {
-                <label class="flavor"
-                  ><input
-                    type="checkbox"
-                    [attr.aria-label]="product.name"
-                    [checked]="editing.variantIds.includes(product.id)"
-                    (change)="toggle(product.id)"
-                    [disabled]="product.archived"
-                  /><span>{{ product.name }}</span
-                  ><small>{{
-                    product.archived
-                      ? "Archivado"
-                      : product.own_stock > 0
-                        ? "Con stock propio"
-                        : "Sin stock propio"
-                  }}</small></label
-                >
+              @for (
+                component of editingPromo?.components || [];
+                track component.product_id
+              ) {
+                <fieldset>
+                  <legend>
+                    {{ component.name }} · {{ component.quantity }} unidades
+                  </legend>
+                  @for (
+                    product of componentVariants(component);
+                    track product.id
+                  ) {
+                    <label class="flavor"
+                      ><input
+                        type="checkbox"
+                        [attr.aria-label]="product.name"
+                        [checked]="
+                          selectedComponent(component.product_id, product.id)
+                        "
+                        (change)="
+                          toggleComponent(component.product_id, product.id)
+                        "
+                      />{{ product.name }}</label
+                    >
+                    <label class="flavor"
+                      ><input
+                        type="checkbox"
+                        [attr.aria-label]="
+                          'Permitir ofrecer sin stock propio: ' + product.name
+                        "
+                        [checked]="product.price_list_order_allowed"
+                        (change)="
+                          permission(product, $any($event.target).checked)
+                        "
+                      />Permitir ofrecer sin stock propio</label
+                    >
+                  }
+                </fieldset>
               }
-            </fieldset>
+            } @else {
+              <fieldset>
+                <legend>Sabores publicados</legend>
+                <p class="hint">
+                  Elegí expresamente los sabores. Las nuevas variantes no se
+                  agregan solas.
+                </p>
+                @for (product of variants; track product.id) {
+                  <label class="flavor"
+                    ><input
+                      type="checkbox"
+                      [attr.aria-label]="product.name"
+                      [checked]="editing.variantIds.includes(product.id)"
+                      (change)="toggle(product.id)"
+                      [disabled]="product.archived"
+                    /><span>{{ product.name }}</span
+                    ><small>{{
+                      product.archived
+                        ? "Archivado"
+                        : product.own_stock > 0
+                          ? "Con stock propio"
+                          : "Sin stock propio"
+                    }}</small></label
+                  >
+                  <label class="flavor"
+                    ><input
+                      type="checkbox"
+                      [attr.aria-label]="
+                        'Permitir ofrecer sin stock propio: ' + product.name
+                      "
+                      [checked]="product.price_list_order_allowed"
+                      (change)="
+                        permission(product, $any($event.target).checked)
+                      "
+                    />Permitir ofrecer sin stock propio</label
+                  >
+                }
+              </fieldset>
+            }
             <fieldset>
               <legend>Imagen existente</legend>
               <div class="images">
@@ -159,8 +229,11 @@ interface Entry {
             <h2>Vista previa del borrador</h2>
             <button (click)="previewItems = null">Cerrar vista previa</button>
           </div>
-          @for (issue of previewIssues; track issue.presentationId) {
+          @for (issue of previewIssues; track $index) {
             <p class="error" role="alert">{{ issue.message }}</p>
+          }
+          @for (warning of previewWarnings; track $index) {
+            <p role="status" class="hint">{{ warning.message }}</p>
           }
           <geva-storefront-view
             [items]="previewItems"
@@ -258,7 +331,7 @@ interface Entry {
         border-color: #658d46;
         background: #f1f9e8;
       }
-      .fields > label {
+      .fields > label:not(.flavor) {
         display: flex;
         flex-direction: column;
         gap: 8px;
@@ -408,7 +481,7 @@ export class StorefrontEditorComponent implements OnInit {
   entries: Entry[] = [];
   revision = 0;
   publishedRevision: number | null = null;
-  selectedId: number | null = null;
+  selectedId: number | string | null = null;
   editing: Entry | null = null;
   loading = true;
   busy = false;
@@ -417,7 +490,8 @@ export class StorefrontEditorComponent implements OnInit {
   message = "";
   previewItems: StorefrontProduct[] | null = null;
   previewDetail: StorefrontProduct | null = null;
-  previewIssues: { presentationId: number; message: string }[] = [];
+  previewWarnings: { message: string }[] = [];
+  previewIssues: { presentationId: number | string; message: string }[] = [];
   private cdr = inject(ChangeDetectorRef);
   ngOnInit() {
     void this.load();
@@ -451,16 +525,17 @@ export class StorefrontEditorComponent implements OnInit {
       this.entries = draft.entries;
       this.revision = draft.revision;
       this.publishedRevision = draft.publishedRevision;
-      this.products = products.filter((p: any) => p.kind === "product");
+      this.products = products;
       const seen = new Set();
       this.options = this.products
         .filter((p: any) => {
-          if (seen.has(p.presentation_id)) return false;
-          seen.add(p.presentation_id);
+          const id = p.kind === "kit" ? `promo-${p.id}` : p.presentation_id;
+          if (seen.has(id)) return false;
+          seen.add(id);
           return true;
         })
         .map((p: any) => ({
-          value: p.presentation_id,
+          value: p.kind === "kit" ? `promo-${p.id}` : p.presentation_id,
           label: p.variant_group || p.name,
         }));
     } catch (e) {
@@ -471,7 +546,11 @@ export class StorefrontEditorComponent implements OnInit {
     }
   }
   get variants() {
-    return this.products.filter((p) => p.presentation_id === this.selectedId);
+    return this.editing?.kind === "promo"
+      ? this.products.filter((p) => p.id === this.editing?.promoId)
+      : this.products.filter(
+          (p) => p.kind === "product" && p.presentation_id === this.selectedId,
+        );
   }
   get images() {
     const seen = new Set();
@@ -481,12 +560,18 @@ export class StorefrontEditorComponent implements OnInit {
       return true;
     });
   }
-  choose(id: number) {
+  choose(id: number | string) {
     this.selectedId = id;
-    let entry = this.entries.find((e) => e.presentationId === id);
+    let entry = this.entries.find((e) => this.entryId(e) === id);
     if (!entry) {
       entry = {
-        presentationId: id,
+        ...(typeof id === "string"
+          ? {
+              kind: "promo" as const,
+              promoId: Number(id.slice(6)),
+              promoComponents: [],
+            }
+          : { presentationId: id }),
         title: this.options.find((o) => o.value === id)?.label || "",
         description: "",
         imageKey: null,
@@ -496,6 +581,55 @@ export class StorefrontEditorComponent implements OnInit {
       this.changed();
     }
     this.editing = entry;
+  }
+  entryId(entry: Entry): number | string {
+    return entry.kind === "promo"
+      ? `promo-${entry.promoId}`
+      : entry.presentationId!;
+  }
+  get editingPromo() {
+    return this.products.find(
+      (p) => p.kind === "kit" && p.id === this.editing?.promoId,
+    );
+  }
+  componentVariants(component: any) {
+    return this.products.filter(
+      (p) =>
+        p.kind === "product" &&
+        (component.variant_group
+          ? p.variant_group === component.variant_group
+          : p.id === component.product_id),
+    );
+  }
+  selectedComponent(componentId: number, id: number) {
+    return !!this.editing?.promoComponents
+      ?.find((c) => c.componentId === componentId)
+      ?.variantIds.includes(id);
+  }
+  toggleComponent(componentId: number, id: number) {
+    if (!this.editing) return;
+    const all = (this.editing.promoComponents ||= []);
+    let row = all.find((c) => c.componentId === componentId);
+    if (!row) {
+      row = { componentId, variantIds: [] };
+      all.push(row);
+    }
+    row.variantIds = row.variantIds.includes(id)
+      ? row.variantIds.filter((v) => v !== id)
+      : [...row.variantIds, id];
+    this.changed();
+  }
+  async permission(product: any, allowed: boolean) {
+    if (!product) return;
+    await this.action(async () => {
+      await this.api(
+        `storefront/order-permission/${product.id}`,
+        { allowed },
+        "PUT",
+      );
+      product.price_list_order_allowed = allowed;
+      this.message = "Permiso compartido actualizado.";
+    });
   }
   changed() {
     this.dirty = true;
@@ -545,6 +679,7 @@ export class StorefrontEditorComponent implements OnInit {
       const result = await this.api("storefront/preview");
       this.previewItems = result.items;
       this.previewIssues = result.issues || [];
+      this.previewWarnings = result.warnings || [];
       this.previewDetail = null;
     });
   }

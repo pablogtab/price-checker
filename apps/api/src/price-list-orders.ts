@@ -1,6 +1,9 @@
 import { BadRequestException } from "@nestjs/common";
 import { db } from "./db";
 export let orderPolicyRevision = 0;
+export function invalidateOrderPolicy() {
+  orderPolicyRevision++;
+}
 export async function orderPolicy() {
   const [settings] = await db.query(
     "SELECT price_list_order_days days FROM settings WHERE id=1",
