@@ -52,6 +52,43 @@
           "defaultConfiguration": "development"
         }
       }
+    },
+    "storefront": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "src/main.public.ts",
+            "index": {
+              "input": "src/index.public.html",
+              "output": "index.html"
+            },
+            "tsConfig": "tsconfig.public.json",
+            "styles": [
+              "src/styles.public.css"
+            ],
+            "outputPath": "dist/storefront",
+            "assets": [],
+            "optimization": {
+              "scripts": true,
+              "styles": {
+                "minify": true,
+                "inlineCritical": false
+              },
+              "fonts": false
+            }
+          },
+          "configurations": {
+            "production": {
+              "outputHashing": "all"
+            }
+          },
+          "defaultConfiguration": "production"
+        }
+      }
     }
   },
   "cli": {

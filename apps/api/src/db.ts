@@ -1,3 +1,4 @@
+import {StorefrontContent1760097600028} from "./storefront-migration";
 import {PresentationPricing1760097600026} from "./presentation-pricing-migration";
 import "reflect-metadata";
 import { DataSource } from "typeorm";
@@ -36,6 +37,7 @@ export const db = new DataSource({
     process.env.DATABASE_URL ||
     "postgres://price_checker:local_price_checker@127.0.0.1:5442/price_checker",
   migrations: [
+    StorefrontContent1760097600028,
     MediaLibrary1760097600027,
     PresentationPricing1760097600026,
     SupplierQuoteMarkup1760097600025,

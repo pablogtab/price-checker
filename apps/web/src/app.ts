@@ -1,3 +1,4 @@
+import {StorefrontEditorComponent} from "./storefront-editor";
 import {MediaLibraryComponent} from "./media-library";
 import { DashboardComponent } from "./dashboard";
 import { CatalogQuoteComponent, CatalogQuoteState, SupplierQuoteItem } from "./catalog-quote";
@@ -37,7 +38,7 @@ Decimal.set({ precision: 40 });
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [MediaLibraryComponent, DashboardComponent, PriceListsComponent, CatalogQuoteComponent,
+  imports: [StorefrontEditorComponent, MediaLibraryComponent, DashboardComponent, PriceListsComponent, CatalogQuoteComponent,
     PriceAnalysisComponent,
     InstallComponent,
     CommonModule,
@@ -370,6 +371,7 @@ export class AppComponent implements OnInit, OnDestroy {
       "media",
       "dashboard",
       "price-lists",
+      "store",
       "products",
       "catalog",
       "settings",

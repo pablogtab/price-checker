@@ -8,6 +8,7 @@ const GROUPS = [
   {
     title: "Catálogo",
     items: [
+      { id: "store", label: "Tienda", icon: "products" },
       { id: "media", label: "Imágenes", icon: "products" },
       { id: "price-lists", label: "Listas de precios", icon: "products" },
       { id: "products", label: "Mis productos", icon: "products" },
