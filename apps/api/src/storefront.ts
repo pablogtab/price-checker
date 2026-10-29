@@ -316,9 +316,10 @@ async function syncMediaUsages(
   ownerType: string,
   content: StorefrontEntry[],
 ) {
-  await em.query("DELETE FROM media_asset_usages WHERE owner_type=$1 AND slot='gallery'", [
-    ownerType,
-  ]);
+  await em.query(
+    "DELETE FROM media_asset_usages WHERE owner_type=$1 AND slot='gallery'",
+    [ownerType],
+  );
   for (const entry of content)
     await replaceMediaUsages(
       em,

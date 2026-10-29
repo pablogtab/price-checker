@@ -5,7 +5,10 @@ const base = process.env.TEST_API_URL;
 if (
   !base ||
   !["127.0.0.1", "localhost"].includes(new URL(base).hostname) ||
-  !process.env.TEST_STOREFRONT_DATABASE_URL?.endsWith("_test")
+  !process.env.TEST_STOREFRONT_DATABASE_URL?.endsWith("_test") ||
+  !["127.0.0.1", "localhost"].includes(
+    new URL(process.env.TEST_STOREFRONT_DATABASE_URL).hostname,
+  )
 )
   throw Error("Disposable local services required");
 async function req(path, body, method = "POST", status) {
@@ -211,4 +214,59 @@ test("one library resource is reused across presentations without flavors and su
       .status,
     200,
   );
+});
+test("publishing galleries preserves a resource assigned to another slot", async () => {
+  const resource = (await req("media?search=Gallery%20blue")).items[0];
+  const { Client } = await import("pg");
+  const fixture = new Client({
+    connectionString: process.env.TEST_STOREFRONT_DATABASE_URL,
+  });
+  await fixture.connect();
+  try {
+    await fixture.query(
+      "INSERT INTO media_asset_usages(asset_id,owner_type,owner_id,slot,label) VALUES($1,'storefront_published','banner-fixture','banner','Banner conservado') ON CONFLICT DO NOTHING",
+      [resource.id],
+    );
+  } finally {
+    await fixture.end();
+  }
+  try {
+    const state = await req("storefront/draft");
+    const changed = await req(
+      "storefront/draft",
+      { revision: state.revision, entries: [] },
+      "PUT",
+    );
+    await req("storefront/publish", { revision: changed.revision });
+    const asset = await req("media/" + resource.id);
+    assert.ok(
+      asset.usages.some(
+        (u) => u.slot === "banner" && u.label === "Banner conservado",
+      ),
+    );
+    assert.equal(
+      (await fetch(base + `/api/media/${resource.id}/file/desktop`)).status,
+      200,
+    );
+    assert.equal(
+      (
+        await fetch(
+          base + `/api/public/storefront/media/${resource.id}/desktop`,
+        )
+      ).status,
+      404,
+    );
+  } finally {
+    const cleanup = new Client({
+      connectionString: process.env.TEST_STOREFRONT_DATABASE_URL,
+    });
+    await cleanup.connect();
+    try {
+      await cleanup.query(
+        "DELETE FROM media_asset_usages WHERE owner_type='storefront_published' AND owner_id='banner-fixture' AND slot='banner'",
+      );
+    } finally {
+      await cleanup.end();
+    }
+  }
 });
