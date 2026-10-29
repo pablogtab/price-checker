@@ -3,10 +3,14 @@ import { Component, OnInit, inject, ChangeDetectorRef } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { registerLocaleData } from "@angular/common";
 import esAR from "@angular/common/locales/es-AR";
+import {
+  StorefrontGalleryEditorComponent,
+  GalleryEntry,
+} from "./storefront-gallery-editor";
 import { SelectComponent, SelectOption } from "./select";
 import { StorefrontViewComponent, StorefrontProduct } from "./storefront-view";
 registerLocaleData(esAR);
-interface Entry {
+interface Entry extends GalleryEntry {
   categoryIds?: string[];
   brandId?: string | null;
   presentationId: number;
@@ -18,7 +22,13 @@ interface Entry {
 @Component({
   selector: "app-storefront-editor",
   standalone: true,
-  imports: [FormsModule, SelectComponent, StorefrontViewComponent,StorefrontHomeEditorComponent],
+  imports: [
+    FormsModule,
+    SelectComponent,
+    StorefrontViewComponent,
+    StorefrontGalleryEditorComponent,
+    StorefrontHomeEditorComponent,
+  ],
   template: ` <section class="store-editor">
     <div class="intro">
       <p>Editá el contenido y publicá los cambios.</p>
@@ -257,6 +267,11 @@ interface Entry {
                 </button>
               }
             </fieldset>
+            <app-storefront-gallery-editor
+              [entry]="editing"
+              [variants]="variants"
+              (changed)="changed()"
+            />
             <button class="remove" (click)="remove()">
               Quitar de la tienda
             </button>
@@ -766,6 +781,9 @@ export class StorefrontEditorComponent implements OnInit {
     this.editing.variantIds = this.editing.variantIds.includes(id)
       ? this.editing.variantIds.filter((x) => x !== id)
       : [...this.editing.variantIds, id];
+    this.editing.variantImages = this.editing.variantImages?.filter((v) =>
+      this.editing!.variantIds.includes(v.variantId),
+    );
     this.changed();
   }
   remove() {

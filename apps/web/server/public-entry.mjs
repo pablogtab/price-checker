@@ -16,8 +16,8 @@ const files = new Set(
   ),
 );
 const routes = [
-  /^\/api\/public\/storefront\/media\/[1-9][0-9]*\/(mobile|desktop)$/,
   /^\/api\/public\/storefront\/categories$/,
+  /^\/api\/public\/storefront\/media\/[1-9][0-9]*\/(mobile|desktop)$/,
   /^\/api\/public\/storefront\/catalog$/,
   /^\/api\/public\/storefront\/presentations\/[1-9][0-9]*$/,
   /^\/api\/public\/storefront\/images\/[a-f0-9]{64}$/,
