@@ -22,7 +22,7 @@ test(
     await connect();
     try {
       await db.query(
-        "TRUNCATE refresh_runs,product_links,products,supplier_items,cash_accounts,purchases,customers,sales RESTART IDENTITY CASCADE",
+        "TRUNCATE refresh_runs,product_links,products,presentations,supplier_items,cash_accounts,purchases,customers,sales RESTART IDENTITY CASCADE",
       );
       await db.query("DELETE FROM providers WHERE id<>1");
       const snapshot = JSON.parse(
@@ -599,6 +599,19 @@ test(
         selling_price: "1200",
         variant_group: "Proteína bolsa",
       });
+      const proteinVariants = (await service.products()).filter((product: any) =>
+        [vanilla.id, chocolate.id].includes(product.id),
+      );
+      assert.equal(proteinVariants.length, 2);
+      for (const variant of proteinVariants) {
+        assert.equal(variant.selling_price, "1000");
+        assert.equal(variant.catalog_price, "1000");
+        assert.equal(variant.price_unresolved, false);
+      }
+      assert.equal(
+        proteinVariants[0].presentation_id,
+        proteinVariants[1].presentation_id,
+      );
       await changeStock(vanilla.id, { type: "set", quantity: 8 });
       await changeStock(chocolate.id, { type: "set", quantity: 4 });
       const flexible = await service.createProduct({
@@ -612,7 +625,7 @@ test(
       );
       assert.equal(familyKit.own_stock, 6);
       assert.equal(familyKit.selling_price, "1800");
-      assert.equal(familyKit.selling_price_max, "2200");
+      assert.equal(familyKit.selling_price_max, "1800"); // 2 × common 1000 less 10%, for every flavor choice.
       assert.equal(familyKit.selected.profit, null);
       assert.equal(familyKit.components[0].variants.length, 2);
       const componentId = familyKit.components[0].product_id;
@@ -1255,6 +1268,14 @@ test(
         selling_price: "1200",
         variant_group: "Sabores ventas",
       });
+      const saleVariants = (await service.products()).filter((product: any) =>
+        [saleA.id, saleB.id].includes(product.id),
+      );
+      assert.equal(saleVariants.length, 2);
+      for (const variant of saleVariants) {
+        assert.equal(variant.selling_price, "1000");
+        assert.equal(variant.catalog_price, "1000");
+      }
       await db.query(
         "UPDATE products SET own_stock=10 WHERE id=ANY($1::int[])",
         [[saleA.id, saleB.id]],
@@ -1286,13 +1307,16 @@ test(
       assert.equal(await stockOf(saleA.id), 8);
       assert.equal(await stockOf(saleB.id), 8);
       const [soldInvoice] = await sales({ customer_id: client.id });
-      assert.equal(soldInvoice.total, "4000"); // actual mixed flavors: 2200 less 10%, rounded to 2000, twice.
-      assert.equal(soldInvoice.pending, "3500");
+      // Both flavors inherit 1000: each x2 promo is 1800 after its 10% discount.
+      assert.equal(soldInvoice.items[0].unit_price, "1800");
+      assert.equal(soldInvoice.items[0].total, "3600");
+      assert.equal(soldInvoice.total, "3600");
+      assert.equal(soldInvoice.pending, "3100");
       assert.equal(soldInvoice.cost_total, null);
       assert.equal(soldInvoice.items[0].components.length, 2);
       assert.equal(
         (await customers()).find((c: any) => c.id === client.id).balance,
-        "3500",
+        "3100",
       );
       assert.equal(
         (await cashAccounts()).find((a: any) => a.id === cashA.id).balance,
@@ -1356,7 +1380,7 @@ test(
       await assert.rejects(() =>
         collectSale(sold[0].id, {
           ...collection,
-          amount: "2600",
+          amount: "2200", // Exceeds the exact 2100 remaining after collecting 1000.
           request_key: randomUUID(),
         }),
       );
@@ -1369,9 +1393,9 @@ test(
       );
       assert.equal(
         (await customers()).find((c: any) => c.id === client.id).balance,
-        "2500",
+        "2100",
       );
-      const remaining = { ...collection, amount: "2500" };
+      const remaining = { ...collection, amount: "2100" };
       const competingCollections = await Promise.allSettled([
         collectSale(sold[0].id, { ...remaining, request_key: randomUUID() }),
         collectSale(sold[0].id, { ...remaining, request_key: randomUUID() }),
@@ -1447,7 +1471,7 @@ test(
         "@cliente_editado",
       );
       // Each promo is submitted independently: three x2 promos, six flavor units.
-      // The extra 10% sale discount is reflected in the final unit prices.
+      // Explicit negotiated unit prices may differ from the common catalog price.
       const stockABefore = await stockOf(saleA.id);
       const stockBBefore = await stockOf(saleB.id);
       const variedPromos = await createSale({
