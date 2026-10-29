@@ -170,3 +170,95 @@ a.back {
 a.back:hover {
   text-decoration: underline;
 }
+
+.order-receipt {
+  max-width: 760px;
+  margin: 0 auto;
+  background: white;
+  padding: 28px;
+  border: 1px solid #dce4d8;
+  border-radius: 16px;
+}
+.order-status {
+  font-size: 14px;
+  color: #405449;
+}
+.order-receipt h2 {
+  font-size: 28px;
+}
+.receipt-line {
+  padding: 18px 0;
+  border-bottom: 1px solid #dce4d8;
+}
+.receipt-line p {
+  font-size: 14px;
+  margin: 8px 0;
+  color: #405449;
+}
+.receipt-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 20px;
+}
+.whatsapp {
+  gap: 10px;
+}
+.whatsapp svg {
+  width: 23px;
+  height: 23px;
+  flex-shrink: 0;
+}
+.secondary {
+  min-height: 48px;
+  padding: 10px 16px;
+  background: white;
+  border: 1px solid #a5b5a6;
+  border-radius: 10px;
+  margin: 12px 8px 0 0;
+  color: #11261f;
+  font: inherit;
+  cursor: pointer;
+}
+.copy-label {
+  display: block;
+  margin-top: 16px;
+  font-size: 14px;
+}
+.copy-label textarea {
+  display: block;
+  width: 100%;
+  min-height: 240px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #a5b5a6;
+  border-radius: 8px;
+  font: inherit;
+  color: #11261f;
+  background: white;
+}
+@media (max-width: 700px) {
+  .order-receipt {
+    padding: 18px;
+  }
+  .order-receipt h2 {
+    font-size: 24px;
+  }
+  .order-receipt .cart-action {
+    width: 100%;
+  }
+}
+
+.cart-photo {
+  width: 72px;
+  height: 88px;
+  object-fit: contain;
+  float: left;
+  margin: 0 16px 12px 0;
+  background: #f8faf6;
+  border-radius: 8px;
+}
+.receipt-line {
+  display: flow-root;
+}

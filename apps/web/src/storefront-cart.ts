@@ -65,13 +65,22 @@ export class StorefrontCart {
   total = signal("0");
   loading = signal(false);
   error = signal("");
+  receipt = signal<any>(null);
+  submitting = signal(false);
+  submission = signal<{ requestKey: string; lines: CartInput[] } | null>(null);
+  orderError = signal("");
+  copyText = signal(false);
   private request = 0;
   private started = false;
   start() {
     if (this.started) return;
     this.started = true;
     this.restore();
+    this.restoreSubmission();
     window.addEventListener("storage", (e) => {
+      if (e.key === "gevafit-public-submission-v1") {
+        this.restoreSubmission();
+      }
       if (e.key === storageKey) {
         this.restore();
         void this.validate();
@@ -83,7 +92,7 @@ export class StorefrontCart {
         void this.validate();
       }
     });
-    if (this.lines().length) void this.validate();
+    if (this.lines().length && !this.submission()) void this.validate();
   }
   private restore() {
     try {
@@ -158,6 +167,12 @@ export class StorefrontCart {
     return this.lines().reduce((n, l) => n + l.quantity, 0);
   }
   async add(line: CartInput) {
+    if (this.submission()) {
+      this.error.set(
+        "Abrí tu carrito para recuperar el pedido o comenzar una nueva compra.",
+      );
+      return false;
+    }
     const key = cartIdentity(line),
       existing = this.lines().find((l) => cartIdentity(l) === key);
     if (
@@ -179,6 +194,7 @@ export class StorefrontCart {
     return !this.error() && this.lines().some((l) => cartIdentity(l) === key);
   }
   quantity(line: CartLine, value: string) {
+    if (this.submission()) return false;
     const quantity = Number(value);
     if (
       !Number.isSafeInteger(quantity) ||
@@ -198,6 +214,7 @@ export class StorefrontCart {
     return true;
   }
   remove(line: CartLine) {
+    if (this.submission()) return;
     this.lines.update((lines) =>
       lines.filter((l) => cartIdentity(l) !== cartIdentity(line)),
     );
@@ -205,6 +222,7 @@ export class StorefrontCart {
     void this.validate();
   }
   async validate() {
+    if (this.submission()) return;
     const request = ++this.request;
     this.loading.set(true);
     this.error.set("");
@@ -228,5 +246,122 @@ export class StorefrontCart {
     } finally {
       if (request === this.request) this.loading.set(false);
     }
+  }
+  private restoreSubmission() {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem("gevafit-public-submission-v1") || "null",
+      );
+      if (
+        saved &&
+        typeof saved.requestKey === "string" &&
+        Array.isArray(saved.lines)
+      ) {
+        this.submission.set(saved);
+        void this.recover();
+      } else {
+        this.submission.set(null);
+        this.receipt.set(null);
+      }
+    } catch {
+      this.orderError.set("No se pudo recuperar el pedido en este navegador.");
+    }
+  }
+  private async recover() {
+    const saved = this.submission();
+    if (!saved) return;
+    this.submitting.set(true);
+    this.orderError.set("");
+    try {
+      const r = await fetch(
+        "/api/public/storefront/orders/requests/" + saved.requestKey,
+      );
+      if (r.status === 404) return;
+      if (!r.ok) throw Error();
+      const receipt = await r.json();
+      if (this.submission()?.requestKey === saved.requestKey)
+        this.receipt.set(receipt);
+    } catch {
+      this.orderError.set(
+        "No se pudo recuperar el pedido. Volvé a intentar con la misma referencia.",
+      );
+    } finally {
+      this.submitting.set(false);
+    }
+  }
+  async checkout() {
+    if (this.submitting()) return;
+    this.orderError.set("");
+    try {
+      // Read the shared slot immediately before creating a key so another tab's
+      // pending submission is reused. Persist the immutable payload BEFORE fetch.
+      this.submitting.set(true);
+      if (!navigator.locks)
+        throw Error("No se pudo guardar una referencia segura");
+      await navigator.locks.request("gevafit-public-order", () => {
+        const existing = JSON.parse(
+          localStorage.getItem("gevafit-public-submission-v1") || "null",
+        );
+        if (existing) this.submission.set(existing);
+        if (!this.submission()) {
+          const saved = {
+            requestKey: crypto.randomUUID(),
+            lines: this.lines().map(identity),
+          };
+          localStorage.setItem(
+            "gevafit-public-submission-v1",
+            JSON.stringify(saved),
+          );
+          this.submission.set(saved);
+        }
+      });
+      this.submitting.set(true);
+      const submitted = this.submission()!;
+      const r = await fetch("/api/public/storefront/orders", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(submitted),
+      });
+      if (!r.ok) {
+        const v = await r.json();
+        if (r.status === 400) {
+          localStorage.removeItem("gevafit-public-submission-v1");
+          this.submission.set(null);
+          await this.validate();
+        }
+        throw Error(v.message || "No se pudo crear el pedido");
+      }
+      const receipt = await r.json();
+      if (this.submission()?.requestKey !== submitted.requestKey) return;
+      this.receipt.set(receipt);
+      window.open(this.receipt().whatsappUrl, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      this.orderError.set(
+        this.submission()
+          ? "No se pudo recuperar el pedido. Volvé a intentar con la misma referencia."
+          : "No se pudo crear el pedido. Revisá el carrito y volvé a intentar.",
+      );
+    } finally {
+      this.submitting.set(false);
+    }
+  }
+  async copyMessage() {
+    this.copyText.set(true);
+    try {
+      await navigator.clipboard.writeText(this.receipt().message);
+    } catch {
+      /* Text area remains available for manual copy. */
+    }
+  }
+  newPurchase() {
+    if (!this.receipt()) return;
+    localStorage.removeItem("gevafit-public-submission-v1");
+    this.submission.set(null);
+    this.receipt.set(null);
+    this.lines.set([]);
+    this.total.set("0");
+    this.persist();
+    this.orderError.set("");
+    this.copyText.set(false);
   }
 }

@@ -1,3 +1,11 @@
+import {
+  guardStorefrontRequest,
+  storefrontWhatsapp,
+  saveStorefrontWhatsapp,
+  createStorefrontOrder,
+  storefrontOrderRequest,
+  storefrontOrderReceipt,
+} from "./storefront-orders";
 import { validateStorefrontCart } from "./storefront-cart";
 import {storefrontMedia,storefrontCategories,storefrontDraft,saveStorefrontDraft,publishStorefront,storefrontCatalog,storefrontPresentation,storefrontPromo,storefrontOrderPermission,storefrontImage} from "./storefront";
 import {listMedia,uploadMedia,mediaFile,existingMedia,importMedia,getMediaAsset} from "./media";
@@ -30,8 +38,9 @@ import {
   ValidationPipe,
   Header,
   Res,
+  Req,
 } from "@nestjs/common";
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import { cachedImage } from "./images";
 import {
   cashAccounts,
@@ -113,6 +122,28 @@ class AppController {
   @Put("storefront/draft") saveDraft(@Body() body:any){return saveStorefrontDraft(body);}
   @Get("storefront/preview") @Header("Cache-Control","no-store") previewStorefront(@Query() query:any){return storefrontCatalog(query,true);}
   @Post("storefront/publish") publishStore(@Body() body:any){return publishStorefront(body);}
+  @Get("storefront/whatsapp") @Header("Cache-Control", "no-store") whatsapp() {
+    return storefrontWhatsapp();
+  }
+  @Put("storefront/whatsapp") whatsappSave(@Body() body: any) {
+    return saveStorefrontWhatsapp(body);
+  }
+  @Post("public/storefront/orders")
+  @Header("Cache-Control", "no-store")
+  orderCreate(@Body() body: any, @Req() req: Request) {
+    guardStorefrontRequest(req);
+    return createStorefrontOrder(body);
+  }
+  @Get("public/storefront/orders/requests/:key")
+  @Header("Cache-Control", "no-store")
+  orderRequest(@Param("key") key: string) {
+    return storefrontOrderRequest(key);
+  }
+  @Get("public/storefront/orders/receipts/:token")
+  @Header("Cache-Control", "no-store")
+  orderReceipt(@Param("token") token: string) {
+    return storefrontOrderReceipt(token);
+  }
   @Post("public/storefront/cart/validate") @Header("Cache-Control","no-store") publicCart(@Body() body:any){return validateStorefrontCart(body);}
   @Get("public/storefront/categories") @Header("Cache-Control","no-store") publicCategories(@Query() query:any){return storefrontCategories(query);}
   @Get("public/storefront/catalog") @Header("Cache-Control","no-store") publicCatalog(@Query() query:any){return storefrontCatalog(query);}

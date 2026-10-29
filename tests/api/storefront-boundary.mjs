@@ -101,3 +101,61 @@ test("only the exact cart validation POST and cart page are exposed", async () =
     413,
   );
 });
+
+test("only exact order creation and opaque own-request receipt routes are public", async () => {
+  const endpoint = base + "/api/public/storefront/orders";
+  for (const method of ["GET", "HEAD", "PUT", "DELETE", "OPTIONS"])
+    assert.equal((await fetch(endpoint, { method })).status, 405);
+  for (const path of [
+    "/api/public/storefront/orders/",
+    "/api/public/storefront/orders/1",
+    "/api/public/storefront/orders/requests",
+    "/api/public/storefront/orders/receipts",
+    "/api/public/storefront/orders/%72equests/x",
+    "/api/storefront/whatsapp",
+    "/api/storefront/orders",
+    "/api/media",
+  ])
+    assert.equal((await fetch(base + path)).status, 404, path);
+  assert.equal(
+    (await fetch(endpoint, { method: "POST", body: "{}" })).status,
+    415,
+  );
+  assert.equal(
+    (
+      await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{broken",
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ junk: "x".repeat(66000) }),
+      })
+    ).status,
+    413,
+  );
+  assert.equal(
+    (
+      await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ requestKey: "bad", lines: [] }),
+      })
+    ).status,
+    400,
+  );
+  const absent = await fetch(
+    base +
+      "/api/public/storefront/orders/requests/00000000-0000-4000-8000-000000000000",
+  );
+  assert.equal(absent.status, 404);
+  assert.equal(absent.headers.get("cache-control"), "no-store");
+  assert.equal(absent.headers.get("referrer-policy"), "no-referrer");
+});
