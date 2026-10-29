@@ -36,6 +36,28 @@ interface Entry extends GalleryEntry {
     StorefrontHomeEditorComponent,
   ],
   template: ` <section class="store-editor">
+    @if (!loading) {
+      <section
+        class="organization whatsapp-settings"
+        aria-label="Destino de WhatsApp"
+      >
+        <h2>WhatsApp de la tienda</h2>
+        <p>
+          Número internacional con código de país, solo dígitos. Guardar no
+          envía mensajes.
+        </p>
+        <label
+          >Número de WhatsApp<input
+            aria-label="Número de WhatsApp"
+            [(ngModel)]="whatsappNumber"
+            inputmode="tel"
+            maxlength="15"
+        /></label>
+        <button (click)="saveWhatsapp()" [disabled]="busy">
+          Guardar WhatsApp
+        </button>
+      </section>
+    }
     <div class="intro">
       <p>Editá el contenido y publicá los cambios.</p>
       <span
@@ -397,6 +419,9 @@ interface Entry extends GalleryEntry {
       :host {
         display: block;
       }
+      .whatsapp-settings button {
+        margin-top: 12px;
+      }
       .organization {
         background: #fff;
         border: 1px solid #dce2d7;
@@ -676,6 +701,25 @@ interface Entry extends GalleryEntry {
   ],
 })
 export class StorefrontEditorComponent implements OnInit {
+  whatsappNumber = "";
+  async saveWhatsapp() {
+    this.busy = true;
+    this.error = "";
+    this.message = "";
+    try {
+      await this.api(
+        "storefront/whatsapp",
+        { number: this.whatsappNumber },
+        "PUT",
+      );
+      this.message = "WhatsApp guardado.";
+    } catch (e: any) {
+      this.error = e.message;
+    } finally {
+      this.busy = false;
+      this.cdr.markForCheck();
+    }
+  }
   home: HomeContent = { featuredIds: [], banners: [] };
   previewHome: any = { featured: [], banners: [] };
   previewDestination(d: any) {
@@ -805,10 +849,12 @@ export class StorefrontEditorComponent implements OnInit {
   }
   async load() {
     try {
-      const [draft, products] = await Promise.all([
+      const [draft, products, whatsapp] = await Promise.all([
         this.api("storefront/draft"),
         this.api("products"),
+        this.api("storefront/whatsapp"),
       ]);
+      this.whatsappNumber = whatsapp.number;
       this.entries = draft.entries;
       this.home = draft.home || { featuredIds: [], banners: [] };
       this.categories = draft.categories || [];

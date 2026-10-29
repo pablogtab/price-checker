@@ -16,6 +16,8 @@ const files = new Set(
   ),
 );
 const routes = [
+  /^\/api\/public\/storefront\/orders\/requests\/[a-f0-9-]{36}$/,
+  /^\/api\/public\/storefront\/orders\/receipts\/[a-f0-9]{64}$/,
   /^\/api\/public\/storefront\/promos\/[1-9][0-9]*$/,
   /^\/api\/public\/storefront\/categories$/,
   /^\/api\/public\/storefront\/media\/[1-9][0-9]*\/(mobile|desktop)$/,
@@ -28,12 +30,33 @@ function fail(res, status) {
     "Content-Type": "application/json",
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
   });
   res.end(
     JSON.stringify({
-      message: status === 405 ? "Método no permitido" : "Recurso inexistente",
+      message:
+        status === 405
+          ? "Método no permitido"
+          : status === 429
+            ? "Demasiados intentos. Intentá en un minuto."
+            : "Recurso inexistente",
     }),
   );
+}
+const buckets = new Map();
+let globalWindow = Date.now(),
+  globalCount = 0;
+function permit(address) {
+  const now = Date.now();
+  if (now - globalWindow > 60000) {
+    globalWindow = now;
+    globalCount = 0;
+    buckets.clear();
+  }
+  const count = (buckets.get(address) || 0) + 1;
+  if (buckets.size >= 10000 && !buckets.has(address)) return false;
+  buckets.set(address, count);
+  return count <= 120 && ++globalCount <= 3000;
 }
 const server = http.createServer(async (req, res) => {
   try {
@@ -47,7 +70,9 @@ const server = http.createServer(async (req, res) => {
       path.includes("\\")
     )
       return fail(res, 404);
-    const cartValidation = path === "/api/public/storefront/cart/validate";
+    const cartValidation =
+      path === "/api/public/storefront/cart/validate" ||
+      path === "/api/public/storefront/orders";
     const publicApi =
       cartValidation || routes.some((route) => route.test(path));
     const asset = files.has(path.slice(1));
@@ -59,6 +84,12 @@ const server = http.createServer(async (req, res) => {
     if (!(cartValidation ? ["POST"] : ["GET", "HEAD"]).includes(req.method))
       return fail(res, 405);
     if (publicApi) {
+      // Socket peer only: visitor-supplied forwarding headers never select a rate bucket.
+      if (
+        (cartValidation || path.startsWith("/api/public/storefront/orders/")) &&
+        !permit(req.socket.remoteAddress || "unknown")
+      )
+        return fail(res, 429);
       let body;
       if (cartValidation) {
         if (
@@ -73,6 +104,11 @@ const server = http.createServer(async (req, res) => {
           chunks.push(chunk);
         }
         body = Buffer.concat(chunks);
+        try {
+          JSON.parse(body.toString("utf8"));
+        } catch {
+          return fail(res, 400);
+        }
       }
       const upstream = await fetch(new URL(raw, api), {
         method: req.method,
@@ -86,6 +122,7 @@ const server = http.createServer(async (req, res) => {
           upstream.headers.get("content-type") || "application/json",
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
       });
       res.end(
         req.method === "HEAD"
@@ -111,6 +148,7 @@ const server = http.createServer(async (req, res) => {
       "Content-Type": type,
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
       "Content-Security-Policy":
         "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
     });
