@@ -63,6 +63,26 @@ export class AppComponent implements OnInit, OnDestroy {
   cdr = inject(ChangeDetectorRef);
   view = "dashboard";
   products: any[] = [];
+  presentationPriceValues: Record<number,string> = {};
+  get unresolvedPresentations() {
+    const groups = new Map<number,any>();
+    for(const p of this.products.filter(p=>p.price_unresolved)) {
+      if(!groups.has(p.presentation_id)) groups.set(p.presentation_id,{id:p.presentation_id,name:p.variant_group||p.name,variants:[]});
+      groups.get(p.presentation_id).variants.push(p);
+    }
+    return [...groups.values()];
+  }
+  async resolvePrice(id:number) {
+    if(this.busy) return;
+    this.busy=true;
+    try {
+      await this.api('PUT',`presentations/${id}/price`,{catalog_price:this.presentationPriceValues[id]});
+      this.products=await this.api('GET','products');
+      delete this.presentationPriceValues[id];
+      this.toast('Precio común aplicado a todos los sabores.');
+    } catch(e:any) {this.fail(e);} finally {this.busy=false;this.cdr.markForCheck();}
+  }
+
   catalog: any = { items: [], total: 0 };
   quoteState: CatalogQuoteState = { items: [], markup: "10", prices: {} };
   quoteDefaultMarkup = "10";
@@ -147,6 +167,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
   startPriceEdit(p: any) {
     if (this.busy) return;
+    if(p.price_unresolved) { this.error='Esta presentación tiene precios diferentes. Elegí el precio común en Precios pendientes de resolver.'; return; }
     this.inlinePriceIsKit = p.kind === "kit";
     this.priceProductId = p.id;
     this.inlineKitMode = p.kit_pricing_mode || "final";
@@ -197,7 +218,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.toast(
         this.inlinePriceIsKit
           ? "Precio de la promo actualizado."
-          : "Precio de venta actualizado.",
+          : "Precio común actualizado en todos los sabores.",
       );
     } catch (e: any) {
       this.inlinePriceError =

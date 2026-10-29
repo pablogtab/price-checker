@@ -90,6 +90,19 @@
         <button (click)="navigate('settings')">Configurar USD → ARS ↗</button>
       </div>
       }
+      @if(view==='products' && unresolvedPresentations.length){
+      <section class="presentation-prices" aria-label="Precios pendientes de resolver">
+        <h2>Precios pendientes de resolver</h2>
+        <p>Estas presentaciones tienen sabores con precios diferentes. Elegí un precio común para todos. Los precios actuales se conservan hasta resolverlos; las ventas registradas no cambian.</p>
+        @for(group of unresolvedPresentations; track group.id){
+          <div class="presentation-price-card">
+            <h3>{{group.name}}</h3>
+            <ul>@for(variant of group.variants; track variant.id){<li>{{variant.name}} <strong>{{amount(variant.selling_price)}}</strong></li>}</ul>
+            <label>Precio común (ARS)<input type="number" min="0" step="0.01" [(ngModel)]="presentationPriceValues[group.id]" /></label>
+            <button appButton="primary" [disabled]="busy || !presentationPriceValues[group.id]" (click)="resolvePrice(group.id)">Aplicar a todos los sabores</button>
+          </div>
+        }
+      </section>}
       @if(view!=='dashboard'){
       @if(view==='catalog'){<app-catalog-quote [state]="quoteState" [usdArs]="settings.usd_ars" />}
       <section class="catalog-panel">
@@ -787,8 +800,8 @@
       </div>
       @if(editing.kind!=='kit'){
       <label
-        >Presentación para kits (opcional)<app-select
-          label="Presentación para kits"
+        >Presentación (opcional)<app-select
+          label="Presentación"
           name="variant-group"
           [(ngModel)]="editing.variant_group"
           [options]="variantSelectOptions"
@@ -797,13 +810,14 @@
           placeholder="Elegir o crear presentación"
       /></label>
       <label
-        >Precio de venta (ARS)<input
+        >Precio común de la presentación (ARS)<input
+          [readonly]="editing.price_unresolved"
           name="selling"
           type="number"
           min="0"
           step="0.01"
           required
-          [(ngModel)]="editing.selling_price" /></label
+          [(ngModel)]="editing.selling_price" /><small>{{editing.price_unresolved?'Resolvé los precios diferentes desde Mis productos.':'Se aplica a todos los sabores. Al cambiar de presentación se usa el precio común de destino.'}}</small></label
       >}@if(editing.kind==='kit'){
       <label
         >Calcular por<app-select

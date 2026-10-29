@@ -1,3 +1,4 @@
+import {presentations,resolvePresentationPrice} from "./presentation-pricing";
 import {orderPolicy, saveOrderPolicy} from "./price-list-orders";
 import {priceLists,priceList,savePriceList,previewPriceList,confirmPriceList} from "./price-lists";
 import {previewSaleEdit,editSale,previewJointSaleEdit,jointEditSale} from "./sale-edits";
@@ -216,6 +217,8 @@ class AppController {
   @Put("price-lists/:id") updateList(@Param("id") id:string,@Body() body:any){return savePriceList(integer(id),body);}
   @Post("price-lists/:id/confirm") confirmList(@Param("id") id:string,@Body() body:any){return confirmPriceList(integer(id),body);}
   @Post("price-lists/:id/preview") previewList(@Param("id") id:string){return previewPriceList(integer(id));}
+  @Get("presentations") presentations(){return presentations();}
+  @Put("presentations/:id/price") presentationPrice(@Param("id") id:string,@Body() body:any){return resolvePresentationPrice(integer(id),body.catalog_price);}
   @Get("products") products() {
     return this.service.products();
   }
