@@ -1,4 +1,5 @@
 import {storefrontDraft,saveStorefrontDraft,publishStorefront,storefrontCatalog,storefrontPresentation,storefrontImage} from "./storefront";
+import {listMedia,uploadMedia,mediaFile,existingMedia,importMedia,getMediaAsset} from "./media";
 import {presentations,resolvePresentationPrice} from "./presentation-pricing";
 import {orderPolicy, saveOrderPolicy} from "./price-list-orders";
 import {priceLists,priceList,savePriceList,previewPriceList,confirmPriceList} from "./price-lists";
@@ -81,6 +82,14 @@ class AppController {
   }
   @Post("supplier-login/cancel") cancelLogin() {
     return this.login.cancel();
+  }
+  @Get("media") @Header("Cache-Control", "private, no-store") mediaList(@Query() q:any){return listMedia(q);}
+  @Post("media") mediaUpload(@Body() body:any){return uploadMedia(body);}
+  @Get("media/sources") @Header("Cache-Control", "private, no-store") mediaSources(@Query() q:any){return existingMedia(q);}
+  @Post("media/import") mediaImport(@Body() body:any){return importMedia(body);}
+  @Get("media/:id") @Header("Cache-Control", "private, no-store") mediaDetail(@Param("id") id:string){return getMediaAsset(integer(id));}
+  @Get("media/:id/file/:size") async mediaImage(@Param("id") id:string,@Param("size") size:string,@Res() response:Response){
+    const {data,type}=await mediaFile(integer(id),size);response.setHeader("Content-Type",type);response.setHeader("Cache-Control","private, no-store");response.setHeader("X-Content-Type-Options","nosniff");response.send(data);
   }
   @Get("images/status") async imageStatus() {
     const [status] = await db.query(
