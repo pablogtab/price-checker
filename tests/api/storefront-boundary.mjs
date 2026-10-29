@@ -11,6 +11,10 @@ test("public ingress serves the storefront and rejects management, unknown route
     (await fetch(base + "/api/public/storefront/catalog")).status,
     200,
   );
+  assert.equal(
+    (await fetch(base + "/api/public/storefront/categories")).status,
+    200,
+  );
   for (const path of [
     "/api/settings",
     "/api/products",
@@ -27,6 +31,8 @@ test("public ingress serves the storefront and rejects management, unknown route
     "/api/images/status",
     "/api/images/" + "a".repeat(64),
     "/api/public/storefront/unknown",
+    "/api/public/storefront/categories/private",
+    "/api/public/storefront/%63ategories",
     "/api//public/storefront/catalog",
     "/api/public/storefront/%63atalog",
     "/settings",
