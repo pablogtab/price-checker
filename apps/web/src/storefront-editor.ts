@@ -6,6 +6,8 @@ import { SelectComponent, SelectOption } from "./select";
 import { StorefrontViewComponent, StorefrontProduct } from "./storefront-view";
 registerLocaleData(esAR);
 interface Entry {
+  categoryIds?: string[];
+  brandId?: string | null;
   presentationId: number;
   title: string;
   description: string;
@@ -44,6 +46,71 @@ interface Entry {
       @if (dirty) {
         <p class="hint">Guardá el borrador para previsualizar o publicar.</p>
       }
+      <section class="organization" aria-label="Organización de la tienda">
+        <h2>Categorías y marcas</h2>
+        <p class="hint">
+          Cambios propios de la tienda. Guardá y publicá para mostrarlos.
+        </p>
+        <div class="organization-grid">
+          @for (kind of organizationKinds; track kind) {
+            <div>
+              <h3>{{ kind === "categories" ? "Categorías" : "Marcas" }}</h3>
+              @for (facet of this[kind]; track facet.id; let index = $index) {
+                <div class="facet-row">
+                  <input
+                    [attr.aria-label]="'Nombre de ' + facet.name"
+                    [(ngModel)]="facet.name"
+                    (ngModelChange)="changed()"
+                    maxlength="100"
+                  />
+                  <button
+                    [attr.aria-label]="'Subir ' + facet.name"
+                    [disabled]="index === 0"
+                    (click)="moveFacet(kind, index, -1)"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    [attr.aria-label]="'Bajar ' + facet.name"
+                    [disabled]="index === this[kind].length - 1"
+                    (click)="moveFacet(kind, index, 1)"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    [attr.aria-label]="'Quitar ' + facet.name"
+                    (click)="removeFacet(kind, facet.id)"
+                  >
+                    ×
+                  </button>
+                </div>
+              }
+              <div class="facet-create">
+                <input
+                  [attr.aria-label]="
+                    kind === 'categories' ? 'Nueva categoría' : 'Nueva marca'
+                  "
+                  [placeholder]="
+                    kind === 'categories'
+                      ? 'Nombre de la categoría'
+                      : 'Nombre de la marca'
+                  "
+                  [(ngModel)]="newFacet[kind]"
+                  maxlength="100"
+                />
+                <button
+                  (click)="addFacet(kind)"
+                  [disabled]="!newFacet[kind].trim()"
+                >
+                  {{
+                    kind === "categories" ? "Crear categoría" : "Crear marca"
+                  }}
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
       <div class="editor-layout">
         <aside>
           <h2>Selección web</h2>
@@ -88,6 +155,51 @@ interface Entry {
                 maxlength="10000"
               ></textarea>
             </label>
+            <fieldset>
+              <legend>Organización comercial</legend>
+              <app-select
+                label="Marca comercial"
+                [options]="brandOptions"
+                [(ngModel)]="editing.brandId"
+                (ngModelChange)="changed()"
+              />
+              <p class="hint">Podés asignar varias categorías.</p>
+              @for (category of categories; track category.id) {
+                <label class="flavor"
+                  ><input
+                    type="checkbox"
+                    [attr.aria-label]="'Categoría ' + category.name"
+                    [checked]="editing.categoryIds?.includes(category.id)"
+                    (change)="toggleCategory(category.id)"
+                  />{{ category.name }}</label
+                >
+              }
+              <app-select
+                label="Ordenar productos en"
+                [options]="orderCategoryOptions"
+                [(ngModel)]="orderCategory"
+              />
+              <div class="product-order">
+                <button
+                  (click)="moveEntry(-1)"
+                  [disabled]="
+                    orderedEntries.indexOf(editing) === 0 ||
+                    !orderedEntries.includes(editing)
+                  "
+                >
+                  ↑ Subir producto</button
+                ><button
+                  (click)="moveEntry(1)"
+                  [disabled]="
+                    orderedEntries.indexOf(editing) ===
+                      orderedEntries.length - 1 ||
+                    !orderedEntries.includes(editing)
+                  "
+                >
+                  ↓ Bajar producto
+                </button>
+              </div>
+            </fieldset>
             <fieldset>
               <legend>Sabores publicados</legend>
               <p class="hint">
@@ -166,6 +278,13 @@ interface Entry {
             [items]="previewItems"
             [total]="previewItems.length"
             [detail]="previewDetail"
+            [q]="previewQuery.q || ''"
+            [category]="previewQuery.category || ''"
+            [brand]="previewQuery.brand || ''"
+            [order]="previewQuery.order || 'manual'"
+            (filterChange)="filterPreview($event)"
+            [categories]="categories"
+            [brands]="brands"
             (open)="previewDetail = $event"
             (back)="previewDetail = null"
           />
@@ -177,6 +296,60 @@ interface Entry {
     `
       :host {
         display: block;
+      }
+      .organization {
+        background: #fff;
+        border: 1px solid #dce2d7;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 24px;
+      }
+      .organization h2 {
+        font-size: 17px;
+        margin: 0 0 12px;
+      }
+      .organization h3 {
+        font-size: 14px;
+      }
+      .organization-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      .facet-row,
+      .facet-create,
+      .product-order {
+        display: flex;
+        gap: 8px;
+        margin: 8px 0;
+      }
+      .organization input {
+        width: 100%;
+        min-width: 0;
+        border: 1px solid #cbd5c5;
+        border-radius: 7px;
+        padding: 10px;
+        font: inherit;
+      }
+      .organization button {
+        flex-shrink: 0;
+        border: 1px solid #cbd5c5;
+        border-radius: 7px;
+        padding: 8px;
+        background: #f6f9f2;
+        color: #263d2a;
+        cursor: pointer;
+      }
+      @media (max-width: 700px) {
+        .organization-grid {
+          grid-template-columns: 1fr;
+        }
+        .facet-create {
+          flex-wrap: wrap;
+        }
+        .facet-create input {
+          flex: 1 1 100%;
+        }
       }
       .store-editor {
         max-width: 1250px;
@@ -403,6 +576,81 @@ interface Entry {
   ],
 })
 export class StorefrontEditorComponent implements OnInit {
+  categories: { id: string; name: string; productIds?: (string | number)[] }[] =
+    [];
+  orderCategory = "";
+  brands: { id: string; name: string }[] = [];
+  organizationKinds = ["categories", "brands"] as const;
+  newFacet = { categories: "", brands: "" };
+  get brandOptions(): SelectOption[] {
+    return [
+      { value: null, label: "Sin marca" },
+      ...this.brands.map((b) => ({ value: b.id, label: b.name })),
+    ];
+  }
+  addFacet(kind: "categories" | "brands") {
+    const name = this.newFacet[kind].trim();
+    if (!name) return;
+    this[kind].push({ id: crypto.randomUUID(), name });
+    this.newFacet[kind] = "";
+    this.changed();
+  }
+  moveFacet(kind: "categories" | "brands", index: number, delta: number) {
+    const values = this[kind];
+    [values[index], values[index + delta]] = [
+      values[index + delta],
+      values[index],
+    ];
+    this.changed();
+  }
+  removeFacet(kind: "categories" | "brands", id: string) {
+    this[kind] = this[kind].filter((x) => x.id !== id);
+    for (const e of this.entries) {
+      if (kind === "categories")
+        e.categoryIds = e.categoryIds?.filter((x) => x !== id);
+      else if (e.brandId === id) e.brandId = null;
+    }
+    this.changed();
+  }
+  toggleCategory(id: string) {
+    if (!this.editing) return;
+    const ids = this.editing.categoryIds ?? [];
+    this.editing.categoryIds = ids.includes(id)
+      ? ids.filter((x) => x !== id)
+      : [...ids, id];
+    this.changed();
+  }
+  get orderCategoryOptions(): SelectOption[] {
+    return [
+      { value: "", label: "Toda la tienda" },
+      ...this.categories.map((c) => ({ value: c.id, label: c.name })),
+    ];
+  }
+  get orderedEntries() {
+    if (!this.orderCategory) return this.entries;
+    const ids =
+      this.categories.find((c) => c.id === this.orderCategory)?.productIds ||
+      [];
+    return this.entries
+      .filter((e) => e.categoryIds?.includes(this.orderCategory))
+      .sort((a, b) => {
+        const ai = ids.indexOf(a.presentationId),
+          bi = ids.indexOf(b.presentationId);
+        return (ai < 0 ? ids.length : ai) - (bi < 0 ? ids.length : bi);
+      });
+  }
+  moveEntry(delta: number) {
+    if (!this.editing) return;
+    const list = this.orderedEntries;
+    const i = list.indexOf(this.editing);
+    if (i < 0 || !list[i + delta]) return;
+    [list[i], list[i + delta]] = [list[i + delta], list[i]];
+    if (this.orderCategory) {
+      this.categories.find((c) => c.id === this.orderCategory)!.productIds =
+        list.map((e) => e.presentationId);
+    } else this.entries = list;
+    this.changed();
+  }
   products: any[] = [];
   options: SelectOption[] = [];
   entries: Entry[] = [];
@@ -449,6 +697,8 @@ export class StorefrontEditorComponent implements OnInit {
         this.api("products"),
       ]);
       this.entries = draft.entries;
+      this.categories = draft.categories || [];
+      this.brands = draft.brands || [];
       this.revision = draft.revision;
       this.publishedRevision = draft.publishedRevision;
       this.products = products.filter((p: any) => p.kind === "product");
@@ -491,6 +741,8 @@ export class StorefrontEditorComponent implements OnInit {
         description: "",
         imageKey: null,
         variantIds: [],
+        categoryIds: [],
+        brandId: null,
       };
       this.entries.push(entry);
       this.changed();
@@ -532,7 +784,12 @@ export class StorefrontEditorComponent implements OnInit {
     await this.action(async () => {
       const draft = await this.api(
         "storefront/draft",
-        { revision: this.revision, entries: this.entries },
+        {
+          revision: this.revision,
+          entries: this.entries,
+          categories: this.categories,
+          brands: this.brands,
+        },
         "PUT",
       );
       this.revision = draft.revision;
@@ -540,9 +797,21 @@ export class StorefrontEditorComponent implements OnInit {
       this.message = "Borrador guardado.";
     });
   }
+  previewQuery: Record<string, string> = {};
+  filterPreview(change: Record<string, string | number>) {
+    this.previewQuery = {
+      ...this.previewQuery,
+      ...Object.fromEntries(
+        Object.entries(change).map(([k, v]) => [k, String(v)]),
+      ),
+    };
+    void this.preview();
+  }
   async preview() {
     await this.action(async () => {
-      const result = await this.api("storefront/preview");
+      const result = await this.api(
+        "storefront/preview?" + new URLSearchParams(this.previewQuery),
+      );
       this.previewItems = result.items;
       this.previewIssues = result.issues || [];
       this.previewDetail = null;
