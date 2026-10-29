@@ -3,8 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "start": "ng serve --host 127.0.0.1 --port 4215 --proxy-config proxy.json",
-    "build": "ng build"
+    "start": "ng serve web --host 127.0.0.1 --port 4215 --proxy-config proxy.json",
+    "build": "ng build web",
+    "build:storefront": "ng build storefront",
+    "start:storefront": "node server/public-entry.mjs"
   },
   "dependencies": {
     "@angular/animations": "^21.2.0",

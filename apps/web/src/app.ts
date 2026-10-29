@@ -1,3 +1,4 @@
+import {StorefrontEditorComponent} from "./storefront-editor";
 import { DashboardComponent } from "./dashboard";
 import { CatalogQuoteComponent, CatalogQuoteState, SupplierQuoteItem } from "./catalog-quote";
 import {PriceListsComponent} from "./price-lists";
@@ -36,7 +37,7 @@ Decimal.set({ precision: 40 });
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [DashboardComponent, PriceListsComponent, CatalogQuoteComponent,
+  imports: [StorefrontEditorComponent, DashboardComponent, PriceListsComponent, CatalogQuoteComponent,
     PriceAnalysisComponent,
     InstallComponent,
     CommonModule,
@@ -368,6 +369,7 @@ export class AppComponent implements OnInit, OnDestroy {
     return [
       "dashboard",
       "price-lists",
+      "store",
       "products",
       "catalog",
       "settings",
