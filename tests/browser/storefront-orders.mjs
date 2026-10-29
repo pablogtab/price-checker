@@ -88,8 +88,11 @@ test("visitor recovers lost committed response after reload and reopens exact Wh
       await route.fetch();
       await route.abort();
     });
+    await page.locator(".cart-photo").evaluateAll(async (images) => {
+      await Promise.all(images.map((image) => image.decode()));
+    });
     await page.screenshot({
-      path: "/tmp/gevafit-storefront-context/31-checkout-cart-photo-desktop-final-v3.png",
+      path: "/tmp/gevafit-storefront-context/31-checkout-cart-photo-desktop-final-v4.png",
       fullPage: true,
     });
     await page
@@ -112,8 +115,11 @@ test("visitor recovers lost committed response after reload and reopens exact Wh
         .getAttribute("href"),
       /^https:\/\/wa.me\/12025550123\?text=/,
     );
+    await page.locator(".cart-photo").evaluateAll(async (images) => {
+      await Promise.all(images.map((image) => image.decode()));
+    });
     await page.screenshot({
-      path: "/tmp/gevafit-storefront-context/31-order-receipt-photo-desktop-final-v3.png",
+      path: "/tmp/gevafit-storefront-context/31-order-receipt-photo-desktop-final-v4.png",
       fullPage: true,
     });
     const popupPromise = page.waitForEvent("popup");
@@ -136,8 +142,11 @@ test("visitor recovers lost committed response after reload and reopens exact Wh
     assert.ok(
       await mobile.evaluate(() => document.documentElement.scrollWidth <= 390),
     );
+    await mobile.locator(".cart-photo").evaluateAll(async (images) => {
+      await Promise.all(images.map((image) => image.decode()));
+    });
     await mobile.screenshot({
-      path: "/tmp/gevafit-storefront-context/31-order-receipt-photo-mobile-final-v3.png",
+      path: "/tmp/gevafit-storefront-context/31-order-receipt-photo-mobile-final-v4.png",
       fullPage: true,
     });
     await mobile
@@ -192,7 +201,7 @@ test("owner configures WhatsApp privately; public error retains cart and retry k
       .click();
     await owner.getByText("WhatsApp guardado.", { exact: true }).waitFor();
     await owner.screenshot({
-      path: "/tmp/gevafit-storefront-context/31-whatsapp-owner-desktop-final-v3.png",
+      path: "/tmp/gevafit-storefront-context/31-whatsapp-owner-desktop-final-v4.png",
       fullPage: false,
     });
     const ownerMobile = await browser.newPage({
@@ -203,7 +212,7 @@ test("owner configures WhatsApp privately; public error retains cart and retry k
       .getByLabel("Número de WhatsApp", { exact: true })
       .waitFor();
     await ownerMobile.screenshot({
-      path: "/tmp/gevafit-storefront-context/31-whatsapp-owner-mobile-final-v3.png",
+      path: "/tmp/gevafit-storefront-context/31-whatsapp-owner-mobile-final-v4.png",
       fullPage: false,
     });
     const context = await browser.newContext({
@@ -233,8 +242,11 @@ test("owner configures WhatsApp privately; public error retains cart and retry k
         JSON.parse(localStorage.getItem("gevafit-public-submission-v1"))
           .requestKey,
     );
+    await page.locator(".cart-photo").evaluateAll(async (images) => {
+      await Promise.all(images.map((image) => image.decode()));
+    });
     await page.screenshot({
-      path: "/tmp/gevafit-storefront-context/31-checkout-error-mobile-final-v3.png",
+      path: "/tmp/gevafit-storefront-context/31-checkout-error-mobile-final-v4.png",
       fullPage: true,
     });
     const other = await context.newPage();
