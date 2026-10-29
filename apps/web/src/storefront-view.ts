@@ -18,7 +18,14 @@ export interface StorefrontProduct {
   price: string;
   currency: "ARS";
   imageUrl: string | null;
-  variants: { id: number; label: string }[];
+  gallery?: { url: string; srcset: string }[];
+  imageSrcset?: string;
+  variants: {
+    id: number;
+    label: string;
+    imageUrl?: string | null;
+    imageSrcset?: string;
+  }[];
 }
 @Component({
   selector: "geva-storefront-view",
@@ -40,10 +47,35 @@ export interface StorefrontProduct {
         <button class="back" (click)="back.emit()">← Volver al catálogo</button>
         <article class="detail">
           <div class="detail-photo">
-            @if (detail.imageUrl) {
-              <img [src]="detail.imageUrl" [alt]="detail.title" />
+            @if (currentImage.url) {
+              <img
+                [src]="currentImage.url"
+                [attr.srcset]="currentImage.srcset || null"
+                sizes="(max-width: 700px) 90vw, 560px"
+                [alt]="detail.title"
+              />
             } @else {
               <span>Sin imagen</span>
+            }
+          </div>
+          <div class="gallery-thumbs" aria-label="Fotos de la presentación">
+            @for (
+              photo of detail.gallery || [];
+              track photo.url;
+              let i = $index
+            ) {
+              <button
+                [attr.aria-label]="'Ver foto ' + (i + 1)"
+                [attr.aria-pressed]="currentImage.url === photo.url"
+                (click)="photoOverride = photo"
+              >
+                <img
+                  [src]="photo.url"
+                  [attr.srcset]="photo.srcset"
+                  sizes="80px"
+                  [alt]="'Foto ' + (i + 1)"
+                />
+              </button>
             }
           </div>
           <div class="detail-info">
@@ -99,7 +131,7 @@ export interface StorefrontProduct {
                     <button
                       [class.selected]="selected === v.id"
                       [attr.aria-pressed]="selected === v.id"
-                      (click)="selected = v.id"
+                      (click)="selected = v.id; photoOverride = null"
                     >
                       {{ v.label }}
                     </button>
@@ -191,6 +223,8 @@ export interface StorefrontProduct {
                   @if (item.imageUrl) {
                     <img
                       [src]="item.imageUrl"
+                      [attr.srcset]="item.imageSrcset || null"
+                      sizes="(max-width: 700px) 45vw, 300px"
                       [alt]="item.title"
                       loading="lazy"
                     />
@@ -201,9 +235,13 @@ export interface StorefrontProduct {
                 <div class="card-info">
                   <h2>{{ item.title }}</h2>
                   <p>
-                    {{ item.brand?.name ? item.brand?.name + " · " : ""
-                    }}{{ item.variants.length }}
-                    {{ item.variants.length === 1 ? "opción" : "opciones" }}
+                    {{ item.brand?.name ? item.brand?.name + " · " : "" }}
+                    @if (item.kind === "promo") {
+                      Elegí los sabores por unidad
+                    } @else {
+                      {{ item.variants.length }}
+                      {{ item.variants.length === 1 ? "opción" : "opciones" }}
+                    }
                   </p>
                   <strong>{{
                     item.price
@@ -248,9 +286,6 @@ export class StorefrontViewComponent {
   @Input() pageSize = 24;
   @Output() filterChange = new EventEmitter<Record<string, string | number>>();
   search = "";
-  ngOnChanges() {
-    this.search = this.q;
-  }
   get pages() {
     return Math.ceil(this.total / this.pageSize);
   }
@@ -280,5 +315,23 @@ export class StorefrontViewComponent {
   promoSelected: Record<string, number> = {};
   units(quantity: number) {
     return Array.from({ length: quantity }, (_, i) => i);
+  }
+  photoOverride: { url: string; srcset?: string } | null = null;
+  ngOnChanges(changes: any) {
+    this.search = this.q;
+    if (changes.detail) {
+      this.selected = null;
+      this.promoSelected = {};
+      this.photoOverride = null;
+    }
+  }
+  get currentImage() {
+    const variant = this.detail?.variants.find((v) => v.id === this.selected);
+    return (
+      this.photoOverride || {
+        url: variant?.imageUrl || this.detail?.imageUrl,
+        srcset: variant?.imageSrcset || this.detail?.imageSrcset,
+      }
+    );
   }
 }

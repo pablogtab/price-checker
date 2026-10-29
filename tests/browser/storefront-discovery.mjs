@@ -14,6 +14,23 @@ if (
 )
   throw Error("Local origins required");
 test("owner organizes draft and visitor preserves combined navigation and direct links", async () => {
+  // Own fixtures: this suite must not depend on the last REST suite's draft.
+  const api = async (path, body, method = "POST") => {
+    const response = await fetch(owner + "/api/" + path, body === undefined ? {} : {
+      method, headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    });
+    assert.ok(response.ok, await response.clone().text());
+    return response.json();
+  };
+  const entries = [];
+  for (const [name, price] of [["Chocolate", "2000"], ["Frutilla", "1000"], ["Vainilla", "1000"]]) {
+    const product = await api("products", { name, selling_price: price });
+    await api(`products/${product.id}/stock`, { quantity: 4 }, "PUT");
+    entries.unshift({ presentationId: product.presentation_id, title: "Proteína " + name,
+      description: "Nutrición deportiva", imageKey: null, variantIds: [product.id] });
+  }
+  const draft = await api("storefront/draft");
+  await api("storefront/draft", { revision: draft.revision, entries, categories: [], brands: [] }, "PUT");
   const browser = await chromium.launch({
     executablePath:
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -58,12 +75,12 @@ test("owner organizes draft and visitor preserves combined navigation and direct
       .click();
     await p.getByText("Cambios publicados.", { exact: true }).waitFor();
     await p.screenshot({
-      path: "/tmp/gevafit-storefront-context/26-owner-desktop.png",
+      path: "/tmp/gevafit-storefront-context/merge27-discovery-owner-desktop.png",
       fullPage: true,
     });
     await p.setViewportSize({ width: 390, height: 844 });
     await p.screenshot({
-      path: "/tmp/gevafit-storefront-context/26-owner-mobile.png",
+      path: "/tmp/gevafit-storefront-context/merge27-discovery-owner-mobile.png",
       fullPage: true,
     });
     const v = await browser.newPage({
@@ -96,7 +113,7 @@ test("owner organizes draft and visitor preserves combined navigation and direct
     await v.getByRole("link", { name: /Proteína Vainilla/ }).waitFor();
     assert.match(v.url(), /category=/);
     await v.screenshot({
-      path: "/tmp/gevafit-storefront-context/26-public-desktop.png",
+      path: "/tmp/gevafit-storefront-context/merge27-discovery-public-desktop.png",
       fullPage: true,
     });
     const context = new URL(v.url()).search;
@@ -113,7 +130,7 @@ test("owner organizes draft and visitor preserves combined navigation and direct
     await v.getByRole("link", { name: /Proteína Vainilla/ }).waitFor();
     await v.setViewportSize({ width: 390, height: 844 });
     await v.screenshot({
-      path: "/tmp/gevafit-storefront-context/26-public-mobile.png",
+      path: "/tmp/gevafit-storefront-context/merge27-discovery-public-mobile.png",
       fullPage: true,
     });
     assert.ok(
@@ -126,7 +143,7 @@ test("owner organizes draft and visitor preserves combined navigation and direct
     await v.getByText("No encontramos productos con estos filtros.").waitFor();
     assert.ok(
       requests.every((x) =>
-        /^\/api\/public\/storefront\/(catalog|categories|presentations\/\d+|images\/[a-f0-9]{64})$/.test(
+        /^\/api\/public\/storefront\/(catalog|categories|presentations\/\d+|images\/[a-f0-9]{64}|media\/\d+\/(mobile|desktop))$/.test(
           x,
         ),
       ),

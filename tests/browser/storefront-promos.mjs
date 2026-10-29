@@ -103,18 +103,18 @@ test("owner explicitly publishes promo flavors and visitors repeat the same elig
       .click();
     await page.getByText("Cambios publicados.", { exact: true }).waitFor();
     await page.screenshot({
-      path: "/tmp/gevafit-storefront-context/29-editor-desktop.png",
+      path: "/tmp/gevafit-storefront-context/29-union-editor-desktop.png",
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({
-      path: "/tmp/gevafit-storefront-context/29-editor-mobile.png",
+      path: "/tmp/gevafit-storefront-context/29-union-editor-mobile.png",
     });
     await page
       .getByLabel("Chocolate", { exact: true })
       .scrollIntoViewIfNeeded();
     await page.screenshot({
-      path: "/tmp/gevafit-storefront-context/29-editor-choices-mobile.png",
+      path: "/tmp/gevafit-storefront-context/29-union-editor-choices-mobile.png",
     });
     const visitor = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
@@ -124,7 +124,13 @@ test("owner explicitly publishes promo flavors and visitors repeat the same elig
       if (new URL(r.url()).pathname.startsWith("/api/"))
         calls.push(new URL(r.url()).pathname);
     });
-    await visitor.goto(publicBase + "/promos/" + kit.id);
+    await visitor.goto(publicBase);
+    const promoCard = visitor
+      .locator(".card")
+      .filter({ hasText: "Promo dos proteínas" });
+    await promoCard.waitFor();
+    assert.match(await promoCard.innerText(), /Elegí los sabores por unidad/);
+    await promoCard.click();
     await visitor
       .getByRole("heading", { name: "Promo dos proteínas", exact: true })
       .waitFor();
@@ -153,12 +159,12 @@ test("owner explicitly publishes promo flavors and visitors repeat the same elig
       ),
     );
     await visitor.screenshot({
-      path: "/tmp/gevafit-storefront-context/29-promo-desktop.png",
+      path: "/tmp/gevafit-storefront-context/29-union-promo-desktop.png",
       fullPage: true,
     });
     await visitor.setViewportSize({ width: 390, height: 844 });
     await visitor.screenshot({
-      path: "/tmp/gevafit-storefront-context/29-promo-mobile.png",
+      path: "/tmp/gevafit-storefront-context/29-union-promo-mobile.png",
       fullPage: true,
     });
     assert.ok(calls.every((p) => p.startsWith("/api/public/storefront/")));
@@ -241,7 +247,7 @@ test("management exposes shared permission and stale/failed catalog warnings whi
       .click();
     await page.getByText(/el catálogo del proveedor es antiguo/).waitFor();
     await page.screenshot({
-      path: "/tmp/gevafit-storefront-context/29-private-warning-desktop-v2.png",
+      path: "/tmp/gevafit-storefront-context/29-union-private-warning-desktop-v2.png",
       fullPage: true,
     });
     await page
@@ -251,7 +257,7 @@ test("management exposes shared permission and stale/failed catalog warnings whi
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByLabel(p.name, { exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({
-      path: "/tmp/gevafit-storefront-context/29-permission-mobile-v2.png",
+      path: "/tmp/gevafit-storefront-context/29-union-permission-mobile-v2.png",
     });
     const visitor = await browser.newPage({
       viewport: { width: 390, height: 844 },
@@ -269,7 +275,7 @@ test("management exposes shared permission and stale/failed catalog warnings whi
       true,
     );
     await visitor.screenshot({
-      path: "/tmp/gevafit-storefront-context/29-supplier-product-mobile.png",
+      path: "/tmp/gevafit-storefront-context/29-union-supplier-product-mobile.png",
       fullPage: true,
     });
     await pg.query("UPDATE supplier_items SET stock=NULL WHERE id=$1", [

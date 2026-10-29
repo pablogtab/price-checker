@@ -326,3 +326,133 @@ test("promo without shared order permission keeps own-stock choices and excludes
     await pg.end();
   }
 });
+test("promo identity, category order and reusable gallery survive discovery and media publication together", async () => {
+  const pg = new Client({ connectionString: url });
+  await pg.connect();
+  try {
+    const p = await req("products", {
+      name: "Chocolate " + Date.now(),
+      selling_price: "1000",
+    });
+    await req(`products/${p.id}/stock`, { quantity: 1 }, "PUT");
+    const {
+      rows: [kit],
+    } = await pg.query(
+      "INSERT INTO products(name,kind,selling_price,kit_pricing_mode,kit_discount_percent,position) VALUES('Gallery kit','kit',1000,'final',0,999) RETURNING id",
+    );
+    await pg.query(
+      "INSERT INTO product_components(kit_id,product_id,quantity) VALUES($1,$2,2)",
+      [kit.id, p.id],
+    );
+    const sharp = (await import("sharp")).default;
+    const image = await sharp({
+      create: { width: 60, height: 90, channels: 3, background: "#ddeeaa" },
+    })
+      .png()
+      .toBuffer();
+    const asset = await req("media", {
+      name: "Promo combined " + Date.now(),
+      data: "data:image/png;base64," + image.toString("base64"),
+    });
+    const original = await req("storefront/draft");
+    const common = {
+      description: "Contenido propio",
+      imageKey: null,
+      categoryIds: ["promos-test"],
+      brandId: "geva",
+      gallery: [asset.id],
+      coverMediaId: asset.id,
+      variantImages: [],
+    };
+    const product = {
+      ...common,
+      presentationId: p.presentation_id,
+      title: "Producto individual",
+      variantIds: [p.id],
+    };
+    const promo = {
+      ...common,
+      kind: "promo",
+      promoId: kit.id,
+      title: "Promo combinada",
+      promoComponents: [{ componentId: p.id, variantIds: [p.id] }],
+    };
+    let draft = await req(
+      "storefront/draft",
+      {
+        revision: original.revision,
+        entries: [product, promo],
+        categories: [
+          {
+            id: "promos-test",
+            name: "Promos",
+            productIds: ["promo-" + kit.id, p.presentation_id],
+          },
+        ],
+        brands: [{ id: "geva", name: "GEVA" }],
+      },
+      "PUT",
+    );
+    await req("storefront/publish", { revision: draft.revision });
+    const detail = await req(`public/storefront/promos/${kit.id}`);
+    assert.deepEqual(detail.brand, { id: "geva", name: "GEVA" });
+    assert.deepEqual(detail.categoryIds, ["promos-test"]);
+    assert.equal(
+      detail.imageUrl,
+      `/api/public/storefront/media/${asset.id}/desktop`,
+    );
+    assert.equal(detail.gallery.length, 1);
+    assert.deepEqual(
+      (await req("public/storefront/catalog?category=promos-test")).items.map(
+        (x) => x.id,
+      ),
+      ["promo-" + kit.id, p.presentation_id],
+    );
+    assert.equal(
+      (await req("public/storefront/catalog?q=chocolate")).items.length,
+      2,
+    );
+    assert.equal(
+      (await req("public/storefront/catalog?order=price-asc")).items.length,
+      2,
+    );
+    let usages = (await req("media/" + asset.id)).usages.filter(
+      (x) => x.owner_type === "storefront_published",
+    );
+    assert.deepEqual(
+      new Set(usages.map((x) => x.owner_id)),
+      new Set([String(p.presentation_id), "promo-" + kit.id]),
+    );
+    draft = await req(
+      "storefront/draft",
+      { revision: draft.revision, entries: [product] },
+      "PUT",
+    );
+    await req("storefront/publish", { revision: draft.revision });
+    assert.equal(
+      (await fetch(base + `/api/public/storefront/media/${asset.id}/mobile`))
+        .status,
+      200,
+    );
+    usages = (await req("media/" + asset.id)).usages.filter(
+      (x) => x.owner_type === "storefront_published",
+    );
+    assert.deepEqual(
+      usages.map((x) => x.owner_id),
+      [String(p.presentation_id)],
+    );
+    draft = await req(
+      "storefront/draft",
+      { revision: draft.revision, entries: [] },
+      "PUT",
+    );
+    await req("storefront/publish", { revision: draft.revision });
+    assert.equal(
+      (await fetch(base + `/api/public/storefront/media/${asset.id}/mobile`))
+        .status,
+      404,
+    );
+  } finally {
+    await pg.end();
+  }
+});
