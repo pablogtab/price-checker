@@ -108,6 +108,12 @@ selección actual. Un importe histórico con más de dos decimales se muestra ex
 y exige acordar expresamente un precio ARS con hasta dos decimales; no se redondea
 ni se altera la precisión del libro de ventas/Caja.
 
+Cada línea de promo del pedido conserva una combinación de sabores y su cantidad:
+se revisa una sola combinación y se envía un ítem con esa cantidad, sin crear
+controles o ítems por cada copia. Corregir la cantidad mantiene los sabores y el
+precio histórico acordado. Distintas combinaciones siguen siendo líneas separadas;
+los borradores privados anteriores con sabores distintos por unidad se conservan.
+
 `POST /api/sales` acepta `source_order_id` opcional. Los ítems de una preparación
 incluyen `expected_components: [{componentProductId,quantity,variantGroup}]`,
 una firma revisada de todos los componentes, incluidos los fijos. Si se omite,
@@ -134,7 +140,8 @@ o anular una venta no elimina su vínculo ni reabre/reconvierte el pedido.
 
 Validación local adicional: `tests/api/storefront-conversion.mjs` usa
 `TEST_API_URL` y `TEST_CONVERSION_DATABASE_URL` (localhost y DB terminada en
-`_test`); `tests/browser/storefront-conversion.mjs` usa `E2E_BASE_URL`,
+`_test`); `tests/browser/storefront-conversion.mjs` y
+`tests/browser/storefront-repeat-quantity.mjs` usan `E2E_BASE_URL`,
 `E2E_ALLOW_FIXTURES=1` y opcionalmente `PLAYWRIGHT_MODULE`/`CHROME_EXECUTABLE`.
 Ejecutar suites con `--test-concurrency=1` y servicios locales dedicados. Los
 triggers/ediciones SQL de prueba solo se crean en la DB descartable; no se inicia

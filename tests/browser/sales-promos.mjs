@@ -31,7 +31,7 @@ test("promo picker cancels safely, repeats chosen combinations and consumes exac
   const vanilla = await api("products", {
     name: `Vainilla ${suffix}`,
     variant_group: group,
-    selling_price: "1300",
+    selling_price: "1100",
   });
   for (const p of [choc, vanilla])
     await api(`products/${p.id}/stock`, { quantity: 3 }, "PUT");
@@ -127,7 +127,7 @@ test("promo picker cancels safely, repeats chosen combinations and consumes exac
       await page
         .getByLabel("Precio unitario (ARS)", { exact: true })
         .inputValue(),
-      "2200",
+      "2000",
     );
     assert.equal(
       await search.evaluate((el) => el === document.activeElement),
@@ -208,8 +208,13 @@ test("promo picker cancels safely, repeats chosen combinations and consumes exac
     await page.getByRole("link", { name: "Ventas", exact: true }).click();
     await page.getByText(`Venta #${sales[0].id} ·`).waitFor();
     await page
+      .getByRole("article")
+      .filter({
+        has: page.getByRole("heading", {
+          name: new RegExp(`^Venta #${sales[0].id} ·`),
+        }),
+      })
       .getByRole("button", { name: "Ver venta", exact: true })
-      .first()
       .click();
     assert.match(
       await page.locator("app-sales").innerText(),

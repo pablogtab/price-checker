@@ -105,16 +105,17 @@ import { SelectComponent } from "./select";
         <strong>{{ sourceOrder.snapshot.number }} · Solicitud original</strong>
         @for (line of sourceOrder.snapshot.lines; track $index) {
           <p>
-            {{ line.quantity }} × {{ line.title }} · {{ originalAmount(line.price) }} ·
-            Subtotal {{ originalAmount(line.subtotal) }}
+            {{ line.quantity }} × {{ line.title }} ·
+            {{ originalAmount(line.price) }} · Subtotal
+            {{ originalAmount(line.subtotal) }}
             @for (label of line.labels; track $index) {
               <span> · {{ label }}</span>
             }
           </p>
         }
         <p>
-          Total original: {{ originalAmount(sourceOrder.snapshot.total) }}. Revisá
-          cantidades, sabores y precios; elegí cliente y cobro.
+          Total original: {{ originalAmount(sourceOrder.snapshot.total) }}.
+          Revisá cantidades, sabores y precios; elegí cliente y cobro.
         </p>
         <button
           class="text-button"
@@ -228,7 +229,9 @@ import { SelectComponent } from "./select";
             @for (line of lines; track line; let i = $index) {
               <div class="sales-line">
                 @if (
-                  selected(line)?.components?.length && line.quantity > 100
+                  !line.repeatedCombination &&
+                  selected(line)?.components?.length &&
+                  line.quantity > 100
                 ) {
                   <p class="sales-line-warning">
                     Podés cargar hasta 100 promos por venta.
@@ -288,7 +291,9 @@ import { SelectComponent } from "./select";
                     }
                     <button
                       class="text-button"
-                      [disabled]="line.quantity >= 100"
+                      [disabled]="
+                        line.quantity >= (line.repeatedCombination ? 1e9 : 100)
+                      "
                       (click)="repeatPromo(line)"
                     >
                       Repetir combinación
@@ -1080,7 +1085,7 @@ export class SalesComponent implements OnInit, DoCheck {
     this.closePromo();
   }
   repeatPromo(line: any) {
-    if (Number(line.quantity) >= 100) return;
+    if (Number(line.quantity) >= (line.repeatedCombination ? 1e9 : 100)) return;
     line.quantity = Number(line.quantity) + 1;
     this.syncSlots(line);
     this.focusSearch();
@@ -1411,7 +1416,7 @@ export class SalesComponent implements OnInit, DoCheck {
         (product.components || [])
           .filter((c: any) => c.variant_group)
           .reduce((n: number, c: any) => n + Number(c.quantity), 0) *
-        Number(line.quantity);
+        (line.repeatedCombination ? 1 : Number(line.quantity));
       if (expected !== (line.slots || []).length)
         issues.push(product.name + ": cambiaron los componentes");
     }
@@ -1472,6 +1477,9 @@ export class SalesComponent implements OnInit, DoCheck {
       const line: any = {
         product_id: f.kind === "promo" ? f.promoId : f.variantId,
         quantity: f.quantity,
+        // A public line repeats one reviewed combination; private drafts may
+        // retain a different set of flavor slots for every promo unit.
+        repeatedCombination: f.kind === "promo",
         unit_price: original.price,
         priceEdited: true,
         frozenPrice: true,
@@ -1596,6 +1604,10 @@ export class SalesComponent implements OnInit, DoCheck {
   }
   promoIndexes(line: any): number[] {
     const quantity = Number(line.quantity);
+    if (line.repeatedCombination)
+      return Number.isInteger(quantity) && quantity > 0 && quantity <= 1e9
+        ? [0]
+        : [];
     return Number.isInteger(quantity) && quantity > 0 && quantity <= 100
       ? Array.from({ length: quantity }, (_, i) => i)
       : [];
@@ -1696,7 +1708,7 @@ export class SalesComponent implements OnInit, DoCheck {
     const items = l.slots.length
       ? this.promoIndexes(l).map((promo) => ({
           product_id: l.product_id,
-          quantity: 1,
+          quantity: l.repeatedCombination ? Number(l.quantity) : 1,
           unit_price: this.basePromoPrice(l, promo).toString(),
           selections: this.selections(l, promo),
         }))
@@ -1743,7 +1755,9 @@ export class SalesComponent implements OnInit, DoCheck {
   }
   originalAmount(value: string) {
     const n = new Decimal(value);
-    const [whole, fraction] = n.toFixed(Math.max(2, n.decimalPlaces())).split(".");
+    const [whole, fraction] = n
+      .toFixed(Math.max(2, n.decimalPlaces()))
+      .split(".");
     return "$ " + whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + fraction;
   }
   amount(v: any) {
@@ -1829,7 +1843,10 @@ export class SalesComponent implements OnInit, DoCheck {
               (s: any) => s.component === c.product_id && s.product_id,
             )) {
               const id = Number(slot.product_id);
-              needed.set(id, (needed.get(id) || 0) + 1);
+              needed.set(
+                id,
+                (needed.get(id) || 0) + (line.repeatedCombination ? q : 1),
+              );
             }
           } else
             needed.set(
@@ -1865,7 +1882,8 @@ export class SalesComponent implements OnInit, DoCheck {
             Number.isInteger(Number(l.quantity)) &&
             Number(l.quantity) > 0 &&
             Number(l.quantity) <=
-              (this.selected(l)?.components?.some((c: any) => c.variant_group)
+              (!l.repeatedCombination &&
+              this.selected(l)?.components?.some((c: any) => c.variant_group)
                 ? 100
                 : 1e9) &&
             l.unit_price !== "" &&
