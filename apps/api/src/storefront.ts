@@ -7,6 +7,7 @@ import Decimal from "decimal.js";
 import { EntityManager } from "typeorm";
 import { db } from "./db";
 import { cachedImage } from "./images";
+import { getMediaAsset, mediaFile, replaceMediaUsages } from "./media";
 export interface StorefrontEntry {
   categoryIds?: string[];
   brandId?: string | null;
@@ -15,6 +16,9 @@ export interface StorefrontEntry {
   description: string;
   imageKey: string | null;
   variantIds: number[];
+  gallery?: number[];
+  coverMediaId?: number | null;
+  variantImages?: { variantId: number; mediaId: number }[];
 }
 export interface StorefrontProduct {
   categoryIds?: string[];
@@ -25,7 +29,14 @@ export interface StorefrontProduct {
   price: string;
   currency: "ARS";
   imageUrl: string | null;
-  variants: { id: number; label: string }[];
+  gallery?: { url: string; srcset: string }[];
+  imageSrcset?: string;
+  variants: {
+    id: number;
+    label: string;
+    imageUrl?: string | null;
+    imageSrcset?: string;
+  }[];
 }
 export async function storefrontDraft() {
   const [r] = await db.query(
@@ -57,6 +68,30 @@ function entries(value: unknown): StorefrontEntry[] {
       (x.imageKey !== null && !/^[a-f0-9]{64}$/.test(x.imageKey))
     )
       throw new BadRequestException("Revisá título, sabores e imagen");
+    const gallery = x.gallery ?? [],
+      coverMediaId = x.coverMediaId ?? gallery[0] ?? null,
+      variantImages = x.variantImages ?? [];
+    if (
+      !Array.isArray(gallery) ||
+      gallery.length > 30 ||
+      gallery.some((id) => !Number.isSafeInteger(id) || id < 1) ||
+      new Set(gallery).size !== gallery.length ||
+      (coverMediaId !== null && !gallery.includes(coverMediaId)) ||
+      !Array.isArray(variantImages) ||
+      variantImages.length > x.variantIds.length ||
+      variantImages.some(
+        (v) =>
+          !v ||
+          !x.variantIds.includes(v.variantId) ||
+          !Number.isSafeInteger(v.mediaId) ||
+          v.mediaId < 1,
+      ) ||
+      new Set(variantImages.map((v) => v.variantId)).size !==
+        variantImages.length
+    )
+      throw new BadRequestException(
+        "Revisá galería, portada e imágenes de sabores",
+      );
     seen.add(x.presentationId);
     return {
       presentationId: x.presentationId,
@@ -66,6 +101,16 @@ function entries(value: unknown): StorefrontEntry[] {
       variantIds: x.variantIds,
       categoryIds: x.categoryIds ?? [],
       brandId: x.brandId ?? null,
+      ...(x.gallery !== undefined || x.variantImages !== undefined
+        ? {
+            gallery,
+            coverMediaId,
+            variantImages: variantImages.map((v) => ({
+              variantId: v.variantId,
+              mediaId: v.mediaId,
+            })),
+          }
+        : {}),
     };
   });
 }
@@ -134,6 +179,7 @@ export async function saveStorefrontDraft(body: any) {
           "Revisá las asignaciones de categorías y marca",
         );
     }
+    await validateMedia(content, em);
     const [r] = await em.query(
       "INSERT INTO storefront_revisions(entries,categories,brands) VALUES($1::jsonb,$2::jsonb,$3::jsonb) RETURNING id",
       [
@@ -146,6 +192,7 @@ export async function saveStorefrontDraft(body: any) {
       "UPDATE storefront_state SET draft_revision_id=$1 WHERE id=1",
       [r.id],
     );
+    await syncMediaUsages(em, "storefront_draft", content);
     return {
       revision: r.id,
       entries: content,
@@ -206,6 +253,8 @@ export async function publishStorefront(body: any) {
         );
       await validImage(em, entry);
     }
+    await validateMedia(revision.entries, em);
+    await syncMediaUsages(em, "storefront_published", revision.entries);
     await em.query(
       "UPDATE storefront_state SET published_revision_id=$1 WHERE id=1",
       [body.revision],
@@ -262,6 +311,7 @@ export async function storefrontCatalog(query: any = {}, preview = false) {
         ? `/api/${preview ? "images" : "public/storefront/images"}/${entry.imageKey}`
         : null,
       variants: selected.map((p: any) => ({ id: p.id, label: p.name })),
+      ...mediaView(entry, selected, preview),
     });
   }
   const fold = (value: string) =>
@@ -357,6 +407,7 @@ export async function storefrontPresentation(id: number) {
       ? `/api/public/storefront/images/${entry.imageKey}`
       : null,
     variants: variants.map((p: any) => ({ id: p.id, label: p.name })),
+    ...mediaView(entry, variants, false),
   };
 }
 export async function storefrontImage(key: string) {
@@ -392,4 +443,91 @@ export async function storefrontCategories(query: any = {}) {
       name: b.name,
     })),
   };
+}
+function mediaIds(entry: StorefrontEntry) {
+  return [
+    ...new Set([
+      ...(entry.gallery || []),
+      ...(entry.variantImages || []).map((v) => v.mediaId),
+    ]),
+  ];
+}
+async function validateMedia(content: StorefrontEntry[], em: EntityManager) {
+  for (const id of new Set(content.flatMap(mediaIds))) {
+    try {
+      await getMediaAsset(id, em);
+      await mediaFile(id, "mobile");
+      await mediaFile(id, "desktop");
+    } catch {
+      throw new BadRequestException(
+        "Una imagen no está disponible. Elegí otro recurso de biblioteca.",
+      );
+    }
+  }
+}
+async function syncMediaUsages(
+  em: EntityManager,
+  ownerType: string,
+  content: StorefrontEntry[],
+) {
+  await em.query(
+    "DELETE FROM media_asset_usages WHERE owner_type=$1 AND slot='gallery'",
+    [ownerType],
+  );
+  for (const entry of content)
+    await replaceMediaUsages(
+      em,
+      ownerType,
+      String(entry.presentationId),
+      "gallery",
+      mediaIds(entry),
+      entry.title,
+    );
+}
+function mediaView(entry: StorefrontEntry, variants: any[], preview: boolean) {
+  if (!entry.gallery && !entry.variantImages) return {};
+  const url = (id: number, size: string) =>
+    preview
+      ? `/api/media/${id}/file/${size}`
+      : `/api/public/storefront/media/${id}/${size}`;
+  const image = (id: number) => ({
+    url: url(id, "desktop"),
+    srcset: `${url(id, "mobile")} 640w, ${url(id, "desktop")} 1600w`,
+  });
+  const cover = entry.coverMediaId ?? entry.gallery?.[0];
+  const legacy = entry.imageKey
+    ? `/api/${preview ? "images" : "public/storefront/images"}/${entry.imageKey}`
+    : null;
+  const common = cover ? image(cover) : null;
+  return {
+    gallery: (entry.gallery || []).map(image),
+    imageUrl: common?.url ?? legacy,
+    imageSrcset: common?.srcset,
+    variants: variants.map((p) => {
+      const id = entry.variantImages?.find(
+        (v) => v.variantId === p.id,
+      )?.mediaId;
+      const own = id ? image(id) : common;
+      return {
+        id: p.id,
+        label: p.name,
+        imageUrl: own?.url ?? legacy,
+        imageSrcset: own?.srcset,
+      };
+    }),
+  };
+}
+export async function storefrontMedia(id: number, size: string) {
+  if (!["mobile", "desktop"].includes(size))
+    throw new NotFoundException("Versión inexistente");
+  const [revision] = await db.query(
+    "SELECT r.entries FROM storefront_state s JOIN storefront_revisions r ON r.id=s.published_revision_id WHERE s.id=1",
+  );
+  if (
+    !(revision?.entries || []).some((e: StorefrontEntry) =>
+      mediaIds(e).includes(id),
+    )
+  )
+    throw new NotFoundException("Imagen no publicada");
+  return mediaFile(id, size);
 }
