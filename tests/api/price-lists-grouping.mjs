@@ -22,7 +22,7 @@ async function req(path, body, method = "POST", status) {
   );
   return v;
 }
-test("selected flavors group by exact presentation and price without selecting new flavors", async () => {
+test("selected flavors use the common presentation price without selecting new flavors", async () => {
   const ids = [];
   for (const [flavor, price, group] of [
     ["Chocolate", "1000", "Whey 2 lb"],
@@ -45,9 +45,9 @@ test("selected flavors group by exact presentation and price without selecting n
   const preview = await req(`price-lists/${list.id}/preview`, {});
   assert.match(
     preview.text,
-    /Whey 2 lb — \$ 1\.000,00\*\nDisponible: Banana, Chocolate/,
+    /Whey 2 lb — \$ 1\.000,00\*\nDisponible: Banana, Chocolate, Vainilla/,
   );
-  assert.match(preview.text, /Whey 2 lb — \$ 1\.200,00\*\nVainilla/);
+  assert.ok(!preview.text.includes("1.200,00"));
   assert.match(preview.text, /Whey 3 kg — \$ 1\.000,00/);
   const added = await req("products", {
     name: "Whey 2 lb · Frutilla",
