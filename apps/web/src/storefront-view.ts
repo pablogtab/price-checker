@@ -144,7 +144,9 @@ export interface StorefrontProduct {
                   }
                 </div>
               </fieldset>
-            } @else if (detail.variants.length) {
+            } @else if (
+              detail.variants.length && detail.variants[0].label !== detail.title
+            ) {
               <p class="variant">{{ detail.variants[0].label }}</p>
             }
             @if (cartActive) {

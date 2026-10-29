@@ -96,7 +96,7 @@ export async function storefrontCartSnapshot(body: unknown, em: EntityManager) {
     if (input.kind === "product") {
       const variant = item.variants.find((v: any) => v.id === input.variantId);
       if (!variant) continue;
-      labels.push(variant.label);
+      if (variant.label !== item.title) labels.push(variant.label);
     } else {
       const expected = item.components.reduce(
         (n: number, c: any) => n + c.quantity,

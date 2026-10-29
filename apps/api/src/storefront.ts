@@ -17,6 +17,7 @@ import { cachedImage } from "./images";
 import { kitSellingPrice } from "./bundles";
 import { orderAvailability, invalidateOrderPolicy } from "./price-list-orders";
 import { getMediaAsset, mediaFile, replaceMediaUsages } from "./media";
+import { flavorLabel } from "./price-list-format";
 interface Content {
   gallery?: number[];
   coverMediaId?: number | null;
@@ -38,6 +39,14 @@ export type StorefrontEntry = Content &
   );
 export function storefrontEntryId(e: StorefrontEntry): number | string {
   return e.kind === "promo" ? `promo-${e.promoId}` : e.presentationId;
+}
+function publicVariantLabel(product: any, title: string): string {
+  if (
+    !product.variant_group ||
+    product.name.trim() === product.variant_group.trim()
+  )
+    return title;
+  return flavorLabel(product.name, product.variant_group);
 }
 export interface StorefrontProduct {
   categoryIds?: string[];
@@ -453,7 +462,10 @@ export async function storefrontCatalog(query: any = {}, preview = false) {
       imageUrl: entry.imageKey
         ? `/api/${preview ? "images" : "public/storefront/images"}/${entry.imageKey}`
         : null,
-      variants: selected.map((p: any) => ({ id: p.id, label: p.name })),
+      variants: selected.map((p: any) => ({
+        id: p.id,
+        label: publicVariantLabel(p, entry.title),
+      })),
       ...mediaView(entry, selected, preview),
     });
   }
@@ -557,7 +569,10 @@ export async function storefrontPresentation(
     imageUrl: entry.imageKey
       ? `/api/public/storefront/images/${entry.imageKey}`
       : null,
-    variants: variants.map((p: any) => ({ id: p.id, label: p.name })),
+    variants: variants.map((p: any) => ({
+      id: p.id,
+      label: publicVariantLabel(p, entry.title),
+    })),
     ...mediaView(entry, variants, false),
   };
 }
@@ -621,7 +636,10 @@ async function promoProduct(
       componentId: component.product_id,
       label: component.variant_group || eligible[0].name,
       quantity: component.quantity,
-      variants: eligible.map((p: any) => ({ id: p.id, label: p.name })),
+      variants: eligible.map((p: any) => ({
+        id: p.id,
+        label: publicVariantLabel(p, component.variant_group || p.name),
+      })),
     });
   }
   const price =
@@ -777,7 +795,7 @@ function mediaView(entry: StorefrontEntry, variants: any[], preview: boolean) {
       const own = id ? image(id) : common;
       return {
         id: p.id,
-        label: p.name,
+        label: publicVariantLabel(p, entry.title),
         imageUrl: own?.url ?? legacy,
         imageSrcset: own?.srcset,
       };
