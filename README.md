@@ -623,3 +623,5 @@ La definición y las pruebas acordadas están en
 [GitHub #11](https://github.com/pablogtab/price-checker/issues/11).
 Las pruebas REST y de navegador usan API/frontend reales con bases descartables
 terminadas en `_test`; nunca deben apuntar a producción ni a la base habitual local.
+
+La tienda pública local y su frontera de acceso se documentan en [docs/storefront/README.md](docs/storefront/README.md).

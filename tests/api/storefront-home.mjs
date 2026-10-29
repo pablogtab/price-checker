@@ -112,8 +112,11 @@ test("home participates in immutable revisions and resolves live featured prices
   const withdrawn = await api("public/storefront/catalog");
   assert.equal(withdrawn.home.featured.length, 0);
   assert.equal(withdrawn.home.banners.length, 0);
-  await api("storefront/publish", { revision: edited.revision }, "POST", 400);
-  assert.equal((await api("public/storefront/catalog")).revision, d.revision);
+  await api("storefront/publish", { revision: edited.revision });
+  assert.equal(
+    (await api("public/storefront/catalog")).revision,
+    edited.revision,
+  );
 });
 test("invalid home edits retain revision and publication; banner media and gallery usages stay separately authorized", async () => {
   const p = await api("products", {

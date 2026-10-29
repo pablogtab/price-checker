@@ -2,6 +2,7 @@ import { Component, OnInit, inject, ChangeDetectorRef } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { HttpClient } from "@angular/common/http";
 import { firstValueFrom } from "rxjs";
+import Decimal from "decimal.js";
 import { SelectComponent } from "./select";
 @Component({
   selector: "app-storefront-inbox",
@@ -49,7 +50,7 @@ import { SelectComponent } from "./select";
             <small>Sin datos de contacto</small>
           </div>
           <div>
-            <strong>ARS {{ row.snapshot.total }}</strong
+            <strong>{{ originalAmount(row.snapshot.total) }}</strong
             ><button (click)="open(row.id)">Ver pedido</button>
           </div>
         </article>
@@ -84,13 +85,15 @@ import { SelectComponent } from "./select";
               }
             </div>
             <div>
-              ARS {{ line.price }}
-              <p>Subtotal: ARS {{ line.subtotal }}</p>
+              {{ originalAmount(line.price) }}
+              <p>Subtotal: {{ originalAmount(line.subtotal) }}</p>
             </div>
           </article>
         }
         <p>
-          <strong>Total original: ARS {{ detail.snapshot.total }}</strong>
+          <strong
+            >Total original: {{ originalAmount(detail.snapshot.total) }}</strong
+          >
         </p>
         @if (detail.status === "pending") {
           <p>
@@ -206,6 +209,14 @@ import { SelectComponent } from "./select";
   ],
 })
 export class StorefrontInboxComponent implements OnInit {
+  originalAmount(value: string) {
+    const n = new Decimal(value);
+    const [whole, fraction] = n
+      .toFixed(Math.max(2, n.decimalPlaces()))
+      .split(".");
+    return "$ " + whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + fraction;
+  }
+
   http = inject(HttpClient);
   cdr = inject(ChangeDetectorRef);
   rows: any[] = [];

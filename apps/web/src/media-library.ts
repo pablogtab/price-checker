@@ -71,7 +71,7 @@ interface Upload {
       </button>
     </div>
     @if (!sources) {
-      <label class="search"
+      <label class="media-search"
         >Buscar imágenes<input
           type="search"
           [(ngModel)]="search"
@@ -245,14 +245,14 @@ interface Upload {
         background: #11261f;
         color: white;
       }
-      .search {
+      .media-search {
         display: grid;
         gap: 8px;
         max-width: 440px;
         margin-bottom: 24px;
         font-weight: 600;
       }
-      .search input {
+      .media-search input {
         width: 100%;
         min-height: 44px;
         padding: 10px;

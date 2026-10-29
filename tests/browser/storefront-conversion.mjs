@@ -310,7 +310,7 @@ test("unrelated draft requires explicit decision; original precision is actionab
     );
     assert.match(
       await page.getByLabel("Solicitud original").innerText(),
-      /3750.765/,
+      /3\.750,765/,
     );
     assert.equal(
       await page

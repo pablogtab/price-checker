@@ -115,8 +115,21 @@ test("owner saves a draft and publishes only selected flavors with live common p
     (await req(`public/storefront/presentations/${a.presentation_id}`)).title,
     entry.title,
   );
-  await req(`products/${b.id}/stock`, { quantity: 0 }, "PUT");
+  await req(
+    `presentations/${b.presentation_id}/price`,
+    { catalog_price: "0" },
+    "PUT",
+  );
   await req("storefront/publish", { revision: changed.revision }, "POST", 400);
+  assert.equal(
+    (await req("public/storefront/catalog")).revision,
+    draft.revision,
+  );
+  await req(
+    `presentations/${a.presentation_id}/price`,
+    { catalog_price: "2100.25" },
+    "PUT",
+  );
   assert.equal(
     (await req(`public/storefront/presentations/${a.presentation_id}`)).title,
     entry.title,
@@ -168,7 +181,7 @@ test("draft-only images remain private until publication and revoked images stop
   await req("storefront/publish", { revision: unpublished.revision });
   await req("public/storefront/images/" + key, undefined, "GET", 404);
 });
-test("private preview retains the complete draft and explains unavailable selections", async () => {
+test("private preview retains the complete draft and retains unavailable selections without blocking publication", async () => {
   const p = await req("products", {
     name: "Sin stock " + Date.now(),
     selling_price: "1200",
@@ -193,8 +206,7 @@ test("private preview retains the complete draft and explains unavailable select
   const preview = await req("storefront/preview");
   assert.equal(preview.entries.length, 1);
   assert.equal(preview.entries[0].title, "Contenido pendiente");
-  assert.equal(preview.issues.length, 1);
-  assert.match(preview.issues[0].message, /stock/);
+  assert.deepEqual(preview.issues, []);
   assert.equal(
     (await req("public/storefront/catalog")).items.some(
       (i) => i.id === p.presentation_id,

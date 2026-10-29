@@ -105,15 +105,15 @@ import { SelectComponent } from "./select";
         <strong>{{ sourceOrder.snapshot.number }} · Solicitud original</strong>
         @for (line of sourceOrder.snapshot.lines; track $index) {
           <p>
-            {{ line.quantity }} × {{ line.title }} · ARS {{ line.price }} ·
-            Subtotal ARS {{ line.subtotal }}
+            {{ line.quantity }} × {{ line.title }} · {{ originalAmount(line.price) }} ·
+            Subtotal {{ originalAmount(line.subtotal) }}
             @for (label of line.labels; track $index) {
               <span> · {{ label }}</span>
             }
           </p>
         }
         <p>
-          Total original: ARS {{ sourceOrder.snapshot.total }}. Revisá
+          Total original: {{ originalAmount(sourceOrder.snapshot.total) }}. Revisá
           cantidades, sabores y precios; elegí cliente y cobro.
         </p>
         <button
@@ -1740,6 +1740,11 @@ export class SalesComponent implements OnInit, DoCheck {
       (sum, i) => sum.plus(new Decimal(i.unit_price).mul(i.quantity)),
       new Decimal(0),
     );
+  }
+  originalAmount(value: string) {
+    const n = new Decimal(value);
+    const [whole, fraction] = n.toFixed(Math.max(2, n.decimalPlaces())).split(".");
+    return "$ " + whole.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + fraction;
   }
   amount(v: any) {
     return new Intl.NumberFormat("es-AR", {

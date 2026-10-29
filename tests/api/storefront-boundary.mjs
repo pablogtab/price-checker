@@ -159,3 +159,26 @@ test("only exact order creation and opaque own-request receipt routes are public
   assert.equal(absent.headers.get("cache-control"), "no-store");
   assert.equal(absent.headers.get("referrer-policy"), "no-referrer");
 });
+
+test("private inbox, source sale pages and sensitive resources remain absent from the public entry", async () => {
+  for (const method of ["GET", "POST", "PUT", "DELETE"]) {
+    for (const path of [
+      "/orders",
+      "/sales/new?order=1",
+      "/api/storefront/orders",
+      "/api/storefront/orders/1",
+      "/api/storefront/orders/1/discard",
+      "/api/sales/1",
+      "/api/customers/1",
+      "/api/customers/1/ledger",
+      "/api/products/1/stock",
+      "/api/presentations",
+      "/api/media/1/file/original",
+      "/api/storefront/preview",
+    ]) {
+      const response = await fetch(base + path, { method });
+      assert.equal(response.status, 404, method + " " + path);
+      assert.doesNotMatch(await response.text(), /geva-storefront/);
+    }
+  }
+});
