@@ -529,16 +529,19 @@ export async function storefrontCatalog(query: any = {}, preview = false) {
     ...(preview ? { entries: revision?.entries || [], issues, warnings } : {}),
   };
 }
-export async function storefrontPresentation(id: number) {
+export async function storefrontPresentation(
+  id: number,
+  em: EntityManager = db.manager,
+) {
   // Detail is independent of catalog pagination.
-  const [revision] = await db.query(
+  const [revision] = await em.query(
     "SELECT r.entries,r.categories,r.brands FROM storefront_state s JOIN storefront_revisions r ON r.id=s.published_revision_id WHERE s.id=1",
   );
   const entry = revision?.entries.find(
     (e: StorefrontEntry) => e.kind !== "promo" && e.presentationId === id,
   );
   if (!entry) throw new NotFoundException("Producto no disponible");
-  const variants = (await products(db.manager, entry)).filter(
+  const variants = (await products(em, entry)).filter(
     (p: any) =>
       p.presentation_id === id &&
       storefrontEligible(p) &&
@@ -642,14 +645,17 @@ async function promoProduct(
     ...mediaView(entry, [], preview),
   };
 }
-export async function storefrontPromo(id: number) {
-  const [revision] = await db.query(
+export async function storefrontPromo(
+  id: number,
+  em: EntityManager = db.manager,
+) {
+  const [revision] = await em.query(
     "SELECT r.entries,r.brands FROM storefront_state s JOIN storefront_revisions r ON r.id=s.published_revision_id WHERE s.id=1",
   );
   const entry = revision?.entries.find(
     (e: StorefrontEntry) => e.kind === "promo" && e.promoId === id,
   );
-  const result = entry && (await promoProduct(db.manager, entry));
+  const result = entry && (await promoProduct(em, entry));
   if (!result) throw new NotFoundException("Promo no disponible");
   return {
     ...result,
