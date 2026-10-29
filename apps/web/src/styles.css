@@ -1911,3 +1911,15 @@ app-sales .sales-review .sales-actions { margin-top: 20px; }
   app-sales .sales-review .sales-payment-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   app-sales .sales-review .sales-payment-choices button { padding: 10px 8px; }
 }
+
+.presentation-prices { margin: 0 0 24px; padding: 20px; background: #fff9e9; border: 1px solid #e9d6a6; border-radius: 14px; }
+.presentation-prices h2 { margin: 0 0 8px; font-size: 18px; }
+.presentation-prices p { max-width: 800px; line-height: 1.5; }
+.presentation-price-card { margin-top: 16px; padding: 16px; border: 1px solid #e9d6a6; border-radius: 10px; background: white; }
+.presentation-price-card h3 { margin: 0 0 10px; }
+.presentation-price-card ul { padding-left: 20px; line-height: 1.8; }
+.presentation-price-card label { display: inline-flex; flex-direction: column; gap: 6px; margin-right: 12px; margin-bottom: 12px; }
+.presentation-price-card input { max-width: 220px; padding: 10px; border: 1px solid #b9c7bf; border-radius: 8px; }
+@media(max-width:600px) { .presentation-prices { padding: 14px; } .presentation-price-card label,.presentation-price-card button { width: 100%; } .presentation-price-card input { max-width: none; } }
+.presentation-price-card label { vertical-align: bottom; }
+.presentation-price-card > button { vertical-align: bottom; margin-bottom: 12px; }

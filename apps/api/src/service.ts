@@ -1,3 +1,4 @@
+import {presentationFor,setPresentationPrice,pendingPrice} from "./presentation-pricing";
 import { inferredPackUnits } from "./pricing";
 import { saveProductImage } from "./images";
 import {
@@ -160,7 +161,7 @@ export class AppService {
     const [settings, products, links] = await Promise.all([
       this.settings(),
       db.query(
-        "SELECT *,selling_price::text FROM products WHERE NOT archived ORDER BY position,id",
+        "SELECT p.*,p.selling_price::text,r.catalog_price::text,r.catalog_price IS NULL AND p.kind='product' price_unresolved FROM products p LEFT JOIN presentations r ON r.id=p.presentation_id WHERE NOT p.archived ORDER BY p.position,p.id",
       ),
       readLinks(),
     ]);
@@ -303,17 +304,19 @@ export class AppService {
             throw new BadRequestException("Cantidad por pack inválida");
         }
       }
+      const presentation = kind === "kit" ? null : await presentationFor(em,optionalText(body.variant_group),price);
       const [p] = await em.query(
-        "INSERT INTO products(name,code,barcode,selling_price,position,preferred_provider_id,kind,variant_group,minimum_stock) SELECT $1,$2,$3,$4,coalesce(max(position),-1)+1,$5,$6,$7,$8 FROM products RETURNING *",
+        "INSERT INTO products(name,code,barcode,selling_price,position,preferred_provider_id,kind,variant_group,minimum_stock,presentation_id) SELECT $1,$2,$3,$4,coalesce(max(position),-1)+1,$5,$6,$7,$8,$9 FROM products RETURNING *",
         [
           name,
           optionalText(body.code),
           optionalText(body.barcode),
-          price,
+          presentation?.catalog_price ?? price,
           source?.provider_id || null,
           kind,
           kind === "kit" ? null : optionalText(body.variant_group),
           minimumStock(body.minimum_stock),
+          presentation?.id ?? null,
         ],
       );
       const image = await saveProductImage(body.image_data);
@@ -390,7 +393,7 @@ export class AppService {
     return db.transaction(async (em) => {
       await em.query("SELECT pg_advisory_xact_lock(713450)");
       const [product] = await em.query(
-        "SELECT kind FROM products WHERE id=$1 AND NOT archived FOR UPDATE",
+        "SELECT * FROM products WHERE id=$1 AND NOT archived FOR UPDATE",
         [id],
       );
       if (!product) throw new NotFoundException("Producto inexistente");
@@ -406,7 +409,7 @@ export class AppService {
     return db.transaction(async (em) => {
       await em.query("SELECT pg_advisory_xact_lock(713450)");
       const [product] = await em.query(
-        "SELECT kind FROM products WHERE id=$1 AND NOT archived FOR UPDATE",
+        "SELECT * FROM products WHERE id=$1 AND NOT archived FOR UPDATE",
         [id],
       );
       if (!product) throw new NotFoundException("Producto inexistente");
@@ -414,10 +417,9 @@ export class AppService {
         throw new BadRequestException(
           "El precio del kit se calcula con su descuento y componentes",
         );
-      await em.query("UPDATE products SET selling_price=$1 WHERE id=$2", [
-        price,
-        id,
-      ]);
+      const [presentation] = await em.query('SELECT * FROM presentations WHERE id=$1 FOR UPDATE',[product.presentation_id]);
+      if(presentation.catalog_price == null) pendingPrice();
+      await setPresentationPrice(em,product.presentation_id,price);
       return { id, selling_price: price };
     });
   }
@@ -459,17 +461,32 @@ export class AppService {
           );
       }
       if (old.kind === "kit") await saveComponents(em, id, body.components);
-      const [p] = await em.query(
-        "UPDATE products SET name=$1,code=$2,barcode=$3,selling_price=$4,preferred_provider_id=$5,variant_group=$7,minimum_stock=$8 WHERE id=$6 RETURNING *",
+      let presentation:any = null;
+      let nextPrice = old.selling_price;
+      if(old.kind !== "kit") {
+        const requested = money(body.selling_price);
+        presentation = group === old.variant_group
+          ? (await em.query('SELECT * FROM presentations WHERE id=$1 FOR UPDATE',[old.presentation_id]))[0]
+          : await presentationFor(em,group,requested);
+        if(group === old.variant_group) {
+          if(presentation.catalog_price == null) {
+            if(!new Decimal(requested).eq(old.selling_price)) pendingPrice();
+          } else await setPresentationPrice(em,presentation.id,requested);
+          nextPrice = requested;
+        } else nextPrice = presentation.catalog_price ?? requested;
+      }
+      const [[p]] = await em.query(
+        "UPDATE products SET name=$1,code=$2,barcode=$3,selling_price=$4,preferred_provider_id=$5,variant_group=$7,minimum_stock=$8,presentation_id=$9 WHERE id=$6 RETURNING *",
         [
           text(body.name),
           optionalText(body.code),
           optionalText(body.barcode),
-          old.kind === "kit" ? old.selling_price : money(body.selling_price),
+          nextPrice,
           preferred,
           id,
           old.kind === "kit" ? null : group,
           body.minimum_stock === undefined ? old.minimum_stock : minimumStock(body.minimum_stock),
+          presentation?.id ?? null,
         ],
       );
       const image = await saveProductImage(body.image_data);
