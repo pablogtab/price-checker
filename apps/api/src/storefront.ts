@@ -333,13 +333,14 @@ export async function publishStorefront(body: any) {
         variants.some(
           (p: any) =>
             p.presentation_id !== entry.presentationId ||
-            !storefrontEligible(p) ||
+            p.archived ||
+            p.kind !== "product" ||
             !p.price ||
             Number(p.price) <= 0,
         )
       )
         throw new BadRequestException(
-          `Revisá sabores, stock y precio común de ${entry.title}`,
+          `Revisá sabores y precio común de ${entry.title}`,
         );
       await validImage(em, entry);
     }
@@ -428,14 +429,15 @@ export async function storefrontCatalog(query: any = {}, preview = false) {
         current.some(
           (p: any) =>
             p.presentation_id !== entry.presentationId ||
-            !storefrontEligible(p) ||
+            p.archived ||
+            p.kind !== "product" ||
             !p.price ||
             Number(p.price) <= 0,
         ))
     )
       issues.push({
         presentationId: entry.presentationId,
-        message: `${entry.title}: revisá sabores, stock propio y precio común antes de publicar.`,
+        message: `${entry.title}: revisá sabores y precio común antes de publicar.`,
       });
     const selected = current.filter(
       (p: any) =>
@@ -594,9 +596,11 @@ async function promoProduct(
       (component.variant_group
         ? p.variant_group === component.variant_group
         : p.id === component.product_id) &&
-      storefrontEligible(p) &&
-      (p.storefrontAvailability.availability !== "order" ||
-        promo.price_list_order_allowed) &&
+      !p.archived &&
+      (strict ||
+        (storefrontEligible(p) &&
+          (p.storefrontAvailability.availability !== "order" ||
+            promo.price_list_order_allowed))) &&
       p.price &&
       Number(p.price) > 0;
     if (

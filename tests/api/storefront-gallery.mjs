@@ -73,9 +73,18 @@ test("gallery assignment, cover, flavor override and reusable published referenc
   };
   state = await req(
     "storefront/draft",
-    { revision: state.revision, entries: [entry],
-      categories: [{ id: "gallery-category", name: "Galería", productIds: [a.presentation_id] }],
-      brands: [{ id: "gallery-brand", name: "Marca Galería" }] },
+    {
+      revision: state.revision,
+      entries: [entry],
+      categories: [
+        {
+          id: "gallery-category",
+          name: "Galería",
+          productIds: [a.presentation_id],
+        },
+      ],
+      brands: [{ id: "gallery-brand", name: "Marca Galería" }],
+    },
     "PUT",
   );
   assert.deepEqual(state.entries[0].gallery, entry.gallery);
@@ -91,8 +100,13 @@ test("gallery assignment, cover, flavor override and reusable published referenc
     `public/storefront/presentations/${a.presentation_id}`,
   );
   assert.deepEqual(detail.categoryIds, entry.categoryIds);
-  assert.deepEqual(detail.brand, { id: "gallery-brand", name: "Marca Galería" });
-  const filtered = await req("public/storefront/catalog?category=gallery-category&brand=gallery-brand&q=galeria");
+  assert.deepEqual(detail.brand, {
+    id: "gallery-brand",
+    name: "Marca Galería",
+  });
+  const filtered = await req(
+    "public/storefront/catalog?category=gallery-category&brand=gallery-brand&q=galeria",
+  );
   assert.equal(filtered.total, 1);
   assert.equal(filtered.items[0].imageUrl, detail.imageUrl);
   assert.deepEqual(filtered.items[0].gallery, detail.gallery);
@@ -145,13 +159,21 @@ test("gallery assignment, cover, flavor override and reusable published referenc
     400,
   );
   assert.equal((await req("storefront/draft")).revision, state.revision);
-  await req(`products/${a.id}/stock`, { quantity: 0 }, "PUT");
+  await req(
+    `presentations/${a.presentation_id}/price`,
+    { catalog_price: "0" },
+    "PUT",
+  );
   await req("storefront/publish", { revision: state.revision }, "POST", 400);
+  await req(
+    `presentations/${a.presentation_id}/price`,
+    { catalog_price: "1200" },
+    "PUT",
+  );
   assert.equal(
     (await req("public/storefront/catalog")).items[0].imageUrl,
     detail.imageUrl,
   );
-  await req(`products/${a.id}/stock`, { quantity: 3 }, "PUT");
   await req("storefront/publish", { revision: state.revision });
   assert.equal(
     (await fetch(base + `/api/public/storefront/media/${assets[0].id}/desktop`))

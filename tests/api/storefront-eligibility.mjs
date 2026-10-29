@@ -70,7 +70,8 @@ test("shared manual permission and last successful individual or pack offers det
       },
       "PUT",
     );
-    await req("storefront/publish", { revision: draft.revision }, "POST", 400);
+    await req("storefront/publish", { revision: draft.revision });
+    assert.equal((await req("public/storefront/catalog")).items.length, 0);
     await req(`storefront/order-permission/${p.id}`, { allowed: true }, "PUT");
     assert.equal(
       (await req("price-list-order-policy")).products.find((x) => x.id === p.id)
@@ -321,7 +322,7 @@ test("promo without shared order permission keeps own-stock choices and excludes
       (await req(`public/storefront/promos/${kit.id}`)).components[0].variants,
       [{ id: a.id, label: "Own" }],
     );
-    await req("storefront/publish", { revision: draft.revision }, "POST", 400);
+    await req("storefront/publish", { revision: draft.revision });
   } finally {
     await pg.end();
   }

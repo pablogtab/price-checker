@@ -152,7 +152,10 @@ class PublicStorefront implements OnInit {
     } catch (e) {
       if (requestId !== this.requestId) return;
       this.error =
-        e instanceof Error ? e.message : "No se pudo cargar el catálogo.";
+        e instanceof Error &&
+        e.message === "Este producto ya no está disponible."
+          ? e.message
+          : "No se pudo cargar el catálogo.";
     } finally {
       if (requestId !== this.requestId) return;
       this.loading = false;

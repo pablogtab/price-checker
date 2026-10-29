@@ -8,14 +8,14 @@ import { StorefrontCart, CartLine } from "./storefront-cart";
   styleUrls: ["./storefront-view.css", "./storefront-cart.css"],
   template: ` <header>
       <a href="/" class="wordmark">GEVA<span>FIT</span></a
-      ><span>Tu carrito</span>
+      ><span>{{ cart.receipt() ? "Tu pedido" : "Tu carrito" }}</span>
     </header>
     <div class="delivery">
       Entrega en Córdoba capital · Coordinamos por WhatsApp
     </div>
     <main>
       <a href="/" class="back">← Seguir comprando</a>
-      <h1>Tu carrito</h1>
+      <h1>{{ cart.receipt() ? "Tu pedido" : "Tu carrito" }}</h1>
       @if (cart.receipt(); as receipt) {
         <section class="order-receipt" aria-label="Pedido guardado">
           <p class="order-status">Pedido guardado · Pendiente de conversar</p>

@@ -322,10 +322,16 @@ export interface StorefrontProduct {
                 <div class="card-info">
                   <h2>{{ item.title }}</h2>
                   <p>
-                    {{ item.brand?.name ? item.brand?.name + " · " : "" }}
+                    {{ item.brand?.name || "" }}
+                    @if (
+                      item.brand?.name &&
+                      (item.kind === "promo" || item.variants.length > 1)
+                    ) {
+                      ·
+                    }
                     @if (item.kind === "promo") {
                       Elegí los sabores por unidad
-                    } @else {
+                    } @else if (item.variants.length > 1) {
                       {{ item.variants.length }}
                       {{ item.variants.length === 1 ? "opción" : "opciones" }}
                     }
@@ -451,7 +457,7 @@ export class StorefrontViewComponent {
   }
   photoOverride: { url: string; srcset?: string } | null = null;
   ngOnChanges(changes: any) {
-    this.search = this.q;
+    if (changes.q) this.search = this.q;
     if (changes.detail) {
       this.added = false;
       this.selected = null;
