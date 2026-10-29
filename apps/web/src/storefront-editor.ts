@@ -1,3 +1,4 @@
+import {HomeContent,StorefrontHomeEditorComponent} from "./storefront-home-editor";
 import { Component, OnInit, inject, ChangeDetectorRef } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { registerLocaleData } from "@angular/common";
@@ -17,7 +18,7 @@ interface Entry {
 @Component({
   selector: "app-storefront-editor",
   standalone: true,
-  imports: [FormsModule, SelectComponent, StorefrontViewComponent],
+  imports: [FormsModule, SelectComponent, StorefrontViewComponent,StorefrontHomeEditorComponent],
   template: ` <section class="store-editor">
     <div class="intro">
       <p>Editá el contenido y publicá los cambios.</p>
@@ -111,6 +112,7 @@ interface Entry {
           }
         </div>
       </section>
+      <app-storefront-home-editor [home]="home" [entries]="entries" [categories]="categories" (changed)="changed()"/>
       <div class="editor-layout">
         <aside>
           <h2>Selección web</h2>
@@ -276,6 +278,7 @@ interface Entry {
           }
           <geva-storefront-view
             [items]="previewItems"
+            [home]="previewHome" (destination)="previewDestination($event)"
             [total]="previewItems.length"
             [detail]="previewDetail"
             [q]="previewQuery.q || ''"
@@ -576,6 +579,9 @@ interface Entry {
   ],
 })
 export class StorefrontEditorComponent implements OnInit {
+  home:HomeContent={featuredIds:[],banners:[]};
+  previewHome:any={featured:[],banners:[]};
+  previewDestination(d:any){if(d.type==='category')this.filterPreview({category:d.id});else this.previewDetail=this.previewItems?.find(x=>x.id===d.id)||null;}
   categories: { id: string; name: string; productIds?: (string | number)[] }[] =
     [];
   orderCategory = "";
@@ -697,6 +703,7 @@ export class StorefrontEditorComponent implements OnInit {
         this.api("products"),
       ]);
       this.entries = draft.entries;
+      this.home=draft.home||{featuredIds:[],banners:[]};
       this.categories = draft.categories || [];
       this.brands = draft.brands || [];
       this.revision = draft.revision;
@@ -789,6 +796,7 @@ export class StorefrontEditorComponent implements OnInit {
           entries: this.entries,
           categories: this.categories,
           brands: this.brands,
+          home:this.home,
         },
         "PUT",
       );
@@ -813,6 +821,7 @@ export class StorefrontEditorComponent implements OnInit {
         "storefront/preview?" + new URLSearchParams(this.previewQuery),
       );
       this.previewItems = result.items;
+      this.previewHome=result.home;
       this.previewIssues = result.issues || [];
       this.previewDetail = null;
     });

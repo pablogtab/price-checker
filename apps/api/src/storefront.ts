@@ -1,3 +1,5 @@
+import {homeContent,validateHomeMedia,syncHomeUsages,publicHome} from "./storefront-home";
+import {mediaFile} from "./media";
 import {
   BadRequestException,
   ConflictException,
@@ -29,7 +31,7 @@ export interface StorefrontProduct {
 }
 export async function storefrontDraft() {
   const [r] = await db.query(
-    'SELECT r.id revision,r.entries,r.categories,r.brands,s.published_revision_id "publishedRevision" FROM storefront_state s JOIN storefront_revisions r ON r.id=s.draft_revision_id WHERE s.id=1',
+    'SELECT r.id revision,r.entries,r.categories,r.brands,r.home,s.published_revision_id "publishedRevision" FROM storefront_state s JOIN storefront_revisions r ON r.id=s.draft_revision_id WHERE s.id=1',
   );
   return r;
 }
@@ -118,7 +120,7 @@ export async function saveStorefrontDraft(body: any) {
     if (state.draft_revision_id !== body.revision)
       throw new ConflictException("El borrador cambió. Volvé a cargarlo.");
     const [previous] = await em.query(
-      "SELECT categories,brands FROM storefront_revisions WHERE id=$1",
+      "SELECT categories,brands,home FROM storefront_revisions WHERE id=$1",
       [state.draft_revision_id],
     );
     const categories = facets(body.categories ?? previous.categories),
@@ -134,14 +136,18 @@ export async function saveStorefrontDraft(body: any) {
           "Revisá las asignaciones de categorías y marca",
         );
     }
+    const home=homeContent(body.home??previous.home,content,categories);
+    await validateHomeMedia(home);
     const [r] = await em.query(
-      "INSERT INTO storefront_revisions(entries,categories,brands) VALUES($1::jsonb,$2::jsonb,$3::jsonb) RETURNING id",
+      "INSERT INTO storefront_revisions(entries,categories,brands,home) VALUES($1::jsonb,$2::jsonb,$3::jsonb,$4::jsonb) RETURNING id",
       [
         JSON.stringify(content),
         JSON.stringify(categories),
         JSON.stringify(brands),
+        JSON.stringify(home),
       ],
     );
+    await syncHomeUsages(em,"storefront_draft",home);
     await em.query(
       "UPDATE storefront_state SET draft_revision_id=$1 WHERE id=1",
       [r.id],
@@ -151,6 +157,7 @@ export async function saveStorefrontDraft(body: any) {
       entries: content,
       categories,
       brands,
+      home,
       publishedRevision: state.published_revision_id,
     };
   });
@@ -206,6 +213,9 @@ export async function publishStorefront(body: any) {
         );
       await validImage(em, entry);
     }
+    const home=homeContent(revision.home,revision.entries,revision.categories);
+    await validateHomeMedia(home);
+    await syncHomeUsages(em,"storefront_published",home);
     await em.query(
       "UPDATE storefront_state SET published_revision_id=$1 WHERE id=1",
       [body.revision],
@@ -314,6 +324,7 @@ export async function storefrontCatalog(query: any = {}, preview = false) {
           Math.floor(page) * Math.floor(pageSize),
         ),
     total: filtered.length,
+    home: publicHome(revision?.home,items,preview),
     revision: revision?.id ?? 0,
     categories: (revision?.categories ?? []).map((c: StorefrontFacet) => ({
       id: c.id,
@@ -392,4 +403,11 @@ export async function storefrontCategories(query: any = {}) {
       name: b.name,
     })),
   };
+}
+
+export async function storefrontMedia(id:number,size:string){
+ if(!["mobile","desktop"].includes(size)) throw new NotFoundException("Versión inexistente");
+ const [r]=await db.query("SELECT 1 FROM storefront_state s JOIN storefront_revisions r ON r.id=s.published_revision_id WHERE s.id=1 AND EXISTS(SELECT 1 FROM jsonb_array_elements(r.home->'banners') b WHERE (b->>'mediaId')::int=$1)",[id]);
+ if(!r) throw new NotFoundException("Imagen no publicada");
+ return mediaFile(id,size);
 }
