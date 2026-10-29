@@ -29,3 +29,7 @@ del banner y slot `banner`. Solo se reemplazan los usos de banners propios de
 la revisión anterior; las galerías y referencias independientes se conservan.
 La ruta pública de rendiciones solo admite recursos referidos por la revisión
 publicada. La biblioteca, el original y la vista previa siguen privados.
+
+Las fichas de promo usan `/promos/<id>` y las presentaciones `/products/<id>`.
+La identidad `promo-<id>` se conserva en destacados y destinos, sin crear una
+presentación ficticia ni mezclar su ID con el de una presentación.

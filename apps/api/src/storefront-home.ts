@@ -115,7 +115,10 @@ export function publicHome(
           href:
             b.destination.type === "category"
               ? `/?category=${encodeURIComponent(b.destination.id)}`
-              : `/products/${b.destination.id}`,
+              : typeof b.destination.id === "string" &&
+                  b.destination.id.startsWith("promo-")
+                ? `/promos/${b.destination.id.slice(6)}`
+                : `/products/${b.destination.id}`,
         };
       }),
   };

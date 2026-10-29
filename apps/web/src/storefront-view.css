@@ -357,6 +357,7 @@ footer {
   }
 }
 
+.detail-info fieldset + fieldset {margin-top:20px;}
 .search {
   display: flex;
   gap: 10px;

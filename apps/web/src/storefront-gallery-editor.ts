@@ -4,7 +4,7 @@ export interface GalleryEntry {
   gallery?: number[];
   coverMediaId?: number | null;
   variantImages?: { variantId: number; mediaId: number }[];
-  variantIds: number[];
+  variantIds?: number[];
 }
 @Component({
   selector: "app-storefront-gallery-editor",
@@ -66,30 +66,32 @@ export interface GalleryEntry {
     <button (click)="target = null; library = true">
       Agregar desde biblioteca
     </button>
-    <h4>Imagen por sabor</h4>
-    <p>Sin imagen específica, se muestra la portada común.</p>
-    @for (v of variants; track v.id) {
-      @if (entry.variantIds.includes(v.id)) {
-        <div class="variant-image">
-          <span>{{ v.name }}</span>
-          @if (variantImage(v.id); as id) {
-            <img
-              [src]="'/api/media/' + id + '/file/mobile'"
-              [alt]="v.name"
-            /><button
-              [attr.aria-label]="'Quitar imagen de ' + v.name"
-              (click)="clearVariant(v.id)"
+    @if (entry.variantIds?.length) {
+      <h4>Imagen por sabor</h4>
+      <p>Sin imagen específica, se muestra la portada común.</p>
+      @for (v of variants; track v.id) {
+        @if (entry.variantIds?.includes(v.id)) {
+          <div class="variant-image">
+            <span>{{ v.name }}</span>
+            @if (variantImage(v.id); as id) {
+              <img
+                [src]="'/api/media/' + id + '/file/mobile'"
+                [alt]="v.name"
+              /><button
+                [attr.aria-label]="'Quitar imagen de ' + v.name"
+                (click)="clearVariant(v.id)"
+              >
+                Usar portada
+              </button>
+            }
+            <button
+              [attr.aria-label]="'Imagen para ' + v.name"
+              (click)="target = v.id; library = true"
             >
-              Usar portada
+              Elegir imagen
             </button>
-          }
-          <button
-            [attr.aria-label]="'Imagen para ' + v.name"
-            (click)="target = v.id; library = true"
-          >
-            Elegir imagen
-          </button>
-        </div>
+          </div>
+        }
       }
     }
     @if (library) {

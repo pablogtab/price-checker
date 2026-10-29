@@ -47,7 +47,13 @@ class PublicStorefront implements OnInit {
   destination(d: any) {
     if (d.type === "category") this.filter({ category: d.id, page: 1 });
     else {
-      history.pushState(null, "", "/products/" + d.id + location.search);
+      history.pushState(
+        null,
+        "",
+        (typeof d.id === "string" && d.id.startsWith("promo-")
+          ? "/promos/" + d.id.slice(6)
+          : "/products/" + d.id) + location.search,
+      );
       void this.load();
       window.scrollTo(0, 0);
     }
@@ -89,10 +95,15 @@ class PublicStorefront implements OnInit {
     this.error = "";
     this.detail = null;
     try {
-      const id = location.pathname.match(/^\/products\/([1-9][0-9]*)$/)?.[1];
+      const promo = location.pathname.startsWith("/promos/");
+      const id = location.pathname.match(
+        /^\/(?:products|promos)\/([1-9][0-9]*)$/,
+      )?.[1];
       const r = await fetch(
         "/api/public/storefront/" +
-          (id ? "presentations/" + id : "catalog" + location.search),
+          (id
+            ? (promo ? "promos/" : "presentations/") + id
+            : "catalog" + location.search),
       );
       if (r.status === 409 && !id) {
         const params = new URLSearchParams(location.search);
@@ -134,7 +145,13 @@ class PublicStorefront implements OnInit {
     }
   }
   open(item: StorefrontProduct) {
-    history.pushState(null, "", "/products/" + item.id + location.search);
+    history.pushState(
+      null,
+      "",
+      (item.kind === "promo"
+        ? "/promos/" + String(item.id).slice(6)
+        : "/products/" + item.id) + location.search,
+    );
     void this.load();
     window.scrollTo(0, 0);
   }
