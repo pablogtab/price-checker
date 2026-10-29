@@ -40,8 +40,20 @@ promo, carrito y gestión. Se verificó selección y agregado, preparación de p
 simulado y navegación a su gestión. Cero solicitudes a `/api` y sin desbordamiento
 horizontal en las tres variantes. Capturas locales en
 `/tmp/gevafit-storefront-preview/`; código fuente preservado en
-`prototype/storefront-ui`. No hay variante ganadora todavía.
+`prototype/storefront-ui`. La variante A fue elegida por el usuario el 29/10/2026.
 
 Definición de negocio confirmada: `docs/features/storefront-discovery.md`.
 No promover este código directamente a producción: reimplementar la variante
 validada con la especificación, persistencia y pruebas correspondientes.
+
+## Resultado de la revisión
+
+Variante A seleccionada. Se conserva la referencia completa de A/B/C para
+trazabilidad, pero la implementación futura se basará en A. El usuario pidió
+pulir detalles y usar el ícono de WhatsApp. Se incorporó al botón de continuar,
+con revisión de capturas en escritorio y móvil. Fuente del SVG: Simple Icons,
+`https://github.com/simple-icons/simple-icons/blob/develop/icons/whatsapp.svg`.
+
+Antes de implementar, revisar espaciados, tipografía, fotos, accesibilidad de
+controles, estados vacíos/carga/errores y comportamiento móvil en el prototipo
+validado. La elección de la composición no convierte este código en producción.

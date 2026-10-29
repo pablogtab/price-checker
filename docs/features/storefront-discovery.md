@@ -128,10 +128,14 @@ ni formulario de datos personales ya confirmado.
   Todavía no se implementa ni despliega la funcionalidad.
 
 La definición completa y la propuesta de cierre fueron confirmadas por el usuario.
-Prototipo visual en curso; todavía no hay una variante ganadora.
+Variante A del prototipo visual elegida el 29/10/2026. Pendiente pulir detalles
+y preparar especificación de implementación; todavía sin autorización de despliegue.
 
 ## Criterio de textos confirmado durante el prototipo
 
 Usar títulos y acciones directos y funcionales. Evitar slogans y frases de branding
 vacías (por ejemplo «Tu próxima elección» o «Tu ritmo»); priorizar Productos, Promos,
 Categorías, Carrito y explicaciones concretas del flujo.
+
+La revisión de la variante A incluye incorporar el ícono de WhatsApp y pulir
+espaciados, textos, imágenes, controles y adaptación móvil antes de implementar.

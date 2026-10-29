@@ -2891,3 +2891,14 @@ p {
 .inline-cart .eyebrow {
   color: #b7c9b5;
 }
+
+.whatsapp-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.whatsapp-icon {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+}
