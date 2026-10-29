@@ -1,4 +1,5 @@
-import { Component, Input, Output, EventEmitter } from "@angular/core";
+import { StorefrontCart, CartInput } from "./storefront-cart";
+import { Component, Input, Output, EventEmitter, inject } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { SelectComponent, SelectOption } from "./select";
 import { CurrencyPipe } from "@angular/common";
@@ -37,7 +38,12 @@ export interface StorefrontProduct {
         (click)="$event.preventDefault(); back.emit()"
         class="wordmark"
         >GEVA<span>FIT</span></a
-      ><span>Tienda</span>
+      >
+      @if (cartActive) {
+        <a class="cart-link" href="/cart">Ver carrito ({{ cart.count }})</a>
+      } @else {
+        <span>Tienda</span>
+      }
     </header>
     <div class="delivery">
       Entrega en Córdoba capital · Coordinamos por WhatsApp
@@ -140,6 +146,26 @@ export interface StorefrontProduct {
               </fieldset>
             } @else if (detail.variants.length) {
               <p class="variant">{{ detail.variants[0].label }}</p>
+            }
+            @if (cartActive) {
+              <button
+                class="cart-action add-cart"
+                [disabled]="!cartSelection || cart.loading()"
+                (click)="addToCart()"
+              >
+                Agregar al carrito
+              </button>
+              @if (!cartSelection) {
+                <p class="cart-label">Elegí los sabores para agregar.</p>
+              }
+              @if (added) {
+                <a class="added" href="/cart" aria-live="polite"
+                  >Agregado · Ver carrito</a
+                >
+              }
+              @if (cart.error()) {
+                <p role="alert">{{ cart.error() }}</p>
+              }
             }
           </div>
         </article>
@@ -272,9 +298,50 @@ export interface StorefrontProduct {
       }
     </main>
     <footer>GEVAFIT · Córdoba capital</footer>`,
-  styleUrl: "./storefront-view.css",
+  styleUrls: ["./storefront-view.css", "./storefront-cart.css"],
 })
 export class StorefrontViewComponent {
+  @Input() cartActive = false;
+  cart = inject(StorefrontCart);
+  added = false;
+  get cartSelection(): CartInput | null {
+    const item = this.detail;
+    if (!item) return null;
+    if (item.kind === "promo") {
+      const selections = (item.components || []).flatMap((c) =>
+        this.units(c.quantity).map((unitIndex) => ({
+          componentId: c.componentId,
+          unitIndex,
+          variantId:
+            this.promoSelected[c.componentId + ":" + unitIndex] ||
+            (c.variants.length === 1 ? c.variants[0].id : 0),
+        })),
+      );
+      return selections.length && selections.every((s) => s.variantId)
+        ? {
+            kind: "promo",
+            promoId: Number(String(item.id).slice(6)),
+            selections,
+            quantity: 1,
+          }
+        : null;
+    }
+    const variantId =
+      this.selected || (item.variants.length === 1 ? item.variants[0].id : 0);
+    return variantId
+      ? {
+          kind: "product",
+          presentationId: Number(item.id),
+          variantId,
+          quantity: 1,
+        }
+      : null;
+  }
+  async addToCart() {
+    const line = this.cartSelection;
+    if (line) this.added = await this.cart.add(line);
+  }
+
   @Input() contextQuery = "";
   @Input() categories: { id: string; name: string }[] = [];
   @Input() brands: { id: string; name: string }[] = [];
@@ -320,6 +387,7 @@ export class StorefrontViewComponent {
   ngOnChanges(changes: any) {
     this.search = this.q;
     if (changes.detail) {
+      this.added = false;
       this.selected = null;
       this.promoSelected = {};
       this.photoOverride = null;

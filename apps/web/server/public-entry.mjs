@@ -47,14 +47,38 @@ const server = http.createServer(async (req, res) => {
       path.includes("\\")
     )
       return fail(res, 404);
-    const publicApi = routes.some((route) => route.test(path));
+    const cartValidation = path === "/api/public/storefront/cart/validate";
+    const publicApi =
+      cartValidation || routes.some((route) => route.test(path));
     const asset = files.has(path.slice(1));
-    const page = path === "/" || /^\/(?:products|promos)\/[1-9][0-9]*$/.test(path);
+    const page =
+      path === "/" ||
+      path === "/cart" ||
+      /^\/(?:products|promos)\/[1-9][0-9]*$/.test(path);
     if (!publicApi && !asset && !page) return fail(res, 404);
-    if (!["GET", "HEAD"].includes(req.method)) return fail(res, 405);
+    if (!(cartValidation ? ["POST"] : ["GET", "HEAD"]).includes(req.method))
+      return fail(res, 405);
     if (publicApi) {
+      let body;
+      if (cartValidation) {
+        if (
+          !/^application\/json(?:;|$)/i.test(req.headers["content-type"] || "")
+        )
+          return fail(res, 415);
+        const chunks = [];
+        let size = 0;
+        for await (const chunk of req) {
+          size += chunk.length;
+          if (size > 65536) return fail(res, 413);
+          chunks.push(chunk);
+        }
+        body = Buffer.concat(chunks);
+      }
       const upstream = await fetch(new URL(raw, api), {
         method: req.method,
+        ...(cartValidation
+          ? { headers: { "content-type": "application/json" }, body }
+          : {}),
         redirect: "error",
       });
       res.writeHead(upstream.status, {

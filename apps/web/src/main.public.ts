@@ -1,3 +1,5 @@
+import { StorefrontCart } from "./storefront-cart";
+import { StorefrontCartView } from "./storefront-cart-view";
 import "zone.js";
 import {
   Component,
@@ -15,29 +17,35 @@ registerLocaleData(esAR);
 @Component({
   selector: "geva-storefront",
   standalone: true,
-  imports: [StorefrontViewComponent],
-  template: `<geva-storefront-view
-    [items]="items"
-    [total]="total"
-    [contextQuery]="contextQuery"
-    [categories]="categories"
-    [brands]="brands"
-    [q]="query.q || ''"
-    [category]="query.category || ''"
-    [brand]="query.brand || ''"
-    [order]="query.order || 'manual'"
-    [page]="page"
-    [pageSize]="pageSize"
-    (filterChange)="filter($event)"
-    [detail]="detail"
-    [loading]="loading"
-    [error]="error"
-    (open)="open($event)"
-    (back)="back()"
-    (retry)="load()"
-  />`,
+  imports: [StorefrontViewComponent, StorefrontCartView],
+  template: `@if (cartPage) {
+      <geva-storefront-cart />
+    } @else {
+      <geva-storefront-view
+        [cartActive]="true"
+        [items]="items"
+        [total]="total"
+        [contextQuery]="contextQuery"
+        [categories]="categories"
+        [brands]="brands"
+        [q]="query.q || ''"
+        [category]="query.category || ''"
+        [brand]="query.brand || ''"
+        [order]="query.order || 'manual'"
+        [page]="page"
+        [pageSize]="pageSize"
+        (filterChange)="filter($event)"
+        [detail]="detail"
+        [loading]="loading"
+        [error]="error"
+        (open)="open($event)"
+        (back)="back()"
+        (retry)="load()"
+      />
+    }`,
 })
 class PublicStorefront implements OnInit {
+  cartPage = false;
   get contextQuery() {
     return location.search;
   }
@@ -63,7 +71,9 @@ class PublicStorefront implements OnInit {
   error = "";
   total = 0;
   private cdr = inject(ChangeDetectorRef);
+  private cart = inject(StorefrontCart);
   ngOnInit() {
+    this.cart.start();
     void this.load();
   }
   @HostListener("window:popstate") pop() {
@@ -71,6 +81,11 @@ class PublicStorefront implements OnInit {
   }
   async load() {
     const requestId = ++this.requestId;
+    this.cartPage = location.pathname === "/cart";
+    if (this.cartPage) {
+      this.cdr.markForCheck();
+      return;
+    }
     this.query = Object.fromEntries(new URLSearchParams(location.search));
     this.page = Number(this.query.page) || 1;
     this.pageSize = Number(this.query.pageSize) || 24;

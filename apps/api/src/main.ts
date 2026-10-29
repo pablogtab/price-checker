@@ -1,3 +1,4 @@
+import { validateStorefrontCart } from "./storefront-cart";
 import {storefrontMedia,storefrontCategories,storefrontDraft,saveStorefrontDraft,publishStorefront,storefrontCatalog,storefrontPresentation,storefrontPromo,storefrontOrderPermission,storefrontImage} from "./storefront";
 import {listMedia,uploadMedia,mediaFile,existingMedia,importMedia,getMediaAsset} from "./media";
 import {presentations,resolvePresentationPrice} from "./presentation-pricing";
@@ -112,6 +113,7 @@ class AppController {
   @Put("storefront/draft") saveDraft(@Body() body:any){return saveStorefrontDraft(body);}
   @Get("storefront/preview") @Header("Cache-Control","no-store") previewStorefront(@Query() query:any){return storefrontCatalog(query,true);}
   @Post("storefront/publish") publishStore(@Body() body:any){return publishStorefront(body);}
+  @Post("public/storefront/cart/validate") @Header("Cache-Control","no-store") publicCart(@Body() body:any){return validateStorefrontCart(body);}
   @Get("public/storefront/categories") @Header("Cache-Control","no-store") publicCategories(@Query() query:any){return storefrontCategories(query);}
   @Get("public/storefront/catalog") @Header("Cache-Control","no-store") publicCatalog(@Query() query:any){return storefrontCatalog(query);}
   @Get("public/storefront/presentations/:id") @Header("Cache-Control","no-store") publicPresentation(@Param("id") id:string){return storefrontPresentation(integer(id));}
