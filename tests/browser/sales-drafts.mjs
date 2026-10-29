@@ -222,12 +222,12 @@ test("promo combinations, metadata, discount and partial collection survive clos
   const choc = await api("products", {
     name: `Draft Choc ${id}`,
     variant_group: group,
-    selling_price: "1000",
+    selling_price: "1500",
   });
   const vanilla = await api("products", {
     name: `Draft Vanilla ${id}`,
     variant_group: group,
-    selling_price: "2000",
+    selling_price: "1500",
   });
   for (const p of [choc, vanilla])
     await api(`products/${p.id}/stock`, { quantity: 5 }, "PUT");

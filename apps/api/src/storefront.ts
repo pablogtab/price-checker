@@ -305,6 +305,22 @@ async function validImage(em: EntityManager, entry: StorefrontEntry) {
     );
   await cachedImage(entry.imageKey);
 }
+function productPublishable(
+  entry: Extract<StorefrontEntry, { presentationId: number }>,
+  variants: any[],
+): boolean {
+  return (
+    variants.length === entry.variantIds.length &&
+    variants.every(
+      (p: any) =>
+        p.presentation_id === entry.presentationId &&
+        !p.archived &&
+        p.kind === "product" &&
+        !!p.price &&
+        Number(p.price) > 0,
+    )
+  );
+}
 export async function publishStorefront(body: any) {
   return db.transaction(async (em) => {
     await em.query("SELECT pg_advisory_xact_lock(713450)");
@@ -328,17 +344,7 @@ export async function publishStorefront(body: any) {
         continue;
       }
       const variants = await products(em, entry);
-      if (
-        variants.length !== entry.variantIds.length ||
-        variants.some(
-          (p: any) =>
-            p.presentation_id !== entry.presentationId ||
-            p.archived ||
-            p.kind !== "product" ||
-            !p.price ||
-            Number(p.price) <= 0,
-        )
-      )
+      if (!productPublishable(entry, variants))
         throw new BadRequestException(
           `Revisá sabores y precio común de ${entry.title}`,
         );
@@ -423,18 +429,7 @@ export async function storefrontCatalog(query: any = {}, preview = false) {
         presentationId: entry.presentationId,
         message: `${entry.title}: el catálogo del proveedor es antiguo o el último refresco falló. Se conserva el último catálogo exitoso.`,
       });
-    if (
-      preview &&
-      (current.length !== entry.variantIds.length ||
-        current.some(
-          (p: any) =>
-            p.presentation_id !== entry.presentationId ||
-            p.archived ||
-            p.kind !== "product" ||
-            !p.price ||
-            Number(p.price) <= 0,
-        ))
-    )
+    if (preview && !productPublishable(entry, current))
       issues.push({
         presentationId: entry.presentationId,
         message: `${entry.title}: revisá sabores y precio común antes de publicar.`,
