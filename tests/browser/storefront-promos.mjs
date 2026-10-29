@@ -163,9 +163,28 @@ test("owner explicitly publishes promo flavors and visitors repeat the same elig
       fullPage: true,
     });
     await visitor.setViewportSize({ width: 390, height: 844 });
+    await visitor.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    assert.equal(await visitor.locator("geva-storefront").count(), 1);
+    assert.equal(
+      await visitor.locator("geva-storefront-view > header").count(),
+      1,
+    );
+    assert.equal(await visitor.getByRole("group").count(), 2);
+    assert.equal(
+      await visitor.evaluate(() => document.documentElement.scrollWidth),
+      390,
+    );
     await visitor.screenshot({
-      path: "/tmp/gevafit-storefront-context/29-union-promo-mobile.png",
-      fullPage: true,
+      path: "/tmp/gevafit-storefront-context/29-union-promo-mobile-viewport-v2.png",
+    });
+    await visitor.getByRole("group").last().scrollIntoViewIfNeeded();
+    await visitor.screenshot({
+      path: "/tmp/gevafit-storefront-context/29-union-promo-mobile-choices-v2.png",
     });
     assert.ok(calls.every((p) => p.startsWith("/api/public/storefront/")));
     await visitor.reload();
