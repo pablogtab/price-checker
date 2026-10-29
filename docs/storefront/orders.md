@@ -86,3 +86,56 @@ las siguientes pruebas. Browser requiere `TEST_API_URL`, `PUBLIC_STOREFRONT_URL`
 foto real de producto. Se usa un número ficticio reservado y se intercepta toda
 navegación externa: no se envía WhatsApp. Reiniciar el listener público tras cada
 build para renovar su inventario de archivos.
+
+## Gestión privada y conversión
+
+La gestión usa `/orders` (Pedidos de tienda). La bandeja privada expone
+`GET /api/storefront/orders?status=pending|converted|discarded|all&q=GEVA-000001&page=1`
+con `{rows,total,page,pageSize:25}`. `GET /api/storefront/orders/:id` devuelve la
+solicitud original, su composición de preparación, estado operativo y `sale_id`.
+Estas rutas nunca son públicas ni incorporan identidad/contacto inferidos.
+`POST /api/storefront/orders/:id/discard` solo admite pendientes y no toca stock,
+clientes ni Caja. Guardar el pedido no acredita que se haya enviado WhatsApp.
+
+Preparar abre **Nueva venta**, conserva precios, cantidades, variantes y cada
+combinación repetida del pedido. Un borrador ajeno exige elegir expresamente si
+conservarlo o descartarlo; cualquier envío incierto se verifica antes. Cancelar
+la preparación deja pendiente el pedido. La referencia original es inmutable y
+permanece visible mientras se corrigen cantidades, componentes o precios y se
+elige cliente/consumidor final y cobro. Un artículo archivado o una composición
+modificada bloquea el registro: quitar y agregar de nuevo permite revisar la
+selección actual. Un importe histórico con más de dos decimales se muestra exacto
+y exige acordar expresamente un precio ARS con hasta dos decimales; no se redondea
+ni se altera la precisión del libro de ventas/Caja.
+
+`POST /api/sales` acepta `source_order_id` opcional. Los ítems de una preparación
+incluyen `expected_components: [{componentProductId,quantity,variantGroup}]`,
+una firma revisada de todos los componentes, incluidos los fijos. Si se omite,
+solo se permite la composición histórica del ítem original. Una corrección puede
+usar una nueva firma explícita; el servidor la vuelve a comprobar bajo el bloqueo
+de catálogo, para detectar cambios entre revisión y POST o peticiones directas.
+Se conserva el motor existente de costos actuales, stock negativo, descuento,
+cliente, deuda y cobro parcial/total.
+
+La misma transacción de `createSale` adquiere los bloqueos `713450 → 713453`,
+bloquea la fila del pedido, valida composición, registra venta/stock/Caja/deuda y
+actualiza `status='converted',sale_id`. La migración
+`StorefrontConversion1760097600035` agrega FK única y CHECK de consistencia entre
+estado/vínculo. El descarte respeta el mismo orden de bloqueos. Un fallo de cobro
+o de actualización final revierte también todos los efectos anteriores.
+
+La identidad de origen y firmas forman parte de la huella de idempotencia de la
+venta. Un reintento con la clave original recupera la venta antes de revalidar el
+pedido/catálogo, incluso tras editar/anular. Otra clave para un pedido convertido
+recibe `409 {code:'ORDER_ALREADY_CONVERTED',sale_id,message}`; la interfaz cierra
+expresamente esa preparación sin nuevo registro ni envío congelado. Un descarte
+concurrente devuelve `ORDER_DISCARDED` y también resuelve la preparación. Editar
+o anular una venta no elimina su vínculo ni reabre/reconvierte el pedido.
+
+Validación local adicional: `tests/api/storefront-conversion.mjs` usa
+`TEST_API_URL` y `TEST_CONVERSION_DATABASE_URL` (localhost y DB terminada en
+`_test`); `tests/browser/storefront-conversion.mjs` usa `E2E_BASE_URL`,
+`E2E_ALLOW_FIXTURES=1` y opcionalmente `PLAYWRIGHT_MODULE`/`CHROME_EXECUTABLE`.
+Ejecutar suites con `--test-concurrency=1` y servicios locales dedicados. Los
+triggers/ediciones SQL de prueba solo se crean en la DB descartable; no se inicia
+worker/scraper ni se envía WhatsApp.
