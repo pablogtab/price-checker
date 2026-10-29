@@ -72,3 +72,29 @@ _Avoid_: Ganancia neta, Ganancia potencial del stock
 La ganancia bruta expresada como porcentaje del importe de las mismas ventas.
 Solo considera ventas con costo completo conocido, tanto para la ganancia como
 para el importe vendido.
+
+**Tienda pública**:
+El espacio de GevaFit donde los clientes navegan productos y promos y preparan
+sus pedidos para continuar la compra por WhatsApp.
+
+**Catálogo web**:
+La selección de productos y promos publicados en la tienda, con sus precios y
+stock del negocio. Su selección es independiente de las listas de precios.
+
+**Pedido pendiente**:
+La solicitud de compra preparada por un cliente y recibida por el negocio antes
+de confirmar una venta. No implica un cobro ni un descuento de stock.
+_Avoid_: Venta registrada
+
+**Presentación**:
+Un producto en un formato y tamaño determinados, cuyos sabores son variantes
+con stock separado y un mismo precio de catálogo.
+
+**Precio de catálogo**:
+El precio de venta común a todos los sabores de una presentación, utilizado en
+la tienda, listas y nuevas ventas. No sustituye los importes históricos ni un
+precio acordado específicamente en una venta.
+
+**Categoría de tienda**:
+Una agrupación comercial propia para organizar el catálogo web. Un producto
+puede pertenecer a varias, independientemente de los rubros del proveedor.

@@ -1,0 +1,795 @@
+<div
+  class="prototype-root"
+  [class.layout-b]="variant==='B'"
+  [class.layout-c]="variant==='C'"
+>
+  @if(view==='manage') {
+  <div class="admin-app">
+    <aside class="admin-sidebar">
+      <div class="admin-brand">◇ GevaFit <small>GESTIÓN</small></div>
+      <button>◫ Dashboard</button
+      ><button (click)="managementTab='orders'">
+        ▤ Pedidos <span>{{sent?'1':'0'}}</span></button
+      ><button class="active" (click)="managementTab='content'">▧ Tienda</button
+      ><button>▦ Productos</button>
+      <div class="admin-side-bottom">
+        <button (click)="navigate('home')">↗ Ver tienda</button
+        ><small>Prototipo · sin datos reales</small>
+      </div>
+    </aside>
+    <main class="admin-main">
+      <div class="admin-top">
+        <span>Catálogo / <b>Tienda</b></span
+        ><span class="status-pill"
+          >{{dirty?'Cambios sin publicar':'Publicado'}}</span
+        >
+      </div>
+      <div class="admin-heading">
+        <div>
+          <p class="eyebrow">GESTIÓN DE CONTENIDO</p>
+          <h1>Tienda</h1>
+          <p>Editá el contenido y publicá los cambios.</p>
+        </div>
+        <div class="action-row">
+          <button class="secondary" (click)="preview()">Vista previa ↗</button
+          ><button class="primary" (click)="publish()">
+            {{published?'✓ Publicado':'Publicar cambios'}}
+          </button>
+        </div>
+      </div>
+      <div class="admin-tabs">
+        <button
+          [class.active]="managementTab==='content'"
+          (click)="managementTab='content'"
+        >
+          Productos y contenido</button
+        ><button
+          [class.active]="managementTab==='media'"
+          (click)="managementTab='media'"
+        >
+          Biblioteca de imágenes</button
+        ><button
+          [class.active]="managementTab==='orders'"
+          (click)="managementTab='orders'"
+        >
+          Pedidos
+        </button>
+      </div>
+      @if(managementTab==='orders') {
+      <section class="admin-panel">
+        <h2>Pedidos de la tienda</h2>
+        <p class="muted">
+          Un pedido no confirma que el cliente haya enviado el WhatsApp.
+        </p>
+        @if(!sent){
+        <div class="empty">
+          <b>Todavía no hay pedidos de prueba.</b>
+          <p>Armá uno desde el carrito para ver este flujo.</p>
+          <button class="primary" (click)="navigate('home')">
+            Ir a la tienda
+          </button>
+        </div>
+        }@else{
+        <article class="order-demo">
+          <div>
+            <span class="status-pill"
+              >{{orderConverted?'Convertido en venta':'Pendiente'}}</span
+            >
+            <h3>Pedido #DEMO-1042</h3>
+            <p>{{units}} unidades · {{money(total)}}</p>
+          </div>
+          <button class="primary" (click)="orderConverted=true;trace()">
+            {{orderConverted?'✓ Conversión simulada':'Preparar venta de prueba
+            →'}}
+          </button>
+        </article>
+        <p class="muted">
+          En el producto final se abre Nueva venta para revisar cliente, precios
+          y cobro. Esta acción solo cambia el estado del prototipo.
+        </p>
+        }
+      </section>
+      } @else if(managementTab==='media') {
+      <section class="admin-panel">
+        <div class="section-heading">
+          <div>
+            <h2>Biblioteca de imágenes</h2>
+            <p class="muted">Imágenes para productos y banners.</p>
+          </div>
+          <label class="primary file-button"
+            >＋ Subir imágenes<input
+              type="file"
+              accept="image/*"
+              multiple
+              (change)="upload($event)"
+          /></label>
+        </div>
+        <div class="media-grid">
+          @for(img of gallery;track $index){
+          <div class="library-image">
+            <img
+              [src]="imageSource(img)"
+              alt="Imagen de producto en biblioteca"
+            /><b>{{$index===0?'Whey · principal':'Imagen de producto'}}</b
+            ><small>Disponible para productos y banners</small>
+          </div>
+          }
+        </div>
+      </section>
+      } @else {
+      <div class="management-grid">
+        <section class="admin-panel product-pick">
+          <div class="section-heading">
+            <h2>Catálogo web</h2>
+            <span>{{products.length}} productos</span>
+          </div>
+          <div class="small-search">
+            ⌕ <input placeholder="Buscar producto…" />
+          </div>
+          @for(p of products;track p.id){<button
+            class="product-admin-row"
+            [class.current]="p.id===1"
+          >
+            <img [src]="asset(p.image)" alt="" /><span
+              ><b>{{p.name}}</b><small>{{p.size}}</small></span
+            ><span class="published-dot"></span></button
+          >}
+        </section>
+        <section class="admin-panel content-editor">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">EDITAR PRESENTACIÓN</p>
+              <h2>Premium Whey · 2 LB</h2>
+            </div>
+            <span class="status-pill">5 sabores</span>
+          </div>
+          <label
+            >Título en la tienda<input
+              [(ngModel)]="editTitle"
+              (ngModelChange)="dirty=true" /></label
+          ><label
+            >Descripción<textarea
+              rows="3"
+              [(ngModel)]="editDescription"
+              (ngModelChange)="dirty=true"
+            ></textarea>
+          </label>
+          <div class="form-split">
+            <label
+              >Marca<button class="field">
+                STAR Nutrition <span>⌄</span>
+              </button></label
+            ><label
+              >Precio común de catálogo
+              <div class="price-field">
+                {{money(products[0].price)}} <small>Todos los sabores</small>
+              </div></label
+            >
+          </div>
+          <label
+            >Categorías
+            <div class="category-tags">
+              <button>Proteínas ×</button><button>Novedades ×</button
+              ><button (click)="dirty=true">＋ Agregar</button>
+            </div></label
+          >
+          <div class="section-heading gallery-heading">
+            <div>
+              <h3>Galería del producto</h3>
+              <p class="muted">Arrastrá para ordenar. Elegí la portada.</p>
+            </div>
+            <label class="file-button secondary"
+              >＋ Subir<input
+                type="file"
+                accept="image/*"
+                multiple
+                (change)="upload($event)"
+            /></label>
+          </div>
+          <div class="edit-gallery">
+            @for(img of gallery;track $index){
+            <div
+              class="gallery-photo"
+              draggable="true"
+              (dragstart)="dragAt=$index"
+              (dragover)="$event.preventDefault()"
+              (drop)="movePhoto(dragAt,$index)"
+              [class.cover]="cover===$index"
+            >
+              <img [src]="imageSource(img)" alt="Foto para la galería" /><button
+                (click)="cover=$index;dirty=true"
+              >
+                {{cover===$index?'✓ Portada':'Usar portada'}}
+              </button>
+            </div>
+            }
+          </div>
+          <div class="flavor-publication">
+            <h3>Sabores publicados</h3>
+            <p class="muted">Los nuevos quedan pendientes de tu revisión.</p>
+            @for(f of products[0].flavors;track f){<label class="check-row"
+              ><input type="checkbox" checked (change)="dirty=true" /><span
+                >{{f}}</span
+              ><small>Foto común</small></label
+            >}
+          </div>
+        </section>
+      </div>
+      }
+    </main>
+  </div>
+  } @else { @if(view==='preview'){
+  <div class="preview-strip">
+    <b>Vista previa del borrador</b><span>Solo vos ves estos cambios</span
+    ><button (click)="navigate('manage')">← Volver a editar</button>
+  </div>
+  }
+  <div class="delivery-strip">
+    Envíos en Córdoba capital <span>·</span> Costo y entrega a coordinar por
+    WhatsApp <span class="demo-marker">Prototipo · precios de ejemplo</span>
+  </div>
+  <header class="shop-header">
+    <button
+      class="brand-logo"
+      aria-label="GEVA inicio"
+      (click)="navigate('home')"
+    >
+      <span class="logo-crop"
+        ><img [src]="asset('geva-logo')" alt="GEVA Nutrición Deportiva"
+      /></span>
+    </button>
+    <nav>
+      <button
+        [class.current]="view==='home'"
+        (click)="navigate('home');category='Todo'"
+      >
+        Inicio</button
+      ><button (click)="navigate('catalog');category='Todo'">Productos</button
+      ><button (click)="navigate('catalog');category='Promos'">Promos</button>
+    </nav>
+    <div class="header-search">
+      <span>⌕</span
+      ><input
+        aria-label="Buscar suplementos"
+        placeholder="¿Qué estás buscando?"
+        [(ngModel)]="query"
+        (ngModelChange)="view='catalog'"
+      /><kbd>⌕</kbd>
+    </div>
+    <button
+      class="cart-button"
+      aria-label="Abrir carrito"
+      (click)="drawer=true"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+      >
+        <path
+          d="M3 4h2l2.3 11h11L21 7H6M10 20h.01M18 20h.01"
+          stroke-linecap="round"
+        /></svg
+      ><span>Mi carrito</span><b>{{units}}</b>
+    </button>
+  </header>
+  <main class="shop-main">
+    @if(variant==='A'){ @if(view==='home'||view==='preview') {
+    <section class="hero hero-a">
+      <div class="hero-copy">
+        <span class="eyebrow">GEVA · NUTRICIÓN DEPORTIVA</span>
+        <h1>Suplementos<br />y promos.</h1>
+        <p>
+          Elegí productos y sabores.<br />Armá tu pedido y seguimos por
+          WhatsApp.
+        </p>
+        <button
+          class="lime-button"
+          (click)="navigate('catalog');category='Todo'"
+        >
+          Explorar productos <span>↗</span>
+        </button>
+      </div>
+      <div class="hero-composition">
+        <div class="hero-circle"></div>
+        <img
+          class="hero-whey"
+          [src]="asset('whey')"
+          alt="Premium Whey Protein doypack"
+        /><img
+          class="hero-creatine"
+          [src]="asset('creatina')"
+          alt="Creatina doypack"
+        /><span class="hero-note"><i>✦</i> Elegí tus sabores</span>
+        <div class="hero-price">
+          <small>PROTEÍNA + CREATINA</small><strong>{{money(90000)}}</strong
+          ><span>Elegí los sabores.</span>
+        </div>
+      </div>
+    </section>
+    }
+    <div class="section-heading shop-heading">
+      <div>
+        <p class="eyebrow">CATÁLOGO</p>
+        <h2>{{view==='catalog'?'Todos los productos':'Productos'}}</h2>
+      </div>
+      <button class="text-link" (click)="navigate('catalog');category='Todo'">
+        Ver catálogo completo ↗
+      </button>
+    </div>
+    <div class="category-row">
+      @for(c of categories;track c){<button
+        [class.active]="category===c"
+        (click)="filter(c)"
+      >
+        {{c}}</button
+      >}<button class="filter-button" (click)="filterOpen=!filterOpen">
+        ☷ Filtros
+      </button>
+    </div>
+    @if(filterOpen){
+    <div class="filter-panel">
+      <span>Marca</span>@for(b of ['Todas','STAR NUTRITION','ENA'];track
+      b){<button [class.active]="brand===b" (click)="brand=b">{{b}}</button
+      >}<button (click)="sort=sort==='price'?'recommended':'price'">
+        {{sort==='price'?'✓ Menor precio primero':'Ordenar por precio'}}
+      </button>
+    </div>
+    }
+    <div class="product-grid">
+      @for(p of visible;track p.id){
+      <article class="product-card">
+        <button
+          class="product-visual"
+          (click)="open(p)"
+          [attr.aria-label]="'Ver '+p.name"
+        >
+          @if(p.tag){<span class="product-tag" [class.promo-tag]="p.promo"
+            >{{p.tag}}</span
+          >}<img [src]="asset(p.image)" [alt]="p.name" />@if(p.promo){<img
+            class="second-promo-image"
+            [src]="asset(p.id===5?'creatina':p.image)"
+            alt="Segundo componente de la promo"
+          />}
+        </button>
+        <div class="card-copy">
+          <small>{{p.brand}} · {{p.size}}</small>
+          <h3>{{p.name}}</h3>
+          <p>
+            {{p.promo?'Elegí los sabores de la
+            promo':p.flavors.length?p.flavors.length+' sabores para
+            elegir':'Presentación en cápsulas'}}
+          </p>
+          <div class="card-bottom">
+            <b>{{money(p.price)}}</b
+            ><button [attr.aria-label]="'Elegir '+p.name" (click)="open(p)">
+              ＋
+            </button>
+          </div>
+        </div>
+      </article>
+      }@empty{
+      <div class="empty">
+        <h3>No encontramos productos</h3>
+        <button (click)="query='';category='Todo';brand='Todas'">
+          Limpiar búsqueda
+        </button>
+      </div>
+      }
+    </div>
+    } @else if(variant==='B'){
+    <div class="direct-heading">
+      <div>
+        <p class="eyebrow">GEVA / CATÁLOGO</p>
+        <h1>Productos</h1>
+        <p>Seleccioná los sabores y agregá al carrito.</p>
+      </div>
+      <span>{{visible.length}} productos</span>
+    </div>
+    <div class="direct-layout">
+      <aside class="catalog-sidebar">
+        <p class="eyebrow">CATEGORÍAS</p>
+        @for(c of categories;track c){<button
+          [class.active]="category===c"
+          (click)="category=c"
+        >
+          {{c}} <span>↗</span></button
+        >}
+        <div class="sidebar-note">
+          <b>¿Cómo compro?</b>
+          <p>Elegí tus sabores, armá el carrito y coordinamos por WhatsApp.</p>
+        </div>
+      </aside>
+      <div class="direct-products">
+        <div class="list-toolbar">
+          <span>{{category==='Todo'?'Todos los productos':category}}</span
+          ><button (click)="sort=sort==='price'?'recommended':'price'">
+            {{sort==='price'?'Precio: menor a mayor':'Ordenar por precio'}} ↓
+          </button>
+        </div>
+        @for(p of visible;track p.id){
+        <article class="direct-row">
+          <button class="direct-photo" (click)="open(p)">
+            <img [src]="asset(p.image)" [alt]="p.name" />
+          </button>
+          <div class="direct-description">
+            <small>{{p.brand}}</small>
+            <h2>{{p.name}}</h2>
+            <p>
+              {{p.size}} @if(p.flavors.length){<span
+                >· {{p.flavors.length}} sabores</span
+              >}
+            </p>
+            @if(p.tag){<span class="inline-tag">{{p.tag}}</span>}
+          </div>
+          <div class="direct-action">
+            <b>{{money(p.price)}}</b
+            ><button
+              class="primary"
+              [attr.aria-label]="'Elegir '+p.name"
+              (click)="open(p)"
+            >
+              {{p.flavors.length||p.promo?'Elegir sabores':'Agregar'}}
+              <span>＋</span>
+            </button>
+          </div>
+        </article>
+        }
+      </div>
+      <aside class="inline-cart">
+        <p class="eyebrow">CARRITO</p>
+        <h2>Mi carrito <small>{{units}}</small></h2>
+        @if(!cart.length){
+        <div class="cart-empty-icon">↗</div>
+        <p>El carrito está vacío.</p>
+        <small>Agregá un producto del catálogo.</small>}@for(l of cart;track
+        l.key){
+        <div class="mini-line">
+          <b>{{l.p.name}}</b><span>{{l.choices.join(' + ')}}</span>
+          <div class="mini-quantity">
+            <button (click)="change(l,-1)">−</button><span>{{l.qty}}</span
+            ><button (click)="change(l,1)">＋</button
+            ><b>{{money(l.p.price*l.qty)}}</b>
+          </div>
+        </div>
+        }
+        <div class="inline-total">
+          <span>Total de productos</span><b>{{money(total)}}</b>
+        </div>
+        <button
+          class="lime-button"
+          [disabled]="!cart.length"
+          (click)="drawer=true"
+        >
+          Revisar pedido →
+        </button>
+        <p class="fine-print">Envío a coordinar por WhatsApp.</p>
+      </aside>
+    </div>
+    } @else { @if(view==='home'||view==='preview'){
+    <section class="editorial-hero">
+      <div class="editorial-copy">
+        <span class="eyebrow">GEVA / NUTRICIÓN DEPORTIVA</span>
+        <h1>Suplementos<br /><em>y promos.</em></h1>
+        <p>Elegí los sabores y armá el pedido por WhatsApp.</p>
+        <button class="lime-button" (click)="navigate('catalog')">
+          Ver productos ↗
+        </button>
+        <div class="editorial-count">
+          <b>01 /</b><span>Proteínas & creatinas</span>
+        </div>
+      </div>
+      <div class="editorial-photo">
+        <span class="giant-word">GEVA</span
+        ><img [src]="asset('whey')" alt="Whey Protein doypack" /><span
+          class="editorial-product-caption"
+          >STAR Nutrition<br /><b>Premium Whey · 2 LB</b
+          ><span>{{money(72000)}}</span></span
+        ><button
+          class="circle-arrow"
+          aria-label="Ver proteína destacada"
+          (click)="open(products[0])"
+        >
+          ↗
+        </button>
+      </div>
+    </section>
+    <section class="collection-section">
+      <div class="section-heading">
+        <h2>Categorías</h2>
+        <span class="muted"></span>
+      </div>
+      <div class="collection-grid">
+        @for(c of ['Proteínas','Creatinas','Promos'];track c;let
+        i=$index){<button (click)="filter(c)">
+          <span>0{{i+1}}</span>
+          <h3>{{c}}</h3>
+          <img
+            [src]="asset(i===1?'creatina':i===2?'whey-banana':'whey')"
+            [alt]="c"
+          /><span class="collection-arrow">↗</span></button
+        >}
+      </div>
+    </section>
+    }
+    <div class="section-heading shop-heading">
+      <h2>
+        {{view==='catalog'?category==='Todo'?'El catálogo.':category:'La
+        selección GEVA.'}}
+      </h2>
+      <button class="text-link" (click)="navigate('catalog');category='Todo'">
+        Todos los productos ↗
+      </button>
+    </div>
+    <div class="editorial-list">
+      @for(p of visible;track p.id;let i=$index){<button
+        class="editorial-product"
+        (click)="open(p)"
+        [attr.aria-label]="'Elegir '+p.name"
+      >
+        <span class="editorial-index">{{(i+1).toString().padStart(2,'0')}}</span
+        ><img [src]="asset(p.image)" [alt]="p.name" /><span
+          class="editorial-product-text"
+          ><small>{{p.brand}} · {{p.size}}</small>
+          <h3>{{p.name}}</h3>
+          <span
+            >{{p.promo?'Elegí los sabores':p.flavors.length+' sabores'}}</span
+          ></span
+        ><strong>{{money(p.price)}}</strong
+        ><span class="editorial-plus">＋</span></button
+      >}
+    </div>
+    }
+  </main>
+  <footer class="shop-footer">
+    <b>GEVA</b><span>Nutrición deportiva · Córdoba capital</span
+    ><button (click)="navigate('manage')">Gestión de tienda ↗</button>
+  </footer>
+  @if(units&&!drawer){
+  <div class="mobile-cart-bar">
+    <span
+      ><b>{{units}} {{units===1?'producto':'productos'}}</b
+      ><small>{{money(total)}}</small></span
+    ><button (click)="drawer=true">Ver mi carrito →</button>
+  </div>
+  } } @if(selected){
+  <div class="modal-shade" (click)="selected=null">
+    <section
+      class="product-modal"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="selected.name"
+      (click)="$event.stopPropagation()"
+    >
+      <button
+        class="modal-close"
+        aria-label="Cerrar producto"
+        (click)="selected=null"
+      >
+        ×
+      </button>
+      <div class="detail-visual">
+        <img
+          [src]="asset(selectedImage)"
+          [alt]="selected.name"
+        />@if(selected.promo){<img
+          class="detail-promo-second"
+          [src]="asset(selected.id===5?'creatina':selected.image)"
+          alt="Segundo componente"
+        />}
+        <div class="image-thumbnails">
+          <button class="active">
+            <img [src]="asset(selected.image)" alt="Vista principal" /></button
+          ><button (click)="selected.id===1?choices[0]='Banana':null">
+            <img
+              [src]="asset(selected.id===1?'whey-banana':selected.image)"
+              alt="Otra vista"
+            />
+          </button>
+        </div>
+      </div>
+      <div class="detail-copy">
+        <p class="eyebrow">{{selected.brand}} · {{selected.category}}</p>
+        <h1>{{selected.name}}</h1>
+        <p class="detail-size">{{selected.size}}</p>
+        <strong class="detail-price">{{money(selected.price)}}</strong>
+        <p class="detail-description">
+          {{selected.id===1?(view==='preview'?editDescription:publicDescription):selected.promo?'Armá
+          tu combinación. Elegí un sabor para cada unidad de la promo.':'Elegí
+          tu presentación y sumala a tu pedido. La entrega se coordina por
+          WhatsApp.'}}
+        </p>
+        @if(selected.promo){@for(c of selected.components;track $index;let
+        i=$index){
+        <fieldset>
+          <legend>{{c.name}}</legend>
+          <div class="flavor-pills">
+            @for(f of c.flavors;track f){<button
+              [class.selected]="choices[i]===f"
+              (click)="choices[i]=f"
+            >
+              {{f}}</button
+            >}
+          </div>
+        </fieldset>
+        }}@else if(selected.flavors.length){
+        <fieldset>
+          <legend>Sabor <span>{{choices[0]||'Elegí una opción'}}</span></legend>
+          <div class="flavor-pills">
+            @for(f of selected.flavors;track f){<button
+              [class.selected]="choices[0]===f"
+              (click)="choices[0]=f"
+            >
+              {{f}}</button
+            >}
+          </div>
+        </fieldset>
+        }
+        <div class="detail-add">
+          <div class="quantity-control">
+            <button
+              aria-label="Reducir cantidad"
+              (click)="quantity=quantity>1?quantity-1:1"
+            >
+              −</button
+            ><input
+              aria-label="Cantidad"
+              type="number"
+              min="1"
+              [(ngModel)]="quantity"
+            /><button
+              aria-label="Aumentar cantidad"
+              (click)="quantity=quantity+1"
+            >
+              ＋
+            </button>
+          </div>
+          <button
+            class="primary"
+            [disabled]="!canAdd||quantity<1"
+            (click)="add()"
+          >
+            Agregar al carrito <span>{{money(selected.price*quantity)}}</span>
+          </button>
+        </div>
+        <p class="fine-print">
+          Envíos en Córdoba capital. Costo y entrega a coordinar.
+        </p>
+      </div>
+    </section>
+  </div>
+  } @if(drawer){
+  <div class="drawer-shade" (click)="drawer=false">
+    <aside
+      class="cart-drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Mi carrito"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="drawer-heading">
+        <div>
+          <p class="eyebrow">CARRITO</p>
+          <h2>Mi carrito <span>{{units}}</span></h2>
+        </div>
+        <button
+          class="modal-close"
+          aria-label="Cerrar carrito"
+          (click)="drawer=false"
+        >
+          ×
+        </button>
+      </div>
+      <div class="cart-content">
+        @if(!cart.length){
+        <div class="empty">
+          <span class="empty-cart">↗</span>
+          <h3>El carrito está vacío.</h3>
+          <p>Explorá productos y elegí tus sabores.</p>
+          <button class="primary" (click)="drawer=false">Seguir mirando</button>
+        </div>
+        }@for(l of cart;track l.key){
+        <article class="cart-line">
+          <img [src]="asset(l.p.image)" [alt]="l.p.name" />
+          <div>
+            <small>{{l.p.brand}}</small>
+            <h3>{{l.p.name}}</h3>
+            <p>{{l.choices.join(' + ')||l.p.size}}</p>
+            <div class="cart-line-bottom">
+              <div class="quantity-control">
+                <button
+                  (click)="change(l,-1)"
+                  [attr.aria-label]="'Restar '+l.p.name"
+                >
+                  −</button
+                ><b>{{l.qty}}</b
+                ><button
+                  (click)="change(l,1)"
+                  [attr.aria-label]="'Sumar '+l.p.name"
+                >
+                  ＋
+                </button>
+              </div>
+              <strong>{{money(l.p.price*l.qty)}}</strong>
+            </div>
+          </div>
+          <button
+            class="remove-line"
+            [attr.aria-label]="'Quitar '+l.p.name"
+            (click)="remove(l)"
+          >
+            ×
+          </button>
+        </article>
+        }<button class="add-more" (click)="drawer=false">
+          ＋ Seguir eligiendo productos
+        </button>
+      </div>
+      <div class="cart-summary">
+        <div>
+          <span>Total de productos</span><strong>{{money(total)}}</strong>
+        </div>
+        <p>
+          Envíos en Córdoba capital.<br />Costo y entrega a coordinar por
+          WhatsApp.
+        </p>
+        <button
+          class="primary whatsapp-action"
+          [disabled]="!cart.length"
+          (click)="finish()"
+        >
+          Continuar por WhatsApp <span>↗</span></button
+        ><small>Revisamos tu pedido y coordinamos por el chat.</small>
+      </div>
+    </aside>
+  </div>
+  } @if(confirmation){
+  <div class="modal-shade confirmation-shade">
+    <section
+      class="order-confirmation"
+      role="dialog"
+      aria-label="Pedido de prueba"
+    >
+      <button
+        class="modal-close"
+        aria-label="Cerrar pedido de prueba"
+        (click)="confirmation=false"
+      >
+        ×</button
+      ><span class="confirmation-icon">✓</span>
+      <p class="eyebrow">SIMULACIÓN · NO SE ENVIÓ NINGÚN MENSAJE</p>
+      <h1>Pedido armado</h1>
+      <p class="muted">#DEMO-1042 · Así se abriría el mensaje en WhatsApp.</p>
+      <pre>{{message}}</pre>
+      <div class="action-row">
+        <button
+          class="primary"
+          (click)="confirmation=false;drawer=false;navigate('manage');managementTab='orders'"
+        >
+          Ver pedido en la gestión →</button
+        ><button class="secondary" (click)="confirmation=false;drawer=false">
+          Volver a la tienda
+        </button>
+      </div>
+    </section>
+  </div>
+  } @if(dev){
+  <div class="prototype-toolbar">
+    <span class="prototype-label">PROTOTIPO</span
+    ><button aria-label="Variante anterior" (click)="cycle(-1)">←</button
+    ><b>{{variant}} · {{layoutName}}</b
+    ><button aria-label="Variante siguiente" (click)="cycle(1)">→</button
+    ><span class="toolbar-divider"></span
+    ><button [class.active]="view!=='manage'" (click)="navigate('home')">
+      Tienda</button
+    ><button [class.active]="view==='manage'" (click)="navigate('manage')">
+      Gestión</button
+    ><button aria-label="Ver estado simulado" (click)="showState=!showState">
+      {{showState?'×':'{ }'}}
+    </button>
+  </div>
+  @if(showState){
+  <pre class="state-inspector">{{state|json}}</pre>
+  }}
+</div>

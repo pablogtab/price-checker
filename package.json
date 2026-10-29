@@ -10,7 +10,8 @@
     "test": "npm run test -w apps/api",
     "dev:api": "npm run dev -w apps/api",
     "dev:web": "npm run start -w apps/web",
-    "seed": "npm run seed -w apps/api"
+    "seed": "npm run seed -w apps/api",
+    "prototype:storefront": "npm run start -w apps/web -- --port 4255"
   },
   "devDependencies": {
     "prettier": "^3.9.10"
