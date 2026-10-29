@@ -692,3 +692,5 @@
     font-size: 11px;
   }
 }
+
+.order-reference.alert{display:block;line-height:1.6;overflow-wrap:anywhere}.order-reference p{margin:8px 0}.order-reference button{min-height:44px;margin-right:12px}

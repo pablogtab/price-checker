@@ -1,3 +1,4 @@
+import {StorefrontConversion1760097600035} from "./storefront-conversion-migration";
 import {StorefrontOrders1760097600034} from "./storefront-orders-migration";
 import {StorefrontHome1760097600031} from "./storefront-home-migration";
 import {StorefrontEligibility1760097600032} from "./storefront-eligibility-migration";
@@ -41,6 +42,7 @@ export const db = new DataSource({
     process.env.DATABASE_URL ||
     "postgres://price_checker:local_price_checker@127.0.0.1:5442/price_checker",
   migrations: [
+    StorefrontConversion1760097600035,
     StorefrontOrders1760097600034,
     StorefrontHome1760097600031,
     StorefrontEligibility1760097600032,

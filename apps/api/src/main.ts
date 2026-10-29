@@ -1,3 +1,4 @@
+import { storefrontInbox, storefrontInboxOrder, discardStorefrontOrder } from "./storefront-inbox";
 import {
   guardStorefrontRequest,
   storefrontWhatsapp,
@@ -118,6 +119,9 @@ class AppController {
     response.send(data);
   }
   @Put("storefront/order-permission/:id") orderPermission(@Param("id") id:string,@Body() body:any){return storefrontOrderPermission(integer(id),body);}
+  @Get("storefront/orders") @Header("Cache-Control", "no-store") inbox(@Query() q: any) { return storefrontInbox(q); }
+  @Get("storefront/orders/:id") @Header("Cache-Control", "no-store") inboxOrder(@Param("id") id: string) { return storefrontInboxOrder(integer(id)); }
+  @Post("storefront/orders/:id/discard") discardOrder(@Param("id") id: string) { return discardStorefrontOrder(integer(id)); }
   @Get("storefront/draft") @Header("Cache-Control","no-store") draft(){return storefrontDraft();}
   @Put("storefront/draft") saveDraft(@Body() body:any){return saveStorefrontDraft(body);}
   @Get("storefront/preview") @Header("Cache-Control","no-store") previewStorefront(@Query() query:any){return storefrontCatalog(query,true);}

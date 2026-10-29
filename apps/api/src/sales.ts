@@ -180,6 +180,8 @@ export async function collectSale(id: number, body: any) {
   });
 }
 export async function createSale(body: any) {
+  const sourceOrder =
+    body.source_order_id == null ? null : integer(body.source_order_id);
   const k = key(body.request_key),
     d = date(body.sold_on),
     customer = body.customer_id ? integer(body.customer_id) : null,
@@ -200,6 +202,9 @@ export async function createSale(body: any) {
       product_id: integer(i.product_id),
       quantity,
       unit_price: i.unit_price == null ? null : ars(i.unit_price),
+      ...(sourceOrder && i.expected_components != null
+        ? { expected_components: normalizeComposition(i.expected_components) }
+        : {}),
       selections: selections.map((s: any) => ({
         component_product_id: integer(s.component_product_id),
         product_id: integer(s.product_id),
@@ -215,7 +220,17 @@ export async function createSale(body: any) {
       }
     : null;
   const fingerprint = createHash("sha256")
-    .update(JSON.stringify({ d, customer, note, items, payment, discount }))
+    .update(
+      JSON.stringify({
+        d,
+        customer,
+        note,
+        items,
+        payment,
+        discount,
+        ...(sourceOrder ? { sourceOrder } : {}),
+      }),
+    )
     .digest("hex");
   return db.transaction(async (em) => {
     await em.query("SELECT pg_advisory_xact_lock(713450)");
@@ -239,6 +254,54 @@ export async function createSale(body: any) {
           (p: any) => p.product_name + ": stock negativo " + p.resulting_stock,
         ) as string[],
       };
+    }
+    if (sourceOrder) {
+      const [source] = await em.query(
+        "SELECT * FROM storefront_orders WHERE id=$1 FOR UPDATE",
+        [sourceOrder],
+      );
+      if (!source) throw new NotFoundException("Pedido inexistente");
+      if (source.status === "converted")
+        throw new ConflictException({
+          message: "El pedido ya fue convertido en venta #" + source.sale_id,
+          code: "ORDER_ALREADY_CONVERTED",
+          sale_id: source.sale_id,
+        });
+      if (source.status !== "pending")
+        throw new ConflictException({
+          message: "El pedido está descartado",
+          code: "ORDER_DISCARDED",
+        });
+      // Historical composition must match under the same catalog lock as stock writes.
+      // An explicit reviewed composition allows corrections, and is itself race-checked.
+      for (const item of items) {
+        const original = source.fulfillment.find(
+          (l: any) =>
+            (l.kind === "promo" ? l.promoId : l.variantId) === item.product_id,
+        );
+        const expected =
+          item.expected_components ??
+          (original ? normalizeComposition(original.components) : null);
+        if (!expected)
+          throw new BadRequestException(
+            "Revisá la composición del producto agregado al pedido",
+          );
+        const current = await em.query(
+          "SELECT product_id,quantity,variant_group FROM product_components WHERE kit_id=$1 ORDER BY product_id",
+          [item.product_id],
+        );
+        const signature = normalizeComposition(
+          current.map((c: any) => ({
+            componentProductId: c.product_id,
+            quantity: c.quantity,
+            variantGroup: c.variant_group,
+          })),
+        );
+        if (JSON.stringify(expected) !== JSON.stringify(signature))
+          throw new BadRequestException(
+            "Cambió la composición de la promo. Quitala y agregala nuevamente para revisar los componentes actuales.",
+          );
+      }
     }
     const [client] = customer
       ? await em.query("SELECT * FROM customers WHERE id=$1", [customer])
@@ -286,7 +349,10 @@ export async function createSale(body: any) {
         cost,
         k,
         fingerprint,
-        priced.subtotal, priced.discount_mode, priced.discount_value, priced.discount_amount,
+        priced.subtotal,
+        priced.discount_mode,
+        priced.discount_value,
+        priced.discount_amount,
       ],
     );
     const batch = randomUUID();
@@ -301,7 +367,8 @@ export async function createSale(body: any) {
           i.unit,
           i.total,
           i.cost,
-          i.subtotal, i.discount_amount,
+          i.subtotal,
+          i.discount_amount,
         ],
       );
       for (const part of i.parts) {
@@ -349,6 +416,11 @@ export async function createSale(body: any) {
         d,
         randomUUID(),
         "sale:" + k,
+      );
+    if (sourceOrder)
+      await em.query(
+        "UPDATE storefront_orders SET status='converted',sale_id=$2 WHERE id=$1",
+        [sourceOrder, sale.id],
       );
     return { id: sale.id, warnings };
   });
@@ -495,4 +567,16 @@ export async function saleRequest(value: string) {
   const [sale] = await em.query("SELECT id FROM sales WHERE request_key=$1",[requestKey]);
   return sale || {id:null};
  });
+}
+
+function normalizeComposition(value: any) {
+  if (!Array.isArray(value) || value.length > 1000)
+    throw new BadRequestException("Composición inválida");
+  return value
+    .map((c: any) => ({
+      componentProductId: integer(c.componentProductId),
+      quantity: stockQuantity(c.quantity),
+      variantGroup: c.variantGroup == null ? null : text(c.variantGroup, 500),
+    }))
+    .sort((a: any, b: any) => a.componentProductId - b.componentProductId);
 }

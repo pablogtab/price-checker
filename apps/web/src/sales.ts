@@ -87,6 +87,44 @@ import { SelectComponent } from "./select";
       <p class="purchase-notice" role="status">{{ notice }}</p>
     }
 
+    @if (requestedOrder) {
+      <section class="alert order-reference" role="status">
+        <strong>{{ requestedOrder.snapshot.number }} · Preparar pedido</strong>
+        <p>
+          Hay un borrador de venta guardado. Para cargar este pedido, descartá
+          expresamente ese borrador. Un envío pendiente se verificará antes.
+        </p>
+        <button (click)="replaceWithOrder()" [disabled]="busy">
+          Descartar borrador y preparar pedido
+        </button>
+        <button (click)="keepExistingDraft()">Conservar borrador actual</button>
+      </section>
+    }
+    @if (sourceOrder) {
+      <section class="alert order-reference" aria-label="Solicitud original">
+        <strong>{{ sourceOrder.snapshot.number }} · Solicitud original</strong>
+        @for (line of sourceOrder.snapshot.lines; track $index) {
+          <p>
+            {{ line.quantity }} × {{ line.title }} · ARS {{ line.price }} ·
+            Subtotal ARS {{ line.subtotal }}
+            @for (label of line.labels; track $index) {
+              <span> · {{ label }}</span>
+            }
+          </p>
+        }
+        <p>
+          Total original: ARS {{ sourceOrder.snapshot.total }}. Revisá
+          cantidades, sabores y precios; elegí cliente y cobro.
+        </p>
+        <button
+          class="text-button"
+          (click)="cancelOrderPreparation()"
+          [disabled]="busy"
+        >
+          Cancelar preparación
+        </button>
+      </section>
+    }
     @if (storageError) {
       <p class="alert" role="alert">
         El navegador no permite guardar el borrador. Mantené esta pestaña
@@ -1213,6 +1251,7 @@ export class SalesComponent implements OnInit, DoCheck {
       customPaymentAmount: this.customPaymentAmount,
       requestKey: this.requestKey,
       pendingSubmission: this.pendingSubmission,
+      sourceOrder: this.sourceOrder,
     };
   }
   persistDraft() {
@@ -1245,6 +1284,7 @@ export class SalesComponent implements OnInit, DoCheck {
           "customPaymentAmount",
           "requestKey",
           "pendingSubmission",
+          "sourceOrder",
         ])
           if (field in state) (this as any)[field] = state[field];
         this.lines = state.lines.map((line: any) => ({
@@ -1266,6 +1306,7 @@ export class SalesComponent implements OnInit, DoCheck {
     this.draftReady = true;
   }
   private resetDraft() {
+    this.sourceOrder = null;
     this.pendingSubmission = null;
     this.lines = [];
     this.customer = "";
@@ -1319,11 +1360,9 @@ export class SalesComponent implements OnInit, DoCheck {
   }
   composition(product: any) {
     return JSON.stringify(
-      (product?.components || []).map((c: any) => [
-        c.product_id,
-        c.quantity,
-        c.variant_group || null,
-      ]),
+      [...(product?.components || [])]
+        .sort((a: any, b: any) => a.product_id - b.product_id)
+        .map((c: any) => [c.product_id, c.quantity, c.variant_group || null]),
     );
   }
   get draftProblems(): string[] {
@@ -1340,6 +1379,13 @@ export class SalesComponent implements OnInit, DoCheck {
     )
       issues.push("Cuenta de cobro no disponible");
     for (const line of this.lines) {
+      try {
+        if (new Decimal(line.unit_price).decimalPlaces() > 2)
+          issues.push(
+            (line.savedName || "Producto") +
+              ": acordá un precio en ARS con hasta dos decimales; el pedido original se conserva",
+          );
+      } catch {}
       const product = this.selected(line);
       if (!product) {
         issues.push((line.savedName || "Producto") + ": ya no disponible");
@@ -1374,7 +1420,94 @@ export class SalesComponent implements OnInit, DoCheck {
   async ngOnInit() {
     await this.load();
     this.restoreDraft();
+    await this.loadRequestedOrder();
     this.focusSearch();
+  }
+  sourceOrder: any = null;
+  requestedOrder: any = null;
+  async loadRequestedOrder() {
+    const id = new URLSearchParams(location.search).get("order");
+    if (!id || this.sourceOrder?.id === id) return;
+    try {
+      const order = await firstValueFrom(
+        this.http.get<any>("/api/storefront/orders/" + encodeURIComponent(id)),
+      );
+      if (order.status !== "pending") {
+        this.error =
+          "Este pedido ya no está pendiente" +
+          (order.sale_id ? ": venta #" + order.sale_id : "");
+        return;
+      }
+      if (this.lines.length || this.pendingSubmission)
+        this.requestedOrder = order;
+      else this.importOrder(order);
+    } catch (e: any) {
+      this.error = e.error?.message || "No se pudo cargar el pedido";
+    }
+    this.cdr.markForCheck();
+  }
+  keepExistingDraft() {
+    this.requestedOrder = null;
+    history.replaceState({}, "", "/sales/new");
+  }
+  async replaceWithOrder() {
+    const order = this.requestedOrder;
+    await this.discardCart();
+    if (this.error || this.pendingSubmission) return;
+    this.requestedOrder = null;
+    this.importOrder(order);
+  }
+  async cancelOrderPreparation() {
+    await this.discardCart();
+    if (!this.error && !this.pendingSubmission) {
+      history.replaceState({}, "", "/sales/new");
+      this.notice = "Preparación cancelada. El pedido sigue pendiente.";
+    }
+  }
+  importOrder(order: any) {
+    this.resetDraft();
+    this.sourceOrder = order;
+    this.lines = order.fulfillment.map((f: any, index: number) => {
+      const original = order.snapshot.lines[index];
+      const line: any = {
+        product_id: f.kind === "promo" ? f.promoId : f.variantId,
+        quantity: f.quantity,
+        unit_price: original.price,
+        priceEdited: true,
+        frozenPrice: true,
+        savedName: original.title,
+        slots: [],
+        savedComposition: JSON.stringify(
+          [...f.components]
+            .sort(
+              (a: any, b: any) => a.componentProductId - b.componentProductId,
+            )
+            .map((c: any) => [
+              c.componentProductId,
+              c.quantity,
+              c.variantGroup || null,
+            ]),
+        ),
+      };
+      line.combination = (f.selections || [])
+        .filter((selection: any) =>
+          f.components.some(
+            (c: any) =>
+              c.componentProductId === selection.componentId && c.variantGroup,
+          ),
+        )
+        .map((selection: any) => ({
+          key: "0:" + selection.componentId + ":" + selection.unitIndex,
+          promo: 0,
+          component: selection.componentId,
+          product_id: selection.variantId,
+        }));
+      this.syncSlots(line);
+      return line;
+    });
+    this.notice =
+      "Pedido preparado. Revisá la solicitud original y acordá las correcciones antes de registrar.";
+    this.persistDraft();
   }
   async load() {
     try {
@@ -1585,7 +1718,22 @@ export class SalesComponent implements OnInit, DoCheck {
     }
   }
   saleItems() {
-    return this.lines.flatMap((l) => this.discountedLine(l));
+    return this.lines.flatMap((l) =>
+      this.discountedLine(l).map((item: any) => ({
+        ...item,
+        ...(this.sourceOrder
+          ? {
+              expected_components: JSON.parse(
+                l.savedComposition ?? this.composition(this.selected(l)),
+              ).map((c: any) => ({
+                componentProductId: c[0],
+                quantity: c[1],
+                variantGroup: c[2],
+              })),
+            }
+          : {}),
+      })),
+    );
   }
   lineTotal(l: any): Decimal {
     return this.discountedLine(l).reduce(
@@ -1779,6 +1927,9 @@ export class SalesComponent implements OnInit, DoCheck {
       if (!result?.id) {
         if (!this.pendingSubmission)
           this.pendingSubmission = {
+            ...(this.sourceOrder
+              ? { source_order_id: this.sourceOrder.id }
+              : {}),
             customer_id: this.customer || null,
             sold_on: this.soldOn,
             note: this.note,
@@ -1813,6 +1964,25 @@ export class SalesComponent implements OnInit, DoCheck {
       this.saved.emit();
       await this.load();
     } catch (e: any) {
+      if (e.status === 409 && e.error?.code === "ORDER_DISCARDED") {
+        this.reviewOpen = false;
+        this.resetDraft();
+        this.error =
+          "El pedido fue descartado desde otra ventana. No se registró ninguna venta.";
+        return;
+      }
+      if (e.status === 409 && e.error?.code === "ORDER_ALREADY_CONVERTED") {
+        const linked = e.error.sale_id;
+        this.reviewOpen = false;
+        this.resetDraft();
+        this.notice =
+          "El pedido ya fue convertido en venta #" +
+          linked +
+          " desde otra ventana. Se cerró esta preparación sin registrar otra venta.";
+        this.saved.emit();
+        await this.load();
+        return;
+      }
       // Definite validation failures did not commit; transport/5xx remain uncertain.
       if (e.status >= 400 && e.status < 500 && e.status !== 409)
         this.pendingSubmission = null;
