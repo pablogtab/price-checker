@@ -71,3 +71,31 @@ test("first catalog is a baseline and zero old prices have no percentage", () =>
   assert.equal(result.changes[0].delta, "10");
   assert.equal(result.changes[0].percent, null);
 });
+test("a successful catalog replaces unknown supplier stock without losing its null historical value", () => {
+  const previous = [
+    { ...old("positive", "100"), stock: null },
+    { ...old("zero", "100"), stock: null },
+  ];
+  const result = analyzePrices(previous, {
+    products: [
+      item("positive", "110", "ARS", "3"),
+      item("zero", "90", "ARS", "0"),
+    ],
+  });
+  assert.equal(result.summary.stock_changed, 2);
+  assert.equal(result.summary.increased, 1);
+  assert.equal(result.summary.decreased, 1);
+  assert.deepEqual(
+    result.changes
+      .map((c) => ({
+        id: c.external_id,
+        before: c.old_stock,
+        after: c.new_stock,
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+    [
+      { id: "positive", before: null, after: "3" },
+      { id: "zero", before: null, after: "0" },
+    ],
+  );
+});

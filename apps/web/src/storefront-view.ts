@@ -5,7 +5,14 @@ import { CurrencyPipe } from "@angular/common";
 export interface StorefrontProduct {
   brand?: { id: string; name: string } | null;
   categoryIds?: string[];
-  id: number;
+  id: number | string;
+  kind?: "promo";
+  components?: {
+    componentId: number;
+    label: string;
+    quantity: number;
+    variants: { id: number; label: string }[];
+  }[];
   title: string;
   description: string;
   price: string;
@@ -72,7 +79,12 @@ export interface StorefrontProduct {
             }
           </div>
           <div class="detail-info">
-            <p class="eyebrow">{{ detail.brand?.name || "Producto" }}</p>
+            <p class="eyebrow">
+              {{
+                detail.brand?.name ||
+                  (detail.kind === "promo" ? "Promo" : "Producto")
+              }}
+            </p>
             <h1>{{ detail.title }}</h1>
             <p class="price">
               {{
@@ -81,6 +93,36 @@ export interface StorefrontProduct {
               }}
             </p>
             <p class="description">{{ detail.description }}</p>
+            @for (
+              component of detail.components || [];
+              track component.componentId
+            ) {
+              @for (unit of units(component.quantity); track unit) {
+                <fieldset>
+                  <legend>{{ component.label }} · Unidad {{ unit + 1 }}</legend>
+                  <div class="flavors">
+                    @for (v of component.variants; track v.id) {
+                      <button
+                        [class.selected]="
+                          promoSelected[component.componentId + ':' + unit] ===
+                          v.id
+                        "
+                        [attr.aria-pressed]="
+                          promoSelected[component.componentId + ':' + unit] ===
+                          v.id
+                        "
+                        (click)="
+                          promoSelected[component.componentId + ':' + unit] =
+                            v.id
+                        "
+                      >
+                        {{ v.label }}
+                      </button>
+                    }
+                  </div>
+                </fieldset>
+              }
+            }
             @if (detail.variants.length > 1) {
               <fieldset>
                 <legend>Elegí un sabor</legend>
@@ -171,7 +213,11 @@ export interface StorefrontProduct {
             @for (item of items; track item.id) {
               <a
                 class="card"
-                [href]="'/products/' + item.id + contextQuery"
+                [href]="
+                  (item.kind === 'promo'
+                    ? '/promos/' + $any(item.id).slice(6)
+                    : '/products/' + item.id) + contextQuery
+                "
                 (click)="$event.preventDefault(); open.emit(item)"
                 ><div class="photo">
                   @if (item.imageUrl) {
@@ -189,9 +235,13 @@ export interface StorefrontProduct {
                 <div class="card-info">
                   <h2>{{ item.title }}</h2>
                   <p>
-                    {{ item.brand?.name ? item.brand?.name + " · " : ""
-                    }}{{ item.variants.length }}
-                    {{ item.variants.length === 1 ? "opción" : "opciones" }}
+                    {{ item.brand?.name ? item.brand?.name + " · " : "" }}
+                    @if (item.kind === "promo") {
+                      Elegí los sabores por unidad
+                    } @else {
+                      {{ item.variants.length }}
+                      {{ item.variants.length === 1 ? "opción" : "opciones" }}
+                    }
                   </p>
                   <strong>{{
                     item.price
@@ -262,11 +312,16 @@ export class StorefrontViewComponent {
   @Output() back = new EventEmitter<void>();
   @Output() retry = new EventEmitter<void>();
   selected: number | null = null;
+  promoSelected: Record<string, number> = {};
+  units(quantity: number) {
+    return Array.from({ length: quantity }, (_, i) => i);
+  }
   photoOverride: { url: string; srcset?: string } | null = null;
   ngOnChanges(changes: any) {
     this.search = this.q;
     if (changes.detail) {
       this.selected = null;
+      this.promoSelected = {};
       this.photoOverride = null;
     }
   }

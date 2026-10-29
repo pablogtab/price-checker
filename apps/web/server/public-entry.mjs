@@ -16,6 +16,7 @@ const files = new Set(
   ),
 );
 const routes = [
+  /^\/api\/public\/storefront\/promos\/[1-9][0-9]*$/,
   /^\/api\/public\/storefront\/categories$/,
   /^\/api\/public\/storefront\/media\/[1-9][0-9]*\/(mobile|desktop)$/,
   /^\/api\/public\/storefront\/catalog$/,
@@ -48,7 +49,7 @@ const server = http.createServer(async (req, res) => {
       return fail(res, 404);
     const publicApi = routes.some((route) => route.test(path));
     const asset = files.has(path.slice(1));
-    const page = path === "/" || /^\/products\/[1-9][0-9]*$/.test(path);
+    const page = path === "/" || /^\/(?:products|promos)\/[1-9][0-9]*$/.test(path);
     if (!publicApi && !asset && !page) return fail(res, 404);
     if (!["GET", "HEAD"].includes(req.method)) return fail(res, 405);
     if (publicApi) {
