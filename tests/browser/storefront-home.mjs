@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 const { chromium } = await import(
   process.env.PLAYWRIGHT_MODULE || "playwright"
 );
+const screenshotPrefix = process.env.STOREFRONT_SCREENSHOT_PREFIX || "28";
 const base = process.env.TEST_API_URL,
   owner = process.env.E2E_BASE_URL,
   publicBase = process.env.PUBLIC_STOREFRONT_URL;
@@ -78,6 +79,11 @@ test("owner edits ordered home, previews, publishes and visitor navigates banner
     const p = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
     });
+    const privateCartRequests = [];
+    p.on("request", (r) => {
+      if (new URL(r.url()).pathname === "/api/public/storefront/cart/validate")
+        privateCartRequests.push(r.url());
+    });
     await p.goto(owner + "/store");
     await p
       .getByRole("heading", { name: "Inicio de la tienda", exact: true })
@@ -104,9 +110,10 @@ test("owner edits ordered home, previews, publishes and visitor navigates banner
     await p
       .getByRole("button", { name: "Elegir imagen del banner", exact: true })
       .click();
+    await p.getByLabel("Buscar imágenes", { exact: true }).fill(asset.name);
     await p
       .locator(".media-card")
-      .filter({ hasText: "Whey Protein 1 kg" })
+      .filter({ has: p.locator(`img[src="${asset.thumbnail_url}"]`) })
       .first()
       .click();
     await p
@@ -126,6 +133,24 @@ test("owner edits ordered home, previews, publishes and visitor navigates banner
       name: "Vista previa del borrador",
     });
     await preview.getByRole("link", { name: /Proteínas de suero/ }).waitFor();
+    assert.equal(
+      await preview.getByRole("link", { name: /Ver carrito/ }).count(),
+      0,
+    );
+    await preview.locator(".featured-card").first().click();
+    await preview
+      .getByRole("heading", { name: entries[1].title, exact: true })
+      .waitFor();
+    assert.equal(
+      await preview
+        .getByRole("button", { name: "Agregar al carrito", exact: true })
+        .count(),
+      0,
+    );
+    assert.deepEqual(privateCartRequests, []);
+    await preview
+      .getByRole("button", { name: "← Volver al catálogo", exact: true })
+      .click();
     await preview.getByRole("link", { name: /Proteínas de suero/ }).click();
     await preview
       .getByRole("button", { name: "Proteínas", exact: true })
@@ -138,12 +163,12 @@ test("owner edits ordered home, previews, publishes and visitor navigates banner
       .click();
     await p.getByText("Cambios publicados.", { exact: true }).waitFor();
     await p.screenshot({
-      path: "/tmp/gevafit-storefront-context/28-owner-desktop.png",
+      path: `/tmp/gevafit-storefront-context/${screenshotPrefix}-owner-desktop.png`,
       fullPage: true,
     });
     await p.setViewportSize({ width: 390, height: 844 });
     await p.screenshot({
-      path: "/tmp/gevafit-storefront-context/28-owner-mobile.png",
+      path: `/tmp/gevafit-storefront-context/${screenshotPrefix}-owner-mobile.png`,
       fullPage: true,
     });
     assert.equal(
@@ -164,7 +189,7 @@ test("owner edits ordered home, previews, publishes and visitor navigates banner
       );
     assert.match(await v.locator(".featured-card").first().innerText(), /3 kg/);
     await v.screenshot({
-      path: "/tmp/gevafit-storefront-context/28-public-desktop.png",
+      path: `/tmp/gevafit-storefront-context/${screenshotPrefix}-public-desktop.png`,
       fullPage: true,
     });
     await v.getByRole("link", { name: /Proteínas de suero/ }).click();
@@ -193,7 +218,7 @@ test("owner edits ordered home, previews, publishes and visitor navigates banner
         Promise.all(imgs.map((i) => i.decode().catch(() => {}))),
       );
     await mobile.screenshot({
-      path: "/tmp/gevafit-storefront-context/28-public-mobile.png",
+      path: `/tmp/gevafit-storefront-context/${screenshotPrefix}-public-mobile.png`,
       fullPage: true,
     });
     assert.equal(
@@ -307,8 +332,11 @@ test("promo featured and banner keep canonical identity and navigate its publish
       .getByRole("button", { name: "Elegir imagen del banner", exact: true })
       .click();
     await ownerPage
+      .getByLabel("Buscar imágenes", { exact: true })
+      .fill(asset.name);
+    await ownerPage
       .locator(".media-card")
-      .filter({ hasText: "Whey Protein 1 kg" })
+      .filter({ has: ownerPage.locator(`img[src="${asset.thumbnail_url}"]`) })
       .first()
       .click();
     await ownerPage

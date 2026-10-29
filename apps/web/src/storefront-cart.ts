@@ -77,7 +77,13 @@ export class StorefrontCart {
         void this.validate();
       }
     });
-    void this.validate();
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) {
+        this.restore();
+        void this.validate();
+      }
+    });
+    if (this.lines().length) void this.validate();
   }
   private restore() {
     try {
@@ -170,7 +176,7 @@ export class StorefrontCart {
     );
     this.persist();
     await this.validate();
-    return !this.error();
+    return !this.error() && this.lines().some((l) => cartIdentity(l) === key);
   }
   quantity(line: CartLine, value: string) {
     const quantity = Number(value);

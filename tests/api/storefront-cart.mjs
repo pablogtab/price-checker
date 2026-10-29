@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const base = process.env.TEST_API_URL;
+if (!base || !["127.0.0.1", "localhost"].includes(new URL(base).hostname))
+  throw Error("Local API required");
 async function api(path, body, method = "POST", status) {
   const r = await fetch(
     base + "/api/" + path,
@@ -81,7 +83,11 @@ test("public cart validates current prices and exact variants without stock quan
 test("exact promo compositions remain distinct, invalid composition removes the whole line and concurrent prices stay coherent", async () => {
   const { Client } = await import("pg");
   const url = process.env.TEST_STOREFRONT_DATABASE_URL;
-  if (!url || !new URL(url).pathname.endsWith("_test"))
+  if (
+    !url ||
+    !new URL(url).pathname.endsWith("_test") ||
+    new URL(url).hostname !== "127.0.0.1"
+  )
     throw Error("disposable DB required");
   const pg = new Client({ connectionString: url });
   await pg.connect();

@@ -5,6 +5,12 @@ const { chromium } = await import(
 );
 const apiBase = process.env.TEST_API_URL,
   base = process.env.PUBLIC_STOREFRONT_URL;
+if (
+  ![apiBase, base].every(
+    (v) => v && ["localhost", "127.0.0.1"].includes(new URL(v).hostname),
+  )
+)
+  throw Error("Local origins required");
 async function api(path, body, method = "POST") {
   const r = await fetch(
     apiBase + "/api/" + path,
@@ -58,7 +64,7 @@ test("visitor adds selected flavor, persists and edits quantities, recovers vali
     await page
       .getByRole("button", { name: "Agregar al carrito", exact: true })
       .click({ timeout: 2500 });
-    await page.getByRole("link", { name: /Ver carrito/ }).click();
+    await page.getByRole("link", { name: /^Ver carrito/ }).click();
     await page.getByRole("heading", { name: "Tu carrito" }).waitFor();
     await page.getByLabel("Cantidad de Proteína de chocolate").fill("1001");
     await page.getByLabel("Cantidad de Proteína de chocolate").blur();
@@ -76,11 +82,38 @@ test("visitor adds selected flavor, persists and edits quantities, recovers vali
       path: "/tmp/gevafit-storefront-context/30-cart-desktop.png",
       fullPage: true,
     });
+    let releaseValidation;
+    const validationGate = new Promise((resolve) => {
+      releaseValidation = resolve;
+    });
+    await page.route(
+      "**/api/public/storefront/cart/validate",
+      async (route) => {
+        await validationGate;
+        await route.continue();
+      },
+    );
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.getByText("Actualizando precios…", { exact: true }).waitFor();
+    await page.screenshot({
+      path: "/tmp/gevafit-storefront-context/30-cart-loading-desktop.png",
+      fullPage: true,
+    });
+    releaseValidation();
+    await page
+      .getByText(/1\.251\.500,25/)
+      .first()
+      .waitFor();
+    await page.unroute("**/api/public/storefront/cart/validate");
     await page.route("**/api/public/storefront/cart/validate", (route) =>
       route.abort(),
     );
     await page.reload();
     await page.getByRole("alert").waitFor();
+    await page.screenshot({
+      path: "/tmp/gevafit-storefront-context/30-cart-error-desktop.png",
+      fullPage: true,
+    });
     assert.equal(
       await page.getByLabel("Cantidad de Proteína de chocolate").inputValue(),
       "1001",
@@ -121,6 +154,10 @@ test("visitor adds selected flavor, persists and edits quantities, recovers vali
     await api(`products/${p.id}/stock`, { quantity: 0 }, "PUT");
     await page.reload();
     await page.getByText("Tu carrito está vacío.").waitFor();
+    await page.screenshot({
+      path: "/tmp/gevafit-storefront-context/30-cart-empty-desktop.png",
+      fullPage: true,
+    });
     assert.equal(
       await page.getByRole("button", { name: /WhatsApp/ }).count(),
       0,
@@ -133,7 +170,11 @@ test("visitor adds selected flavor, persists and edits quantities, recovers vali
 test("visitor keeps separate promo combinations and repeats only the chosen composition", async () => {
   const { Client } = await import("pg");
   const url = process.env.TEST_STOREFRONT_DATABASE_URL;
-  if (!url || !new URL(url).pathname.endsWith("_test"))
+  if (
+    !url ||
+    !new URL(url).pathname.endsWith("_test") ||
+    new URL(url).hostname !== "127.0.0.1"
+  )
     throw Error("disposable DB required");
   const pg = new Client({ connectionString: url });
   await pg.connect();
@@ -209,7 +250,7 @@ test("visitor keeps separate promo combinations and repeats only the chosen comp
     await page
       .getByRole("button", { name: "Agregar al carrito", exact: true })
       .click();
-    await page.getByText("Agregado · Ver carrito", {exact:true}).waitFor();
+    await page.getByText("Agregado · Ver carrito", { exact: true }).waitFor();
     await page
       .getByRole("button", { name: "Banana", exact: true })
       .nth(1)
