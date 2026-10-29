@@ -1,3 +1,4 @@
+import {MediaLibraryComponent} from "./media-library";
 import { DashboardComponent } from "./dashboard";
 import { CatalogQuoteComponent, CatalogQuoteState, SupplierQuoteItem } from "./catalog-quote";
 import {PriceListsComponent} from "./price-lists";
@@ -36,7 +37,7 @@ Decimal.set({ precision: 40 });
 @Component({
   selector: "app-root",
   standalone: true,
-  imports: [DashboardComponent, PriceListsComponent, CatalogQuoteComponent,
+  imports: [MediaLibraryComponent, DashboardComponent, PriceListsComponent, CatalogQuoteComponent,
     PriceAnalysisComponent,
     InstallComponent,
     CommonModule,
@@ -345,6 +346,7 @@ export class AppComponent implements OnInit, OnDestroy {
   pathView() {
     const v = location.pathname === "/sales/new" ? "new-sale" : location.pathname.startsWith("/customers/") ? "customers" : location.pathname.slice(1);
     return [
+      "media",
       "dashboard",
       "price-lists",
       "products",

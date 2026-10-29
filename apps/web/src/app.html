@@ -3,14 +3,14 @@
       <header class="page-heading">
         <div>
           <h1>
-            {{view==='dashboard'?'Dashboard':view==='products'?'Mis
+            {{view==='media'?'Biblioteca de imágenes':view==='dashboard'?'Dashboard':view==='products'?'Mis
             productos':view==='catalog'?'Catálogo de
             proveedores':view==='purchases'?'Compras':view==='cash'?'Caja y
             cuentas':view==='new-sale'?'Nueva venta':view==='sales'?'Ventas':view==='price-lists'?'Listas de precios':view==='customers'?'Clientes':'Configuración'}}
           </h1>
         </div>
         <div class="heading-actions">
-          @if(view!=='price-lists'&&view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='new-sale'&&view!=='customers'){<button
+          @if(view!=='media'&&view!=='price-lists'&&view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='new-sale'&&view!=='customers'){<button
             appButton
             (click)="refresh()"
             [disabled]="!!activeRun"
@@ -65,7 +65,7 @@
       </section>
       @if(latestPriceAnalysis; as analysis){<price-analysis [run]="analysis" />}
       }
-      @if(view!=='price-lists'&&view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='new-sale'&&view!=='customers'){
+      @if(view!=='media'&&view!=='price-lists'&&view!=='settings'&&view!=='purchases'&&view!=='cash'&&view!=='sales'&&view!=='new-sale'&&view!=='customers'){
       <section class="sync-banner">
         <span class="sync-symbol"><pc-icon name="refresh"/></span>
         <div>
@@ -581,6 +581,7 @@
         </footer>
       </section>
       }
+      } @else if(view==='media'){<app-media-library/>
       } @else if(view==='price-lists') {<app-price-lists />
       } @else if(view==='sales'||view==='new-sale') {
       <app-sales [products]="products" [mode]="view==='new-sale'?'cart':'history'" (saved)="load()" />
