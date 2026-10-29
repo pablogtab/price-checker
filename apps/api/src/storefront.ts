@@ -1,4 +1,11 @@
 import {
+  retainedHome,
+  homeContent,
+  validateHomeMedia,
+  syncHomeUsages,
+  publicHome,
+} from "./storefront-home";
+import {
   BadRequestException,
   ConflictException,
   NotFoundException,
@@ -59,7 +66,7 @@ export interface StorefrontProduct {
 }
 export async function storefrontDraft() {
   const [r] = await db.query(
-    'SELECT r.id revision,r.entries,r.categories,r.brands,s.published_revision_id "publishedRevision" FROM storefront_state s JOIN storefront_revisions r ON r.id=s.draft_revision_id WHERE s.id=1',
+    'SELECT r.id revision,r.entries,r.categories,r.brands,r.home,s.published_revision_id "publishedRevision" FROM storefront_state s JOIN storefront_revisions r ON r.id=s.draft_revision_id WHERE s.id=1',
   );
   return r;
 }
@@ -212,7 +219,7 @@ export async function saveStorefrontDraft(body: any) {
     if (state.draft_revision_id !== body.revision)
       throw new ConflictException("El borrador cambió. Volvé a cargarlo.");
     const [previous] = await em.query(
-      "SELECT categories,brands FROM storefront_revisions WHERE id=$1",
+      "SELECT categories,brands,home FROM storefront_revisions WHERE id=$1",
       [state.draft_revision_id],
     );
     const categories = facets(body.categories ?? previous.categories),
@@ -228,15 +235,23 @@ export async function saveStorefrontDraft(body: any) {
           "Revisá las asignaciones de categorías y marca",
         );
     }
+    const home = homeContent(
+      body.home ?? retainedHome(previous.home, content, categories),
+      content,
+      categories,
+    );
+    await validateHomeMedia(home);
     await validateMedia(content, em);
     const [r] = await em.query(
-      "INSERT INTO storefront_revisions(entries,categories,brands) VALUES($1::jsonb,$2::jsonb,$3::jsonb) RETURNING id",
+      "INSERT INTO storefront_revisions(entries,categories,brands,home) VALUES($1::jsonb,$2::jsonb,$3::jsonb,$4::jsonb) RETURNING id",
       [
         JSON.stringify(content),
         JSON.stringify(categories),
         JSON.stringify(brands),
+        JSON.stringify(home),
       ],
     );
+    await syncHomeUsages(em, "storefront_draft", home, previous.home);
     await em.query(
       "UPDATE storefront_state SET draft_revision_id=$1 WHERE id=1",
       [r.id],
@@ -247,6 +262,7 @@ export async function saveStorefrontDraft(body: any) {
       entries: content,
       categories,
       brands,
+      home,
       publishedRevision: state.published_revision_id,
     };
   });
@@ -327,6 +343,22 @@ export async function publishStorefront(body: any) {
         );
       await validImage(em, entry);
     }
+    const home = homeContent(
+      revision.home,
+      revision.entries,
+      revision.categories,
+    );
+    await validateHomeMedia(home);
+    const [previousPublished] = await em.query(
+      "SELECT home FROM storefront_revisions WHERE id=$1",
+      [state.published_revision_id],
+    );
+    await syncHomeUsages(
+      em,
+      "storefront_published",
+      home,
+      previousPublished?.home,
+    );
     await validateMedia(revision.entries, em);
     await syncMediaUsages(em, "storefront_published", revision.entries);
     await em.query(
@@ -482,6 +514,7 @@ export async function storefrontCatalog(query: any = {}, preview = false) {
           Math.floor(page) * Math.floor(pageSize),
         ),
     total: filtered.length,
+    home: publicHome(revision?.home, items, preview),
     revision: revision?.id ?? 0,
     categories: (revision?.categories ?? []).map((c: StorefrontFacet) => ({
       id: c.id,
@@ -756,9 +789,10 @@ export async function storefrontMedia(id: number, size: string) {
   if (!["mobile", "desktop"].includes(size))
     throw new NotFoundException("Versión inexistente");
   const [revision] = await db.query(
-    "SELECT r.entries FROM storefront_state s JOIN storefront_revisions r ON r.id=s.published_revision_id WHERE s.id=1",
+    "SELECT r.entries,r.home FROM storefront_state s JOIN storefront_revisions r ON r.id=s.published_revision_id WHERE s.id=1",
   );
   if (
+    !(revision?.home?.banners || []).some((b: any) => b.mediaId === id) &&
     !(revision?.entries || []).some((e: StorefrontEntry) =>
       mediaIds(e).includes(id),
     )

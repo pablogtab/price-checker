@@ -24,6 +24,8 @@ registerLocaleData(esAR);
       <geva-storefront-view
         [cartActive]="true"
         [items]="items"
+        [home]="home"
+        (destination)="destination($event)"
         [total]="total"
         [contextQuery]="contextQuery"
         [categories]="categories"
@@ -48,6 +50,21 @@ class PublicStorefront implements OnInit {
   cartPage = false;
   get contextQuery() {
     return location.search;
+  }
+  home: any = { featured: [], banners: [] };
+  destination(d: any) {
+    if (d.type === "category") this.filter({ category: d.id, page: 1 });
+    else {
+      history.pushState(
+        null,
+        "",
+        (typeof d.id === "string" && d.id.startsWith("promo-")
+          ? "/promos/" + d.id.slice(6)
+          : "/products/" + d.id) + location.search,
+      );
+      void this.load();
+      window.scrollTo(0, 0);
+    }
   }
   private requestId = 0;
   categories: { id: string; name: string }[] = [];
@@ -122,6 +139,7 @@ class PublicStorefront implements OnInit {
       if (id) this.detail = data;
       else {
         this.items = data.items;
+        this.home = data.home;
         this.total = data.total;
         this.categories = data.categories;
         this.brands = data.brands;

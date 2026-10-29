@@ -188,6 +188,35 @@ export interface StorefrontProduct {
             name="search"
           /><button type="submit">Buscar</button>
         </form>
+        @if (showHome && home?.banners?.length && !loading && !error) {
+          <section class="home-banners" aria-label="Selecciones de la tienda">
+            @for (b of home.banners; track b.id) {
+              <a
+                class="home-banner"
+                [href]="b.href"
+                (click)="
+                  $event.preventDefault(); destination.emit(b.destination)
+                "
+                ><div>
+                  <p class="eyebrow">
+                    {{
+                      b.destination.type === "category"
+                        ? "Categoría"
+                        : "Producto"
+                    }}
+                  </p>
+                  <h2>{{ b.title }}</h2>
+                  <span>Ver selección →</span>
+                </div>
+                <img
+                  [src]="b.imageUrl"
+                  [srcset]="b.imageSrcset"
+                  sizes="(max-width:700px) 130px, 260px"
+                  [alt]="b.title"
+              /></a>
+            }
+          </section>
+        }
         <nav class="categories" aria-label="Categorías">
           <button
             [class.selected]="!category"
@@ -206,7 +235,39 @@ export interface StorefrontProduct {
             </button>
           }
         </nav>
-        <div class="filters">
+        @if (showHome && home?.featured?.length && !loading && !error) {
+          <section class="featured" aria-label="Productos destacados">
+            <div class="featured-heading">
+              <h2>Destacados</h2>
+              <a href="#catalogo">Ver catálogo ↓</a>
+            </div>
+            <div class="featured-grid">
+              @for (item of home.featured; track item.id) {
+                <a
+                  class="featured-card"
+                  [href]="
+                    (item.kind === 'promo'
+                      ? '/promos/' + ('' + item.id).slice(6)
+                      : '/products/' + item.id) + contextQuery
+                  "
+                  (click)="$event.preventDefault(); open.emit(item)"
+                >
+                  @if (item.imageUrl) {
+                    <img [src]="item.imageUrl" [alt]="item.title" />
+                  }
+                  <div>
+                    <h3>{{ item.title }}</h3>
+                    <strong>{{
+                      item.price
+                        | currency: "ARS" : "symbol-narrow" : "1.0-2" : "es-AR"
+                    }}</strong>
+                  </div></a
+                >
+              }
+            </div>
+          </section>
+        }
+        <div class="filters" id="catalogo">
           <app-select
             label="Marca"
             [options]="brandOptions"
@@ -342,6 +403,11 @@ export class StorefrontViewComponent {
     if (line) this.added = await this.cart.add(line);
   }
 
+  @Input() home: any = { featured: [], banners: [] };
+  @Output() destination = new EventEmitter<any>();
+  get showHome() {
+    return !this.q && !this.category && !this.brand && this.page === 1;
+  }
   @Input() contextQuery = "";
   @Input() categories: { id: string; name: string }[] = [];
   @Input() brands: { id: string; name: string }[] = [];

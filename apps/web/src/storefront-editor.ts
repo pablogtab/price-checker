@@ -1,3 +1,7 @@
+import {
+  HomeContent,
+  StorefrontHomeEditorComponent,
+} from "./storefront-home-editor";
 import { Component, OnInit, inject, ChangeDetectorRef } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { registerLocaleData } from "@angular/common";
@@ -29,6 +33,7 @@ interface Entry extends GalleryEntry {
     SelectComponent,
     StorefrontViewComponent,
     StorefrontGalleryEditorComponent,
+    StorefrontHomeEditorComponent,
   ],
   template: ` <section class="store-editor">
     <div class="intro">
@@ -123,6 +128,12 @@ interface Entry extends GalleryEntry {
           }
         </div>
       </section>
+      <app-storefront-home-editor
+        [home]="home"
+        [entries]="entries"
+        [categories]="categories"
+        (changed)="changed()"
+      />
       <div class="editor-layout">
         <aside>
           <h2>Selección web</h2>
@@ -363,6 +374,8 @@ interface Entry extends GalleryEntry {
           }
           <geva-storefront-view
             [items]="previewItems"
+            [home]="previewHome"
+            (destination)="previewDestination($event)"
             [total]="previewItems.length"
             [detail]="previewDetail"
             [q]="previewQuery.q || ''"
@@ -663,6 +676,14 @@ interface Entry extends GalleryEntry {
   ],
 })
 export class StorefrontEditorComponent implements OnInit {
+  home: HomeContent = { featuredIds: [], banners: [] };
+  previewHome: any = { featured: [], banners: [] };
+  previewDestination(d: any) {
+    if (d.type === "category") this.filterPreview({ category: d.id });
+    else
+      this.previewDetail =
+        this.previewItems?.find((x) => x.id === d.id) || null;
+  }
   categories: { id: string; name: string; productIds?: (string | number)[] }[] =
     [];
   orderCategory = "";
@@ -692,6 +713,10 @@ export class StorefrontEditorComponent implements OnInit {
   }
   removeFacet(kind: "categories" | "brands", id: string) {
     this[kind] = this[kind].filter((x) => x.id !== id);
+    if (kind === "categories")
+      this.home.banners = this.home.banners.filter(
+        (b) => !(b.destination.type === "category" && b.destination.id === id),
+      );
     for (const e of this.entries) {
       if (kind === "categories")
         e.categoryIds = e.categoryIds?.filter((x) => x !== id);
@@ -785,6 +810,7 @@ export class StorefrontEditorComponent implements OnInit {
         this.api("products"),
       ]);
       this.entries = draft.entries;
+      this.home = draft.home || { featuredIds: [], banners: [] };
       this.categories = draft.categories || [];
       this.brands = draft.brands || [];
       this.revision = draft.revision;
@@ -913,6 +939,14 @@ export class StorefrontEditorComponent implements OnInit {
     this.changed();
   }
   remove() {
+    const removed = this.editing ? this.entryId(this.editing) : null;
+    this.home.featuredIds = this.home.featuredIds.filter(
+      (id) => id !== removed,
+    );
+    this.home.banners = this.home.banners.filter(
+      (b) =>
+        !(b.destination.type === "product" && b.destination.id === removed),
+    );
     this.entries = this.entries.filter((e) => e !== this.editing);
     this.editing = null;
     this.selectedId = null;
@@ -940,6 +974,7 @@ export class StorefrontEditorComponent implements OnInit {
           entries: this.entries,
           categories: this.categories,
           brands: this.brands,
+          home: this.home,
         },
         "PUT",
       );
@@ -964,6 +999,7 @@ export class StorefrontEditorComponent implements OnInit {
         "storefront/preview?" + new URLSearchParams(this.previewQuery),
       );
       this.previewItems = result.items;
+      this.previewHome = result.home;
       this.previewIssues = result.issues || [];
       this.previewWarnings = result.warnings || [];
       this.previewDetail = null;
